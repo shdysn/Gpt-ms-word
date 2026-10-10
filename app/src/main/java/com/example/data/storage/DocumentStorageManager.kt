@@ -1,0 +1,417 @@
+package com.example.data.storage
+
+import android.content.Context
+import android.net.Uri
+import com.example.core.error.DocumentError
+import com.example.core.error.DocumentResult
+import com.example.core.layout.MarginPreset
+import com.example.core.layout.PageLayoutConfig
+import com.example.core.layout.PageOrientation
+import com.example.core.layout.PageSize
+import com.example.data.model.BlockElement
+import com.example.data.model.DividerBlock
+import com.example.data.model.HeadingStyle
+import com.example.data.model.ImageBlock
+import com.example.data.model.InlineSpan
+import com.example.data.model.ListType
+import com.example.data.model.PageBreakBlock
+import com.example.data.model.ParagraphBlock
+import com.example.data.model.RichDocument
+import com.example.data.model.TableCell
+import com.example.data.model.TableBlock
+import com.example.data.model.TextAlignment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStreamReader
+
+/**
+ * Storage manager handling local storage and Storage Access Framework (SAF) operations.
+ */
+class DocumentStorageManager(private val context: Context) {
+
+    private val documentsDir: File by lazy {
+        File(context.filesDir, "documents").apply {
+            if (!exists()) mkdirs()
+        }
+    }
+
+    /**
+     * Saves a RichDocument to internal application storage.
+     */
+    suspend fun saveToInternalStorage(document: RichDocument): DocumentResult<File> =
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(documentsDir, "${document.id}.swp")
+                val jsonString = serializeToJson(document)
+                file.writeText(jsonString)
+                DocumentResult.Success(file)
+            } catch (e: Exception) {
+                DocumentResult.Failure(
+                    DocumentError.StorageError("Failed to save document to internal storage: ${e.message}", e)
+                )
+            }
+        }
+
+    /**
+     * Loads a RichDocument from internal application storage.
+     */
+    suspend fun loadFromInternalStorage(documentId: String): DocumentResult<RichDocument> =
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(documentsDir, "$documentId.swp")
+                if (!file.exists()) {
+                    return@withContext DocumentResult.Failure(DocumentError.DocumentNotFound(documentId))
+                }
+                val jsonString = file.readText()
+                val document = deserializeFromJson(jsonString)
+                DocumentResult.Success(document)
+            } catch (e: Exception) {
+                DocumentResult.Failure(
+                    DocumentError.CorruptDocumentError("Failed to load document: ${e.message}")
+                )
+            }
+        }
+
+    /**
+     * Deletes a document file from internal storage.
+     */
+    suspend fun deleteFromInternalStorage(documentId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val file = File(documentsDir, "$documentId.swp")
+            if (file.exists()) file.delete() else true
+        }
+
+    /**
+     * Exports a document to an external URI selected via SAF.
+     */
+    suspend fun exportToSafUri(document: RichDocument, uri: Uri): DocumentResult<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val pfd = context.contentResolver.openFileDescriptor(uri, "w")
+                    ?: return@withContext DocumentResult.Failure(
+                        DocumentError.StorageError("Could not open file descriptor for URI: $uri")
+                    )
+                pfd.use { descriptor ->
+                    FileOutputStream(descriptor.fileDescriptor).use { outputStream ->
+                        val jsonBytes = serializeToJson(document).toByteArray(Charsets.UTF_8)
+                        outputStream.write(jsonBytes)
+                        outputStream.flush()
+                    }
+                }
+                DocumentResult.Success(Unit)
+            } catch (e: Exception) {
+                DocumentResult.Failure(
+                    DocumentError.StorageError("SAF export failed: ${e.message}", e)
+                )
+            }
+        }
+
+    /**
+     * Imports a document from an external URI selected via SAF.
+     */
+    suspend fun importFromSafUri(uri: Uri): DocumentResult<RichDocument> =
+        withContext(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                    ?: return@withContext DocumentResult.Failure(
+                        DocumentError.StorageError("Could not read input stream from URI: $uri")
+                    )
+                val content = inputStream.use { stream ->
+                    InputStreamReader(stream, Charsets.UTF_8).readText()
+                }
+
+                val document = if (content.trim().startsWith("{")) {
+                    deserializeFromJson(content)
+                } else {
+                    // Plain text fallback
+                    createDocumentFromPlainText("Imported Document", content)
+                }
+                DocumentResult.Success(document)
+            } catch (e: Exception) {
+                DocumentResult.Failure(
+                    DocumentError.StorageError("SAF import failed: ${e.message}", e)
+                )
+            }
+        }
+
+    /**
+     * Creates a new RichDocument from raw plain text.
+     */
+    fun createDocumentFromPlainText(title: String, text: String): RichDocument {
+        val lines = text.lines()
+        val blocks = if (lines.isEmpty() || text.isBlank()) {
+            listOf(ParagraphBlock())
+        } else {
+            lines.map { line ->
+                val trimmed = line.trim()
+                val isUrduOrArabic = isTextRtl(trimmed)
+                ParagraphBlock(
+                    text = line,
+                    isRtl = isUrduOrArabic
+                )
+            }
+        }
+        return RichDocument(
+            title = title,
+            blocks = blocks
+        )
+    }
+
+    /**
+     * Detection helper for Right-to-Left script (Urdu, Arabic, Hebrew).
+     */
+    private fun isTextRtl(text: String): Boolean {
+        for (char in text) {
+            val directionality = Character.getDirectionality(char)
+            if (directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT ||
+                directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC
+            ) {
+                return true
+            }
+        }
+        return false
+    }
+
+    // ----------------------------------------------------
+    // JSON Serialization & Deserialization
+    // ----------------------------------------------------
+
+    private fun serializeToJson(doc: RichDocument): String {
+        val root = JSONObject().apply {
+            put("id", doc.id)
+            put("title", doc.title)
+            put("author", doc.author)
+            put("createdAt", doc.createdAt)
+            put("updatedAt", doc.updatedAt)
+
+            // Layout
+            val layoutObj = JSONObject().apply {
+                put("pageSize", doc.layoutConfig.pageSize.name)
+                put("orientation", doc.layoutConfig.orientation.name)
+                put("marginPreset", doc.layoutConfig.marginPreset.name)
+                put("headerText", doc.layoutConfig.headerText)
+                put("footerText", doc.layoutConfig.footerText)
+            }
+            put("layoutConfig", layoutObj)
+
+            // Blocks
+            val blocksArray = JSONArray()
+            for (block in doc.blocks) {
+                val blockObj = JSONObject()
+                when (block) {
+                    is ParagraphBlock -> {
+                        blockObj.put("type", "paragraph")
+                        blockObj.put("id", block.id)
+                        blockObj.put("text", block.text)
+                        blockObj.put("alignment", block.alignment.name)
+                        blockObj.put("headingStyle", block.headingStyle.name)
+                        blockObj.put("listType", block.listType.name)
+                        blockObj.put("isRtl", block.isRtl)
+                        blockObj.put("lineSpacing", block.lineSpacingMultiplier.toDouble())
+
+                        val spansArray = JSONArray()
+                        for (span in block.spans) {
+                            val spanObj = JSONObject().apply {
+                                put("start", span.start)
+                                put("end", span.end)
+                                put("isBold", span.isBold)
+                                put("isItalic", span.isItalic)
+                                put("isUnderline", span.isUnderline)
+                                put("isStrikethrough", span.isStrikethrough)
+                                span.fontSizeSp?.let { put("fontSizeSp", it.toDouble()) }
+                                span.textColorHex?.let { put("textColorHex", it) }
+                                span.highlightColorHex?.let { put("highlightColorHex", it) }
+                            }
+                            spansArray.put(spanObj)
+                        }
+                        blockObj.put("spans", spansArray)
+                    }
+                    is TableBlock -> {
+                        blockObj.put("type", "table")
+                        blockObj.put("id", block.id)
+                        blockObj.put("rowCount", block.rowCount)
+                        blockObj.put("columnCount", block.columnCount)
+                        val cellsArray = JSONArray()
+                        for (row in block.cells) {
+                            val rowArray = JSONArray()
+                            for (cell in row) {
+                                val cellObj = JSONObject().apply {
+                                    put("text", cell.text)
+                                    put("isBold", cell.isBold)
+                                    cell.backgroundColorHex?.let { put("bg", it) }
+                                }
+                                rowArray.put(cellObj)
+                            }
+                            cellsArray.put(rowArray)
+                        }
+                        blockObj.put("cells", cellsArray)
+                    }
+                    is ImageBlock -> {
+                        blockObj.put("type", "image")
+                        blockObj.put("id", block.id)
+                        blockObj.put("imageUri", block.imageUri)
+                        blockObj.put("caption", block.caption)
+                        blockObj.put("widthDp", block.widthDp)
+                        blockObj.put("heightDp", block.heightDp)
+                    }
+                    is DividerBlock -> {
+                        blockObj.put("type", "divider")
+                        blockObj.put("id", block.id)
+                    }
+                    is PageBreakBlock -> {
+                        blockObj.put("type", "page_break")
+                        blockObj.put("id", block.id)
+                    }
+                }
+                blocksArray.put(blockObj)
+            }
+            put("blocks", blocksArray)
+        }
+        return root.toString(2)
+    }
+
+    private fun deserializeFromJson(jsonStr: String): RichDocument {
+        val root = JSONObject(jsonStr)
+        val id = root.optString("id", "")
+        val title = root.optString("title", "Untitled Document")
+        val author = root.optString("author", "Author")
+        val createdAt = root.optLong("createdAt", System.currentTimeMillis())
+        val updatedAt = root.optLong("updatedAt", System.currentTimeMillis())
+
+        val layoutConfig = if (root.has("layoutConfig")) {
+            val lObj = root.getJSONObject("layoutConfig")
+            val pageSize = try {
+                PageSize.valueOf(lObj.optString("pageSize", "A4"))
+            } catch (e: Exception) { PageSize.A4 }
+            val orientation = try {
+                PageOrientation.valueOf(lObj.optString("orientation", "PORTRAIT"))
+            } catch (e: Exception) { PageOrientation.PORTRAIT }
+            val marginPreset = try {
+                MarginPreset.valueOf(lObj.optString("marginPreset", "NORMAL"))
+            } catch (e: Exception) { MarginPreset.NORMAL }
+
+            PageLayoutConfig(
+                pageSize = pageSize,
+                orientation = orientation,
+                marginPreset = marginPreset,
+                headerText = lObj.optString("headerText", ""),
+                footerText = lObj.optString("footerText", "Page {page} of {pages}")
+            )
+        } else {
+            PageLayoutConfig()
+        }
+
+        val blocks = mutableListOf<BlockElement>()
+        val blocksArray = root.optJSONArray("blocks") ?: JSONArray()
+        for (i in 0 until blocksArray.length()) {
+            val bObj = blocksArray.getJSONObject(i)
+            val type = bObj.optString("type", "paragraph")
+            val blockId = bObj.optString("id", "")
+            when (type) {
+                "paragraph" -> {
+                    val text = bObj.optString("text", "")
+                    val alignment = try {
+                        TextAlignment.valueOf(bObj.optString("alignment", "START"))
+                    } catch (e: Exception) { TextAlignment.START }
+                    val heading = try {
+                        HeadingStyle.valueOf(bObj.optString("headingStyle", "NORMAL"))
+                    } catch (e: Exception) { HeadingStyle.NORMAL }
+                    val listType = try {
+                        ListType.valueOf(bObj.optString("listType", "NONE"))
+                    } catch (e: Exception) { ListType.NONE }
+                    val isRtl = bObj.optBoolean("isRtl", false)
+                    val lineSpacing = bObj.optDouble("lineSpacing", 1.25).toFloat()
+
+                    val spans = mutableListOf<InlineSpan>()
+                    val spansArr = bObj.optJSONArray("spans")
+                    if (spansArr != null) {
+                        for (j in 0 until spansArr.length()) {
+                            val sObj = spansArr.getJSONObject(j)
+                            spans.add(
+                                InlineSpan(
+                                    start = sObj.optInt("start", 0),
+                                    end = sObj.optInt("end", 0),
+                                    isBold = sObj.optBoolean("isBold", false),
+                                    isItalic = sObj.optBoolean("isItalic", false),
+                                    isUnderline = sObj.optBoolean("isUnderline", false),
+                                    isStrikethrough = sObj.optBoolean("isStrikethrough", false),
+                                    fontSizeSp = if (sObj.has("fontSizeSp")) sObj.getDouble("fontSizeSp").toFloat() else null,
+                                    textColorHex = sObj.optString("textColorHex", null),
+                                    highlightColorHex = sObj.optString("highlightColorHex", null)
+                                )
+                            )
+                        }
+                    }
+
+                    blocks.add(
+                        ParagraphBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            text = text,
+                            spans = spans,
+                            alignment = alignment,
+                            headingStyle = heading,
+                            listType = listType,
+                            isRtl = isRtl,
+                            lineSpacingMultiplier = lineSpacing
+                        )
+                    )
+                }
+                "table" -> {
+                    val rowCount = bObj.optInt("rowCount", 2)
+                    val columnCount = bObj.optInt("columnCount", 2)
+                    val cells = mutableListOf<List<TableCell>>()
+                    val cellsArr = bObj.optJSONArray("cells")
+                    if (cellsArr != null) {
+                        for (r in 0 until cellsArr.length()) {
+                            val rowArr = cellsArr.getJSONArray(r)
+                            val row = mutableListOf<TableCell>()
+                            for (c in 0 until rowArr.length()) {
+                                val cObj = rowArr.getJSONObject(c)
+                                row.add(
+                                    TableCell(
+                                        text = cObj.optString("text", ""),
+                                        isBold = cObj.optBoolean("isBold", false),
+                                        backgroundColorHex = cObj.optString("bg", null)
+                                    )
+                                )
+                            }
+                            cells.add(row)
+                        }
+                    }
+                    blocks.add(TableBlock(id = blockId, rowCount = rowCount, columnCount = columnCount, cells = cells))
+                }
+                "image" -> {
+                    blocks.add(
+                        ImageBlock(
+                            id = blockId,
+                            imageUri = bObj.optString("imageUri", ""),
+                            caption = bObj.optString("caption", ""),
+                            widthDp = bObj.optInt("widthDp", 240),
+                            heightDp = bObj.optInt("heightDp", 180)
+                        )
+                    )
+                }
+                "divider" -> blocks.add(DividerBlock(id = blockId))
+                "page_break" -> blocks.add(PageBreakBlock(id = blockId))
+            }
+        }
+
+        if (blocks.isEmpty()) {
+            blocks.add(ParagraphBlock())
+        }
+
+        return RichDocument(
+            id = id.ifBlank { java.util.UUID.randomUUID().toString() },
+            title = title,
+            author = author,
+            createdAt = createdAt,
+            updatedAt = updatedAt,
+            layoutConfig = layoutConfig,
+            blocks = blocks
+        )
+    }
+}

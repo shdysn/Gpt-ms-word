@@ -1,0 +1,233 @@
+package com.example.editor.engine
+
+import com.example.core.layout.PageLayoutConfig
+import com.example.data.model.BlockElement
+import com.example.data.model.HeadingStyle
+import com.example.data.model.InlineSpan
+import com.example.data.model.ParagraphBlock
+import com.example.data.model.RichDocument
+import com.example.data.model.TextAlignment
+
+/**
+ * Interface for reversible document editor actions supporting robust Undo/Redo.
+ */
+interface EditorCommand {
+    val description: String
+    fun apply(document: RichDocument): RichDocument
+    fun revert(document: RichDocument): RichDocument
+}
+
+/**
+ * Command for text modifications inside a specific paragraph.
+ */
+data class UpdateParagraphTextCommand(
+    val blockId: String,
+    val oldText: String,
+    val newText: String
+) : EditorCommand {
+    override val description: String = "Edit Text"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(text = newText)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(text = oldText)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+}
+
+/**
+ * Command for changing paragraph text alignment (Left, Center, Right, Justify).
+ */
+data class ChangeAlignmentCommand(
+    val blockId: String,
+    val oldAlignment: TextAlignment,
+    val newAlignment: TextAlignment
+) : EditorCommand {
+    override val description: String = "Change Alignment to $newAlignment"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(alignment = newAlignment)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(alignment = oldAlignment)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+}
+
+/**
+ * Command for changing heading style (Title, Heading 1, 2, 3, Normal).
+ */
+data class ChangeHeadingStyleCommand(
+    val blockId: String,
+    val oldHeading: HeadingStyle,
+    val newHeading: HeadingStyle
+) : EditorCommand {
+    override val description: String = "Set style to ${newHeading.displayName}"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(headingStyle = newHeading)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(headingStyle = oldHeading)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+}
+
+/**
+ * Command for toggling Right-to-Left (Urdu / Arabic) directionality.
+ */
+data class ToggleRtlCommand(
+    val blockId: String,
+    val wasRtl: Boolean,
+    val isRtl: Boolean
+) : EditorCommand {
+    override val description: String = if (isRtl) "Set Right-to-Left (RTL)" else "Set Left-to-Right (LTR)"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(isRtl = isRtl)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(isRtl = wasRtl)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+}
+
+/**
+ * Command for applying inline formatting span (Bold, Italic, Underline, Color).
+ */
+data class ApplyInlineSpanCommand(
+    val blockId: String,
+    val oldSpans: List<InlineSpan>,
+    val newSpans: List<InlineSpan>
+) : EditorCommand {
+    override val description: String = "Format Text"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(spans = newSpans)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(spans = oldSpans)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+}
+
+/**
+ * Command for inserting a new block element (paragraph, table, divider, page break).
+ */
+data class InsertBlockCommand(
+    val index: Int,
+    val block: BlockElement
+) : EditorCommand {
+    override val description: String = "Insert Element"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val mutable = document.blocks.toMutableList()
+        val insertIndex = index.coerceIn(0, mutable.size)
+        mutable.add(insertIndex, block)
+        return document.copy(blocks = mutable)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val mutable = document.blocks.toMutableList()
+        mutable.removeAll { it.id == block.id }
+        if (mutable.isEmpty()) {
+            mutable.add(ParagraphBlock())
+        }
+        return document.copy(blocks = mutable)
+    }
+}
+
+/**
+ * Command for deleting a block element.
+ */
+data class DeleteBlockCommand(
+    val index: Int,
+    val deletedBlock: BlockElement
+) : EditorCommand {
+    override val description: String = "Delete Element"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val mutable = document.blocks.toMutableList()
+        mutable.removeAll { it.id == deletedBlock.id }
+        if (mutable.isEmpty()) {
+            mutable.add(ParagraphBlock())
+        }
+        return document.copy(blocks = mutable)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val mutable = document.blocks.toMutableList()
+        val insertIndex = index.coerceIn(0, mutable.size)
+        mutable.add(insertIndex, deletedBlock)
+        return document.copy(blocks = mutable)
+    }
+}
+
+/**
+ * Command for updating page layout configuration (Page Size, Margins, Orientation).
+ */
+data class UpdateLayoutCommand(
+    val oldLayout: PageLayoutConfig,
+    val newLayout: PageLayoutConfig
+) : EditorCommand {
+    override val description: String = "Update Page Layout"
+
+    override fun apply(document: RichDocument): RichDocument {
+        return document.copy(layoutConfig = newLayout)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        return document.copy(layoutConfig = oldLayout)
+    }
+}
