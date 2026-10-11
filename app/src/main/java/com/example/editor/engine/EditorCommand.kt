@@ -275,3 +275,64 @@ data class BatchReplaceTextCommand(
     override fun revert(document: RichDocument): RichDocument = oldDocument
 }
 
+/**
+ * Command for updating paragraph text while shifting/updating inline styling spans.
+ */
+data class UpdateParagraphTextAndSpansCommand(
+    val blockId: String,
+    val oldText: String,
+    val newText: String,
+    val oldSpans: List<InlineSpan>,
+    val newSpans: List<InlineSpan>
+) : EditorCommand {
+    override val description: String = "Edit Text"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(text = newText, spans = newSpans)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(text = oldText, spans = oldSpans)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+}
+
+/**
+ * Command for changing paragraph indentation level (0 to 6).
+ */
+data class SetIndentationCommand(
+    val blockId: String,
+    val oldLevel: Int,
+    val newLevel: Int
+) : EditorCommand {
+    override val description: String = if (newLevel > oldLevel) "Increase Indent" else "Decrease Indent"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(indentationLevel = newLevel.coerceIn(0, 6))
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(indentationLevel = oldLevel.coerceIn(0, 6))
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+}
+
+

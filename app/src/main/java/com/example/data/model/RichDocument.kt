@@ -45,10 +45,13 @@ data class InlineSpan(
     val isItalic: Boolean = false,
     val isUnderline: Boolean = false,
     val isStrikethrough: Boolean = false,
+    val isSuperscript: Boolean = false,
+    val isSubscript: Boolean = false,
     val fontSizeSp: Float? = null,
     val textColorHex: String? = null,
     val highlightColorHex: String? = null,
-    val fontFamilyName: String? = null
+    val fontFamilyName: String? = null,
+    val linkUrl: String? = null
 )
 
 /**
@@ -68,6 +71,7 @@ data class ParagraphBlock(
     val alignment: TextAlignment = TextAlignment.START,
     val headingStyle: HeadingStyle = HeadingStyle.NORMAL,
     val listType: ListType = ListType.NONE,
+    val indentationLevel: Int = 0,
     val isRtl: Boolean = false, // True for Urdu, Arabic, Persian, Hebrew
     val lineSpacingMultiplier: Float = 1.25f
 ) : BlockElement

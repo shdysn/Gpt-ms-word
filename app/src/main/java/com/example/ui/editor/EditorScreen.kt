@@ -97,10 +97,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
@@ -124,6 +130,7 @@ import com.example.data.model.TextAlignment
 import com.example.editor.engine.AutosaveStatus
 import com.example.ui.editor.components.FindReplaceBar
 import com.example.ui.editor.components.FormattingToolbar
+import com.example.ui.editor.components.InsertHyperlinkDialog
 import com.example.ui.editor.components.InsertTableDialog
 import com.example.ui.editor.components.PageLayoutDialog
 import com.example.ui.theme.WordDeskCanvasLight
@@ -160,6 +167,7 @@ fun EditorScreen(
 
     var showTitleEditDialog by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
+    var showLinkDialog by remember { mutableStateOf(false) }
     var showLayoutDialog by remember { mutableStateOf(false) }
     var showStatsDialog by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
@@ -406,7 +414,8 @@ fun EditorScreen(
                     )
                 },
                 onOpenLayoutDialog = { showLayoutDialog = true },
-                onOpenStatsDialog = { showStatsDialog = true }
+                onOpenStatsDialog = { showStatsDialog = true },
+                onOpenLinkDialog = { showLinkDialog = true }
             )
 
             // Document Canvas Surface with Responsive Phone / Tablet Layout
@@ -426,7 +435,8 @@ fun EditorScreen(
                         isTabletOrExpanded = isTabletOrExpanded,
                         activeBlockIndex = activeBlockIndex,
                         onBlockSelected = viewModel::setActiveBlock,
-                        onUpdateBlockText = viewModel::updateParagraphText,
+                        onUpdateBlockText = { index, text, sel -> viewModel.updateParagraphText(index, text, sel) },
+                        onSelectionChanged = viewModel::updateSelection,
                         onInsertParagraph = viewModel::insertParagraph,
                         onDeleteCurrentBlock = viewModel::deleteCurrentBlock
                     )
@@ -476,6 +486,23 @@ fun EditorScreen(
             onConfirm = { r, c ->
                 viewModel.insertTable(r, c)
                 showTableDialog = false
+            }
+        )
+    }
+
+    // Insert Hyperlink Dialog
+    if (showLinkDialog) {
+        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+        InsertHyperlinkDialog(
+            initialUrl = activeFormatting.linkUrl ?: "https://",
+            onDismiss = { showLinkDialog = false },
+            onConfirm = { url ->
+                viewModel.setHyperlink(url)
+                showLinkDialog = false
+            },
+            onRemoveLink = {
+                viewModel.setHyperlink(null)
+                showLinkDialog = false
             }
         )
     }
@@ -580,8 +607,11 @@ fun WordRibbon(
     onOpenTableDialog: () -> Unit,
     onOpenPhotoPicker: () -> Unit,
     onOpenLayoutDialog: () -> Unit,
-    onOpenStatsDialog: () -> Unit
+    onOpenStatsDialog: () -> Unit,
+    onOpenLinkDialog: () -> Unit
 ) {
+    val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
@@ -626,17 +656,23 @@ fun WordRibbon(
                         // Reusable full-featured Formatting Toolbar
                         FormattingToolbar(
                             activeParagraph = activeParagraph,
+                            activeFormatting = activeFormatting,
                             onSetHeadingStyle = viewModel::setHeadingStyle,
                             onToggleBold = viewModel::toggleBold,
                             onToggleItalic = viewModel::toggleItalic,
                             onToggleUnderline = viewModel::toggleUnderline,
                             onToggleStrikethrough = viewModel::toggleStrikethrough,
+                            onToggleSuperscript = viewModel::toggleSuperscript,
+                            onToggleSubscript = viewModel::toggleSubscript,
                             onSetFontFamily = viewModel::setFontFamily,
                             onSetFontSize = viewModel::setFontSize,
                             onSetTextColor = viewModel::setTextColor,
                             onSetHighlightColor = viewModel::setHighlightColor,
                             onSetAlignment = viewModel::setAlignment,
                             onToggleListType = viewModel::toggleListType,
+                            onIncreaseIndent = viewModel::increaseIndent,
+                            onDecreaseIndent = viewModel::decreaseIndent,
+                            onOpenLinkDialog = onOpenLinkDialog,
                             onToggleRtl = viewModel::toggleRtl
                         )
                     }
@@ -903,7 +939,8 @@ fun DocumentCanvas(
     isTabletOrExpanded: Boolean,
     activeBlockIndex: Int,
     onBlockSelected: (Int) -> Unit,
-    onUpdateBlockText: (Int, String) -> Unit,
+    onUpdateBlockText: (Int, String, TextRange) -> Unit,
+    onSelectionChanged: (TextRange) -> Unit,
     onInsertParagraph: () -> Unit,
     onDeleteCurrentBlock: () -> Unit
 ) {
@@ -963,7 +1000,8 @@ fun DocumentCanvas(
                             itemNumber = itemNumber,
                             isActive = index == activeBlockIndex,
                             onFocus = { onBlockSelected(index) },
-                            onTextChanged = { newText -> onUpdateBlockText(index, newText) },
+                            onSelectionChanged = onSelectionChanged,
+                            onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
                             onEnterPressed = onInsertParagraph
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1015,7 +1053,8 @@ fun DocumentCanvas(
                             itemNumber = itemNumber,
                             isActive = index == activeBlockIndex,
                             onFocus = { onBlockSelected(index) },
-                            onTextChanged = { newText -> onUpdateBlockText(index, newText) },
+                            onSelectionChanged = onSelectionChanged,
+                            onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
                             onEnterPressed = onInsertParagraph
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1032,7 +1071,8 @@ fun BlockItemView(
     itemNumber: Int?,
     isActive: Boolean,
     onFocus: () -> Unit,
-    onTextChanged: (String) -> Unit,
+    onSelectionChanged: (TextRange) -> Unit,
+    onTextChanged: (String, TextRange) -> Unit,
     onEnterPressed: () -> Unit
 ) {
     when (block) {
@@ -1046,8 +1086,7 @@ fun BlockItemView(
 
             val textDirection = if (block.isRtl) TextDirection.Rtl else TextDirection.Ltr
 
-            val customSizeSp = block.spans.lastOrNull { it.fontSizeSp != null }?.fontSizeSp
-            val fontSize = customSizeSp?.sp ?: when (block.headingStyle) {
+            val baseFontSize = when (block.headingStyle) {
                 HeadingStyle.TITLE -> 26.sp
                 HeadingStyle.SUBTITLE -> 18.sp
                 HeadingStyle.HEADING_1 -> 22.sp
@@ -1057,43 +1096,42 @@ fun BlockItemView(
                 HeadingStyle.NORMAL -> 15.sp
             }
 
-            val fontWeight = when {
-                block.headingStyle.isBold || block.spans.any { it.isBold } -> FontWeight.Bold
-                else -> FontWeight.Normal
-            }
-
-            val fontStyle = if (block.spans.any { it.isItalic } || block.headingStyle == HeadingStyle.QUOTE) {
-                FontStyle.Italic
-            } else FontStyle.Normal
-
-            val fontFamilyName = block.spans.lastOrNull { it.fontFamilyName != null }?.fontFamilyName
-            val fontFamily = when (fontFamilyName) {
-                "Arial" -> FontFamily.SansSerif
-                "Times New Roman", "Georgia" -> FontFamily.Serif
-                "Courier New" -> FontFamily.Monospace
-                "Nastaliq" -> FontFamily.Cursive
-                else -> FontFamily.Default
-            }
-
-            val textColorHex = block.spans.lastOrNull { it.textColorHex != null }?.textColorHex
-            val textColor = when {
-                textColorHex != null -> try {
-                    Color(android.graphics.Color.parseColor(textColorHex))
-                } catch (e: Exception) { Color(0xFF1E293B) }
+            val defaultTextColor = when {
                 block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 -> WordPrimary
                 else -> Color(0xFF1E293B)
             }
 
-            val highlightHex = block.spans.lastOrNull { it.highlightColorHex != null }?.highlightColorHex
-            val highlightColor = if (highlightHex != null) {
-                try {
-                    Color(android.graphics.Color.parseColor(highlightHex))
-                } catch (e: Exception) { Color.Transparent }
-            } else Color.Transparent
+            // Stateful TextFieldValue to accurately capture selection, cursor, and text deltas
+            var textFieldValue by remember(block.id) {
+                mutableStateOf(TextFieldValue(text = block.text, selection = TextRange(block.text.length)))
+            }
+
+            // Sync with external updates (such as undo, redo, find & replace) without resetting cursor on span edits
+            LaunchedEffect(block.text) {
+                if (textFieldValue.text != block.text) {
+                    val safeStart = textFieldValue.selection.start.coerceIn(0, block.text.length)
+                    val safeEnd = textFieldValue.selection.end.coerceIn(0, block.text.length)
+                    textFieldValue = textFieldValue.copy(
+                        text = block.text,
+                        selection = TextRange(safeStart, safeEnd)
+                    )
+                }
+            }
+
+            // VisualTransformation applying rich text styles from block.spans
+            val richTransformation = remember(block.text, block.spans, block.headingStyle) {
+                VisualTransformation { _ ->
+                    val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedParagraph(block)
+                    TransformedText(annotated, OffsetMapping.Identity)
+                }
+            }
+
+            val indentPadding = (block.indentationLevel * 20).dp
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(start = indentPadding)
                     .clickable(onClick = onFocus)
                     .background(
                         if (isActive) WordPrimary.copy(alpha = 0.04f) else Color.Transparent,
@@ -1108,43 +1146,54 @@ fun BlockItemView(
                         Text(
                             text = "• ",
                             fontWeight = FontWeight.Bold,
-                            fontSize = fontSize,
+                            fontSize = baseFontSize,
                             color = WordPrimary,
-                            modifier = Modifier.padding(end = 4.dp)
+                            modifier = Modifier.padding(end = 6.dp)
                         )
                     }
                     ListType.NUMBERED -> {
                         Text(
                             text = "${itemNumber ?: 1}. ",
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = fontSize,
+                            fontSize = baseFontSize,
                             color = WordPrimary,
-                            modifier = Modifier.padding(end = 4.dp)
+                            modifier = Modifier.padding(end = 6.dp)
                         )
                     }
                     ListType.NONE -> Unit
                 }
 
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(highlightColor, RoundedCornerShape(2.dp))
+                    modifier = Modifier.weight(1f)
                 ) {
                     BasicTextField(
-                        value = block.text,
-                        onValueChange = onTextChanged,
+                        value = textFieldValue,
+                        onValueChange = { newTfv ->
+                            textFieldValue = newTfv
+                            onSelectionChanged(newTfv.selection)
+                            if (newTfv.text != block.text) {
+                                onTextChanged(newTfv.text, newTfv.selection)
+                            }
+                        },
+                        visualTransformation = richTransformation,
                         textStyle = TextStyle(
-                            fontSize = fontSize,
-                            fontWeight = fontWeight,
-                            fontStyle = fontStyle,
-                            fontFamily = fontFamily,
-                            color = textColor,
+                            fontSize = baseFontSize,
+                            fontWeight = if (block.headingStyle.isBold) FontWeight.Bold else FontWeight.Normal,
+                            fontStyle = if (block.headingStyle == HeadingStyle.QUOTE) FontStyle.Italic else FontStyle.Normal,
+                            color = defaultTextColor,
                             textAlign = align,
                             textDirection = textDirection,
-                            lineHeight = fontSize * block.lineSpacingMultiplier
+                            lineHeight = baseFontSize * block.lineSpacingMultiplier
                         ),
                         cursorBrush = SolidColor(WordPrimary),
-                        modifier = Modifier.fillMaxWidth().testTag("paragraph_input_${block.id}")
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused) {
+                                    onFocus()
+                                }
+                            }
+                            .testTag("paragraph_input_${block.id}")
                     )
                 }
             }

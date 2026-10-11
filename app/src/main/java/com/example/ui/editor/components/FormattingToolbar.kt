@@ -1,14 +1,11 @@
 package com.example.ui.editor.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -18,11 +15,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowRight
 import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
 import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
+import androidx.compose.material.icons.automirrored.filled.FormatIndentDecrease
+import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignJustify
@@ -31,13 +28,11 @@ import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
-import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,26 +55,34 @@ import com.example.data.model.HeadingStyle
 import com.example.data.model.ListType
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.TextAlignment
+import com.example.editor.engine.ActiveFormatting
 import com.example.ui.theme.WordPrimary
 
 /**
  * Reusable formatting toolbar providing all Microsoft Word paragraph
- * and character formatting options with touch-accessible targets.
+ * and character formatting options with touch-accessible targets,
+ * selection-aware active indicators, and continuous typing state.
  */
 @Composable
 fun FormattingToolbar(
     activeParagraph: ParagraphBlock?,
+    activeFormatting: ActiveFormatting,
     onSetHeadingStyle: (HeadingStyle) -> Unit,
     onToggleBold: () -> Unit,
     onToggleItalic: () -> Unit,
     onToggleUnderline: () -> Unit,
     onToggleStrikethrough: () -> Unit,
+    onToggleSuperscript: () -> Unit,
+    onToggleSubscript: () -> Unit,
     onSetFontFamily: (String) -> Unit,
     onSetFontSize: (Float) -> Unit,
     onSetTextColor: (String) -> Unit,
     onSetHighlightColor: (String?) -> Unit,
     onSetAlignment: (TextAlignment) -> Unit,
     onToggleListType: (ListType) -> Unit,
+    onIncreaseIndent: () -> Unit,
+    onDecreaseIndent: () -> Unit,
+    onOpenLinkDialog: () -> Unit,
     onToggleRtl: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -99,10 +102,12 @@ fun FormattingToolbar(
 
     val fontSizes = listOf(10f, 11f, 12f, 14f, 16f, 18f, 20f, 24f, 28f, 36f)
 
-    val isBold = activeParagraph?.spans?.any { it.isBold } == true || activeParagraph?.headingStyle?.isBold == true
-    val isItalic = activeParagraph?.spans?.any { it.isItalic } == true
-    val isUnderline = activeParagraph?.spans?.any { it.isUnderline } == true
-    val isStrikethrough = activeParagraph?.spans?.any { it.isStrikethrough } == true
+    val isBold = activeFormatting.isBold || activeParagraph?.headingStyle?.isBold == true
+    val isItalic = activeFormatting.isItalic
+    val isUnderline = activeFormatting.isUnderline
+    val isStrikethrough = activeFormatting.isStrikethrough
+    val isSuperscript = activeFormatting.isSuperscript
+    val isSubscript = activeFormatting.isSubscript
     val isRtl = activeParagraph?.isRtl == true
     val currentAlignment = activeParagraph?.alignment ?: TextAlignment.START
     val currentListType = activeParagraph?.listType ?: ListType.NONE
@@ -133,7 +138,7 @@ fun FormattingToolbar(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = activeParagraph?.spans?.lastOrNull { it.fontFamilyName != null }?.fontFamilyName ?: "Calibri",
+                            text = activeFormatting.fontFamilyName ?: "Calibri",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -170,7 +175,7 @@ fun FormattingToolbar(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     ) {
-                        val currentSize = activeParagraph?.spans?.lastOrNull { it.fontSizeSp != null }?.fontSizeSp ?: 11f
+                        val currentSize = activeFormatting.fontSizeSp ?: 11f
                         Text(
                             text = "${currentSize.toInt()} pt",
                             fontSize = 12.sp,
@@ -226,6 +231,22 @@ fun FormattingToolbar(
                 isActive = isStrikethrough,
                 onClick = onToggleStrikethrough,
                 tag = "format_strikethrough"
+            )
+
+            // Superscript & Subscript
+            FormatTextToggleButton(
+                text = "X²",
+                label = "Superscript",
+                isActive = isSuperscript,
+                onClick = onToggleSuperscript,
+                tag = "format_superscript"
+            )
+            FormatTextToggleButton(
+                text = "X₂",
+                label = "Subscript",
+                isActive = isSubscript,
+                onClick = onToggleSubscript,
+                tag = "format_subscript"
             )
 
             ToolbarDivider()
@@ -365,6 +386,31 @@ fun FormattingToolbar(
                 tag = "list_numbered"
             )
 
+            // Indentation
+            FormatToggleButton(
+                icon = Icons.AutoMirrored.Filled.FormatIndentDecrease,
+                label = "Decrease Indent",
+                isActive = false,
+                onClick = onDecreaseIndent,
+                tag = "indent_decrease"
+            )
+            FormatToggleButton(
+                icon = Icons.AutoMirrored.Filled.FormatIndentIncrease,
+                label = "Increase Indent",
+                isActive = (activeParagraph?.indentationLevel ?: 0) > 0,
+                onClick = onIncreaseIndent,
+                tag = "indent_increase"
+            )
+
+            // Hyperlink
+            FormatToggleButton(
+                icon = Icons.Default.Link,
+                label = "Hyperlink",
+                isActive = activeFormatting.linkUrl != null,
+                onClick = onOpenLinkDialog,
+                tag = "format_link"
+            )
+
             ToolbarDivider()
 
             // Urdu / RTL Direction Toggle
@@ -415,6 +461,34 @@ fun FormatToggleButton(
                 contentDescription = label,
                 tint = if (isActive) WordPrimary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun FormatTextToggleButton(
+    text: String,
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    tag: String
+) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = if (isActive) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
+        border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, WordPrimary) else null,
+        modifier = Modifier
+            .size(36.dp)
+            .clickable(onClick = onClick)
+            .testTag(tag)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = text,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = if (isActive) WordPrimary else MaterialTheme.colorScheme.onSurface
             )
         }
     }

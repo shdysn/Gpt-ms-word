@@ -210,6 +210,7 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("alignment", block.alignment.name)
                         blockObj.put("headingStyle", block.headingStyle.name)
                         blockObj.put("listType", block.listType.name)
+                        blockObj.put("indentationLevel", block.indentationLevel)
                         blockObj.put("isRtl", block.isRtl)
                         blockObj.put("lineSpacing", block.lineSpacingMultiplier.toDouble())
 
@@ -222,9 +223,13 @@ class DocumentStorageManager(private val context: Context) {
                                 put("isItalic", span.isItalic)
                                 put("isUnderline", span.isUnderline)
                                 put("isStrikethrough", span.isStrikethrough)
+                                put("isSuperscript", span.isSuperscript)
+                                put("isSubscript", span.isSubscript)
                                 span.fontSizeSp?.let { put("fontSizeSp", it.toDouble()) }
                                 span.textColorHex?.let { put("textColorHex", it) }
                                 span.highlightColorHex?.let { put("highlightColorHex", it) }
+                                span.fontFamilyName?.let { put("fontFamilyName", it) }
+                                span.linkUrl?.let { put("linkUrl", it) }
                             }
                             spansArray.put(spanObj)
                         }
@@ -323,6 +328,7 @@ class DocumentStorageManager(private val context: Context) {
                     val listType = try {
                         ListType.valueOf(bObj.optString("listType", "NONE"))
                     } catch (e: Exception) { ListType.NONE }
+                    val indentationLevel = bObj.optInt("indentationLevel", 0)
                     val isRtl = bObj.optBoolean("isRtl", false)
                     val lineSpacing = bObj.optDouble("lineSpacing", 1.25).toFloat()
 
@@ -339,9 +345,13 @@ class DocumentStorageManager(private val context: Context) {
                                     isItalic = sObj.optBoolean("isItalic", false),
                                     isUnderline = sObj.optBoolean("isUnderline", false),
                                     isStrikethrough = sObj.optBoolean("isStrikethrough", false),
+                                    isSuperscript = sObj.optBoolean("isSuperscript", false),
+                                    isSubscript = sObj.optBoolean("isSubscript", false),
                                     fontSizeSp = if (sObj.has("fontSizeSp")) sObj.getDouble("fontSizeSp").toFloat() else null,
-                                    textColorHex = sObj.optString("textColorHex", null),
-                                    highlightColorHex = sObj.optString("highlightColorHex", null)
+                                    textColorHex = if (sObj.has("textColorHex")) sObj.getString("textColorHex") else null,
+                                    highlightColorHex = if (sObj.has("highlightColorHex")) sObj.getString("highlightColorHex") else null,
+                                    fontFamilyName = if (sObj.has("fontFamilyName")) sObj.getString("fontFamilyName") else null,
+                                    linkUrl = if (sObj.has("linkUrl")) sObj.getString("linkUrl") else null
                                 )
                             )
                         }
@@ -355,6 +365,7 @@ class DocumentStorageManager(private val context: Context) {
                             alignment = alignment,
                             headingStyle = heading,
                             listType = listType,
+                            indentationLevel = indentationLevel,
                             isRtl = isRtl,
                             lineSpacingMultiplier = lineSpacing
                         )

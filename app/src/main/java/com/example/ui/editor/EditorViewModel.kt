@@ -33,8 +33,11 @@ import com.example.editor.engine.UndoRedoManager
 import com.example.editor.engine.UpdateLayoutCommand
 import com.example.editor.engine.UpdateParagraphTextCommand
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -104,6 +107,34 @@ class EditorViewModel(
 
     private val _matchCount = MutableStateFlow(0)
     val matchCount: StateFlow<Int> = _matchCount.asStateFlow()
+
+    // Selection & Pending Typing Attributes
+    private val _selection = MutableStateFlow(androidx.compose.ui.text.TextRange.Zero)
+    val selection: StateFlow<androidx.compose.ui.text.TextRange> = _selection.asStateFlow()
+
+    private val _pendingFormatting = MutableStateFlow(com.example.editor.engine.ActiveFormatting())
+    val pendingFormatting: StateFlow<com.example.editor.engine.ActiveFormatting> = _pendingFormatting.asStateFlow()
+
+    val activeFormatting: StateFlow<com.example.editor.engine.ActiveFormatting> = combine(
+        _document,
+        _activeBlockIndex,
+        _selection,
+        _pendingFormatting
+    ) { doc, index, sel, pending ->
+        val block = doc?.blocks?.getOrNull(index) as? ParagraphBlock
+        if (block == null) {
+            pending
+        } else if (!sel.collapsed && sel.min < sel.max) {
+            com.example.editor.engine.SpanOperations.queryFormatting(block.spans, sel.min, sel.max)
+        } else {
+            val cursorFormat = com.example.editor.engine.SpanOperations.queryFormatting(block.spans, sel.start, sel.end)
+            if (pending != com.example.editor.engine.ActiveFormatting()) pending else cursorFormat
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = com.example.editor.engine.ActiveFormatting()
+    )
 
     // Autosave Controller
     private val autosaveController = AutosaveController(
@@ -200,18 +231,82 @@ class EditorViewModel(
         autosaveController.scheduleAutosave()
     }
 
-    fun updateParagraphText(blockIndex: Int, newText: String) {
+    fun updateSelection(newSelection: androidx.compose.ui.text.TextRange) {
+        _selection.value = newSelection
+    }
+
+    fun updateParagraphText(
+        blockIndex: Int,
+        newText: String,
+        newSelection: androidx.compose.ui.text.TextRange = androidx.compose.ui.text.TextRange(newText.length)
+    ) {
         val currentDoc = _document.value ?: return
         val block = currentDoc.blocks.getOrNull(blockIndex) as? ParagraphBlock ?: return
-        if (block.text == newText) return
+        val oldText = block.text
+        if (oldText == newText) {
+            _selection.value = newSelection
+            return
+        }
+
+        // Calculate edit offset and delta
+        val (editOffset, deletedLen, insertedLen) = calculateEditDelta(oldText, newText)
+
+        val newSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+            spans = block.spans,
+            editOffset = editOffset,
+            deletedLength = deletedLen,
+            insertedLength = insertedLen,
+            pendingFormatting = if (insertedLen > 0) _pendingFormatting.value else null
+        )
 
         executeCommand(
-            UpdateParagraphTextCommand(
+            com.example.editor.engine.UpdateParagraphTextAndSpansCommand(
                 blockId = block.id,
-                oldText = block.text,
-                newText = newText
+                oldText = oldText,
+                newText = newText,
+                oldSpans = block.spans,
+                newSpans = newSpans
             )
         )
+        _selection.value = newSelection
+    }
+
+    private fun calculateEditDelta(oldText: String, newText: String): Triple<Int, Int, Int> {
+        var start = 0
+        while (start < oldText.length && start < newText.length && oldText[start] == newText[start]) {
+            start++
+        }
+        var oldEnd = oldText.length - 1
+        var newEnd = newText.length - 1
+        while (oldEnd >= start && newEnd >= start && oldText[oldEnd] == newText[newEnd]) {
+            oldEnd--
+            newEnd--
+        }
+        val deleted = (oldEnd - start + 1).coerceAtLeast(0)
+        val inserted = (newEnd - start + 1).coerceAtLeast(0)
+        return Triple(start, deleted, inserted)
+    }
+
+    private fun applyStyleToSelectionOrPending(
+        onSelection: (List<InlineSpan>, Int, Int, Int) -> List<InlineSpan>,
+        onPending: (com.example.editor.engine.ActiveFormatting) -> com.example.editor.engine.ActiveFormatting
+    ) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val sel = _selection.value
+
+        if (!sel.collapsed && sel.min < sel.max) {
+            val newSpans = onSelection(block.spans, sel.min, sel.max, block.text.length)
+            executeCommand(
+                ApplyInlineSpanCommand(
+                    blockId = block.id,
+                    oldSpans = block.spans,
+                    newSpans = newSpans
+                )
+            )
+        } else {
+            _pendingFormatting.value = onPending(_pendingFormatting.value)
+        }
     }
 
     fun setAlignment(alignment: TextAlignment) {
@@ -254,113 +349,123 @@ class EditorViewModel(
     }
 
     fun toggleBold() {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val currentlyBold = block.spans.any { it.isBold }
-        val newSpans = if (currentlyBold) {
-            block.spans.map { it.copy(isBold = false) }
-        } else {
-            block.spans + InlineSpan(start = 0, end = block.text.length, isBold = true)
-        }
-        executeCommand(ApplyInlineSpanCommand(block.id, block.spans, newSpans))
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyOrToggleStyle(spans, s, e, len) { span, enable ->
+                    span.copy(isBold = enable)
+                }
+            },
+            onPending = { it.copy(isBold = !it.isBold) }
+        )
     }
 
     fun toggleItalic() {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val currentlyItalic = block.spans.any { it.isItalic }
-        val newSpans = if (currentlyItalic) {
-            block.spans.map { it.copy(isItalic = false) }
-        } else {
-            block.spans + InlineSpan(start = 0, end = block.text.length, isItalic = true)
-        }
-        executeCommand(ApplyInlineSpanCommand(block.id, block.spans, newSpans))
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyOrToggleStyle(spans, s, e, len) { span, enable ->
+                    span.copy(isItalic = enable)
+                }
+            },
+            onPending = { it.copy(isItalic = !it.isItalic) }
+        )
     }
 
     fun toggleUnderline() {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val currentlyUnderline = block.spans.any { it.isUnderline }
-        val newSpans = if (currentlyUnderline) {
-            block.spans.map { it.copy(isUnderline = false) }
-        } else {
-            block.spans + InlineSpan(start = 0, end = block.text.length, isUnderline = true)
-        }
-        executeCommand(ApplyInlineSpanCommand(block.id, block.spans, newSpans))
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyOrToggleStyle(spans, s, e, len) { span, enable ->
+                    span.copy(isUnderline = enable)
+                }
+            },
+            onPending = { it.copy(isUnderline = !it.isUnderline) }
+        )
     }
 
     fun toggleStrikethrough() {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val currentlyStrike = block.spans.any { it.isStrikethrough }
-        val newSpans = if (currentlyStrike) {
-            block.spans.map { it.copy(isStrikethrough = false) }
-        } else {
-            block.spans + InlineSpan(start = 0, end = block.text.length, isStrikethrough = true)
-        }
-        executeCommand(ApplyInlineSpanCommand(block.id, block.spans, newSpans))
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyOrToggleStyle(spans, s, e, len) { span, enable ->
+                    span.copy(isStrikethrough = enable)
+                }
+            },
+            onPending = { it.copy(isStrikethrough = !it.isStrikethrough) }
+        )
+    }
+
+    fun toggleSuperscript() {
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyOrToggleStyle(spans, s, e, len) { span, enable ->
+                    span.copy(isSuperscript = enable, isSubscript = if (enable) false else span.isSubscript)
+                }
+            },
+            onPending = { it.copy(isSuperscript = !it.isSuperscript, isSubscript = false) }
+        )
+    }
+
+    fun toggleSubscript() {
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyOrToggleStyle(spans, s, e, len) { span, enable ->
+                    span.copy(isSubscript = enable, isSuperscript = if (enable) false else span.isSuperscript)
+                }
+            },
+            onPending = { it.copy(isSubscript = !it.isSubscript, isSuperscript = false) }
+        )
     }
 
     fun setTextColor(colorHex: String) {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val span = InlineSpan(start = 0, end = block.text.length, textColorHex = colorHex)
-        val newSpans = block.spans + span
-
-        executeCommand(
-            ApplyInlineSpanCommand(
-                blockId = block.id,
-                oldSpans = block.spans,
-                newSpans = newSpans
-            )
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(textColorHex = colorHex)
+                }
+            },
+            onPending = { it.copy(textColorHex = colorHex) }
         )
     }
 
     fun setHighlightColor(colorHex: String?) {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val updatedSpans = if (colorHex == null) {
-            block.spans.map { it.copy(highlightColorHex = null) }
-        } else {
-            block.spans + InlineSpan(start = 0, end = block.text.length, highlightColorHex = colorHex)
-        }
-
-        executeCommand(
-            ApplyInlineSpanCommand(
-                blockId = block.id,
-                oldSpans = block.spans,
-                newSpans = updatedSpans
-            )
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(highlightColorHex = colorHex)
+                }
+            },
+            onPending = { it.copy(highlightColorHex = colorHex) }
         )
     }
 
     fun setFontFamily(fontName: String) {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val span = InlineSpan(start = 0, end = block.text.length, fontFamilyName = fontName)
-        val newSpans = block.spans + span
-
-        executeCommand(
-            ApplyInlineSpanCommand(
-                blockId = block.id,
-                oldSpans = block.spans,
-                newSpans = newSpans
-            )
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(fontFamilyName = fontName)
+                }
+            },
+            onPending = { it.copy(fontFamilyName = fontName) }
         )
     }
 
     fun setFontSize(sizeSp: Float) {
-        val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val span = InlineSpan(start = 0, end = block.text.length, fontSizeSp = sizeSp)
-        val newSpans = block.spans + span
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(fontSizeSp = sizeSp)
+                }
+            },
+            onPending = { it.copy(fontSizeSp = sizeSp) }
+        )
+    }
 
-        executeCommand(
-            ApplyInlineSpanCommand(
-                blockId = block.id,
-                oldSpans = block.spans,
-                newSpans = newSpans
-            )
+    fun setHyperlink(url: String?) {
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(linkUrl = url, isUnderline = if (url != null) true else span.isUnderline)
+                }
+            },
+            onPending = { it.copy(linkUrl = url) }
         )
     }
 
@@ -376,6 +481,36 @@ class EditorViewModel(
                 newListType = newType
             )
         )
+    }
+
+    fun increaseIndent() {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val newLevel = (block.indentationLevel + 1).coerceAtMost(6)
+        if (newLevel != block.indentationLevel) {
+            executeCommand(
+                com.example.editor.engine.SetIndentationCommand(
+                    blockId = block.id,
+                    oldLevel = block.indentationLevel,
+                    newLevel = newLevel
+                )
+            )
+        }
+    }
+
+    fun decreaseIndent() {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val newLevel = (block.indentationLevel - 1).coerceAtLeast(0)
+        if (newLevel != block.indentationLevel) {
+            executeCommand(
+                com.example.editor.engine.SetIndentationCommand(
+                    blockId = block.id,
+                    oldLevel = block.indentationLevel,
+                    newLevel = newLevel
+                )
+            )
+        }
     }
 
     // ----------------------------------------------------

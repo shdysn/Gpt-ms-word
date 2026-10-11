@@ -186,3 +186,69 @@ fun PageLayoutDialog(
         }
     )
 }
+
+/**
+ * Dialog for inserting or updating a web hyperlink on the selected text or document.
+ */
+@Composable
+fun InsertHyperlinkDialog(
+    initialUrl: String = "https://",
+    onDismiss: () -> Unit,
+    onConfirm: (url: String) -> Unit,
+    onRemoveLink: () -> Unit
+) {
+    var urlText by remember { mutableStateOf(if (initialUrl.isBlank()) "https://" else initialUrl) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Insert Hyperlink") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Enter web URL for the selected text:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = urlText,
+                    onValueChange = { urlText = it },
+                    label = { Text("Web URL") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("hyperlink_url_input")
+                )
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (initialUrl.isNotBlank() && initialUrl != "https://") {
+                    TextButton(
+                        onClick = {
+                            onRemoveLink()
+                            onDismiss()
+                        }
+                    ) {
+                        Text("Remove Link", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                Button(
+                    onClick = {
+                        val trimmed = urlText.trim()
+                        if (trimmed.isNotBlank()) {
+                            onConfirm(trimmed)
+                        }
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                    modifier = Modifier.testTag("confirm_hyperlink_button")
+                ) {
+                    Text("Apply")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}

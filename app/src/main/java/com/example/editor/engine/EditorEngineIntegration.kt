@@ -45,23 +45,51 @@ object EditorEngineIntegration {
                 val safeEnd = span.end.coerceIn(safeStart, paragraph.text.length)
                 if (safeStart >= safeEnd) continue
 
+                val fontFamily = when (span.fontFamilyName) {
+                    "Arial" -> androidx.compose.ui.text.font.FontFamily.SansSerif
+                    "Times New Roman", "Georgia" -> androidx.compose.ui.text.font.FontFamily.Serif
+                    "Courier New" -> androidx.compose.ui.text.font.FontFamily.Monospace
+                    "Nastaliq" -> androidx.compose.ui.text.font.FontFamily.Cursive
+                    else -> null
+                }
+
+                val baselineShift = when {
+                    span.isSuperscript -> androidx.compose.ui.text.style.BaselineShift.Superscript
+                    span.isSubscript -> androidx.compose.ui.text.style.BaselineShift.Subscript
+                    else -> null
+                }
+
+                val computedFontSize = when {
+                    span.fontSizeSp != null -> span.fontSizeSp.sp
+                    span.isSuperscript || span.isSubscript -> 10.sp
+                    else -> androidx.compose.ui.unit.TextUnit.Unspecified
+                }
+
+                val isLink = span.linkUrl != null
+                val decoration = when {
+                    (span.isUnderline || isLink) && span.isStrikethrough -> TextDecoration.combine(
+                        listOf(TextDecoration.Underline, TextDecoration.LineThrough)
+                    )
+                    span.isUnderline || isLink -> TextDecoration.Underline
+                    span.isStrikethrough -> TextDecoration.LineThrough
+                    else -> null
+                }
+
                 val spanStyle = SpanStyle(
                     fontWeight = if (span.isBold) FontWeight.Bold else null,
                     fontStyle = if (span.isItalic) FontStyle.Italic else null,
-                    textDecoration = when {
-                        span.isUnderline && span.isStrikethrough -> TextDecoration.combine(
-                            listOf(TextDecoration.Underline, TextDecoration.LineThrough)
-                        )
-                        span.isUnderline -> TextDecoration.Underline
-                        span.isStrikethrough -> TextDecoration.LineThrough
-                        else -> null
-                    },
-                    fontSize = span.fontSizeSp?.sp ?: androidx.compose.ui.unit.TextUnit.Unspecified,
-                    color = span.textColorHex?.let { parseColorSafe(it) } ?: androidx.compose.ui.graphics.Color.Unspecified,
+                    textDecoration = decoration,
+                    fontSize = computedFontSize,
+                    fontFamily = fontFamily,
+                    baselineShift = baselineShift,
+                    color = span.textColorHex?.let { parseColorSafe(it) } ?: if (isLink) androidx.compose.ui.graphics.Color(0xFF185ABD) else androidx.compose.ui.graphics.Color.Unspecified,
                     background = span.highlightColorHex?.let { parseColorSafe(it) } ?: androidx.compose.ui.graphics.Color.Transparent
                 )
 
                 addStyle(spanStyle, safeStart, safeEnd)
+                if (span.linkUrl != null) {
+                    addStringAnnotation(tag = "URL", annotation = span.linkUrl, start = safeStart, end = safeEnd)
+                }
             }
         }
     }
