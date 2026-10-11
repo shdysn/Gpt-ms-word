@@ -866,12 +866,14 @@ fun ImagePropertiesDialog(
     onDeleteImage: () -> Unit
 ) {
     var widthDp by remember { mutableStateOf(imageBlock.widthDp.toFloat()) }
+    var customHeightDp by remember { mutableStateOf(imageBlock.heightDp.toFloat()) }
     var maintainAspectRatio by remember { mutableStateOf(true) }
     var alignment by remember { mutableStateOf(imageBlock.alignment) }
     var captionText by remember { mutableStateOf(imageBlock.caption) }
 
     val baseRatio = if (imageBlock.aspectRatio > 0) imageBlock.aspectRatio else 1.333f
-    val computedHeight = if (maintainAspectRatio) (widthDp / baseRatio).toInt() else imageBlock.heightDp
+    val computedHeight = if (maintainAspectRatio) (widthDp / baseRatio).toInt() else customHeightDp.toInt()
+    val effectiveRatio = if (maintainAspectRatio) baseRatio else (widthDp / customHeightDp.coerceAtLeast(1f))
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -884,7 +886,12 @@ fun ImagePropertiesDialog(
                 Text("Image Width: ${widthDp.toInt()} dp", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(
                     value = widthDp,
-                    onValueChange = { widthDp = it },
+                    onValueChange = {
+                        widthDp = it
+                        if (maintainAspectRatio) {
+                            customHeightDp = (it / baseRatio).coerceIn(60f, 600f)
+                        }
+                    },
                     valueRange = 80f..460f,
                     steps = 19,
                     modifier = Modifier.testTag("image_width_slider")
@@ -895,7 +902,12 @@ fun ImagePropertiesDialog(
                     listOf(120f to "Small", 220f to "Medium", 320f to "Large", 420f to "Full").forEach { (sz, label) ->
                         FilterChip(
                             selected = (widthDp - sz).let { it in -20f..20f },
-                            onClick = { widthDp = sz },
+                            onClick = {
+                                widthDp = sz
+                                if (maintainAspectRatio) {
+                                    customHeightDp = (sz / baseRatio).coerceIn(60f, 600f)
+                                }
+                            },
                             label = { Text(label, fontSize = 11.sp) }
                         )
                     }
@@ -903,14 +915,35 @@ fun ImagePropertiesDialog(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { maintainAspectRatio = !maintainAspectRatio }
+                    modifier = Modifier.clickable {
+                        maintainAspectRatio = !maintainAspectRatio
+                        if (maintainAspectRatio) {
+                            customHeightDp = (widthDp / baseRatio).coerceIn(60f, 600f)
+                        }
+                    }
                 ) {
                     Checkbox(
                         checked = maintainAspectRatio,
-                        onCheckedChange = { maintainAspectRatio = it },
+                        onCheckedChange = {
+                            maintainAspectRatio = it
+                            if (it) {
+                                customHeightDp = (widthDp / baseRatio).coerceIn(60f, 600f)
+                            }
+                        },
                         modifier = Modifier.testTag("aspect_ratio_checkbox")
                     )
                     Text("Lock aspect ratio (Height: $computedHeight dp)", fontSize = 12.sp)
+                }
+
+                if (!maintainAspectRatio) {
+                    Text("Custom Height: ${customHeightDp.toInt()} dp", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Slider(
+                        value = customHeightDp,
+                        onValueChange = { customHeightDp = it },
+                        valueRange = 60f..460f,
+                        steps = 19,
+                        modifier = Modifier.testTag("image_height_slider")
+                    )
                 }
 
                 HorizontalDivider()
@@ -955,7 +988,7 @@ fun ImagePropertiesDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(widthDp.toInt(), computedHeight, alignment, captionText, baseRatio)
+                    onConfirm(widthDp.toInt(), computedHeight, alignment, captionText, effectiveRatio)
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
@@ -1102,6 +1135,7 @@ fun PageNumberInsertDialog(
 @Composable
 fun ExportPdfDialog(
     document: RichDocument,
+    actualPageCount: Int = document.estimatedPageCount,
     onDismiss: () -> Unit,
     onSaveToStorage: () -> Unit,
     onSharePdf: () -> Unit,
@@ -1111,7 +1145,7 @@ fun ExportPdfDialog(
     val layout = document.layoutConfig
     val orientationName = if (layout.orientation == PageOrientation.LANDSCAPE) "Landscape" else "Portrait"
     val marginName = layout.marginPreset.displayName.split(" ")[0]
-    val estimatedPages = document.estimatedPageCount
+    val estimatedPages = actualPageCount.coerceAtLeast(1)
 
     AlertDialog(
         onDismissRequest = onDismiss,

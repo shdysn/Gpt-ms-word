@@ -87,12 +87,14 @@ fun FormattingToolbar(
     onToggleRtl: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var styleMenuExpanded by remember { mutableStateOf(false) }
     var fontMenuExpanded by remember { mutableStateOf(false) }
     var sizeMenuExpanded by remember { mutableStateOf(false) }
     var textColorMenuExpanded by remember { mutableStateOf(false) }
     var highlightMenuExpanded by remember { mutableStateOf(false) }
 
     val isRtl = activeParagraph?.isRtl == true
+    val currentHeadingStyle = activeParagraph?.headingStyle ?: HeadingStyle.NORMAL
     val fontOptions = com.example.core.typography.DocumentFontManager.AVAILABLE_FONTS
     val defaultFontForDisplay = if (isRtl) "Noto Nastaliq Urdu" else "Calibri"
     val currentFontDisplay = activeFormatting.fontFamilyName ?: defaultFontForDisplay
@@ -120,6 +122,52 @@ fun FormattingToolbar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Paragraph / Heading Style Selector
+            Box {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .clickable { styleMenuExpanded = true }
+                        .testTag("heading_style_selector")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = currentHeadingStyle.displayName,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = WordPrimary
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Heading Style", modifier = Modifier.size(16.dp), tint = WordPrimary)
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = styleMenuExpanded,
+                    onDismissRequest = { styleMenuExpanded = false }
+                ) {
+                    HeadingStyle.entries.forEach { style ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = style.displayName,
+                                    fontSize = style.defaultFontSizeSp.coerceIn(12f, 20f).sp,
+                                    fontWeight = if (style.isBold || currentHeadingStyle == style) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (currentHeadingStyle == style) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            onClick = {
+                                styleMenuExpanded = false
+                                onSetHeadingStyle(style)
+                            }
+                        )
+                    }
+                }
+            }
+
             // Font Family Selector
             Box {
                 Surface(
@@ -518,6 +566,6 @@ fun ToolbarDivider() {
         modifier = Modifier
             .height(20.dp)
             .width(1.dp)
-            .background(Color(0xFFE2E8F0))
+            .background(MaterialTheme.colorScheme.outlineVariant)
     )
 }

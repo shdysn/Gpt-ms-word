@@ -170,6 +170,18 @@ class EditorViewModel(
     private val _recoveryAvailable = MutableStateFlow(false)
     val recoveryAvailable: StateFlow<Boolean> = _recoveryAvailable.asStateFlow()
 
+    val isAutosaveEnabled: StateFlow<Boolean> = preferencesManager.isAutosaveEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val defaultRtl: StateFlow<Boolean> = preferencesManager.defaultRtl
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val showWordCount: StateFlow<Boolean> = preferencesManager.showWordCount
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    val showRuler: StateFlow<Boolean> = preferencesManager.showRuler
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     val isDirty: StateFlow<Boolean> = autosaveController.status.map {
         it == AutosaveStatus.DIRTY || it == AutosaveStatus.ERROR
     }.stateIn(
@@ -182,6 +194,14 @@ class EditorViewModel(
         loadDocument()
     }
 
+    private fun scheduleDocumentAutosave() {
+        if (isAutosaveEnabled.value) {
+            autosaveController.scheduleAutosave()
+        } else {
+            autosaveController.markDirty()
+        }
+    }
+
     private fun loadDocument() {
         viewModelScope.launch {
             if (repository.hasRecoveryDraft(documentId)) {
@@ -189,7 +209,21 @@ class EditorViewModel(
             }
             when (val res = repository.getDocument(documentId)) {
                 is DocumentResult.Success -> {
-                    _document.value = res.data
+                    val loadedDoc = res.data
+                    val firstBlock = loadedDoc.blocks.singleOrNull() as? ParagraphBlock
+                    val adjustedDoc = if (defaultRtl.value && firstBlock != null && firstBlock.text.isEmpty() && !firstBlock.isRtl) {
+                        loadedDoc.copy(
+                            blocks = listOf(
+                                firstBlock.copy(
+                                    isRtl = true,
+                                    alignment = TextAlignment.END
+                                )
+                            )
+                        )
+                    } else {
+                        loadedDoc
+                    }
+                    _document.value = adjustedDoc
                     undoRedoManager.clear()
                     updateUndoRedoStates()
                     autosaveController.markSaved()
@@ -235,7 +269,7 @@ class EditorViewModel(
         val newDoc = undoRedoManager.execute(command, currentDoc)
         _document.value = newDoc
         updateUndoRedoStates()
-        autosaveController.scheduleAutosave()
+        scheduleDocumentAutosave()
     }
 
     fun undo() {
@@ -243,7 +277,7 @@ class EditorViewModel(
         val (revertedDoc, _) = undoRedoManager.undo(currentDoc)
         _document.value = revertedDoc
         updateUndoRedoStates()
-        autosaveController.scheduleAutosave()
+        scheduleDocumentAutosave()
     }
 
     fun redo() {
@@ -251,7 +285,7 @@ class EditorViewModel(
         val (reappliedDoc, _) = undoRedoManager.redo(currentDoc)
         _document.value = reappliedDoc
         updateUndoRedoStates()
-        autosaveController.scheduleAutosave()
+        scheduleDocumentAutosave()
     }
 
     // ----------------------------------------------------
@@ -261,11 +295,34 @@ class EditorViewModel(
     fun updateTitle(newTitle: String) {
         val currentDoc = _document.value ?: return
         _document.value = currentDoc.copy(title = newTitle)
-        autosaveController.scheduleAutosave()
+        scheduleDocumentAutosave()
     }
 
     fun updateSelection(newSelection: androidx.compose.ui.text.TextRange) {
         _selection.value = newSelection
+    }
+
+    fun updateParagraphSubSliceText(
+        blockIndex: Int,
+        startChar: Int,
+        endChar: Int,
+        newSliceText: String,
+        sliceSelection: androidx.compose.ui.text.TextRange
+    ) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(blockIndex) as? ParagraphBlock ?: return
+        val safeStart = startChar.coerceIn(0, block.text.length)
+        val safeEnd = endChar.coerceIn(safeStart, block.text.length)
+        if (safeStart == 0 && safeEnd == block.text.length) {
+            updateParagraphText(blockIndex, newSliceText, sliceSelection)
+            return
+        }
+        val fullNewText = block.text.substring(0, safeStart) + newSliceText + block.text.substring(safeEnd)
+        val fullSelection = androidx.compose.ui.text.TextRange(
+            (safeStart + sliceSelection.start).coerceIn(0, fullNewText.length),
+            (safeStart + sliceSelection.end).coerceIn(0, fullNewText.length)
+        )
+        updateParagraphText(blockIndex, fullNewText, fullSelection)
     }
 
     fun updateParagraphText(
@@ -630,10 +687,11 @@ class EditorViewModel(
         val currentDoc = _document.value ?: return
         val activeBlock = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock
         val insertIndex = _activeBlockIndex.value + 1
+        val isRtl = activeBlock?.isRtl ?: defaultRtl.value
         val newBlock = ParagraphBlock(
-            isRtl = activeBlock?.isRtl ?: false,
+            isRtl = isRtl,
             listType = activeBlock?.listType ?: com.example.data.model.ListType.NONE,
-            alignment = activeBlock?.alignment ?: com.example.data.model.TextAlignment.START,
+            alignment = activeBlock?.alignment ?: if (isRtl) com.example.data.model.TextAlignment.END else com.example.data.model.TextAlignment.START,
             lineSpacingMultiplier = activeBlock?.lineSpacingMultiplier ?: 1.25f
         )
 

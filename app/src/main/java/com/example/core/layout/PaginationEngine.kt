@@ -209,12 +209,14 @@ object PaginationEngine {
                                 onPageFilled = {
                                     commitCurrentPageAndStartNew()
                                 },
-                                onHeightAdded = { currentHeight += it }
+                                onHeightAdded = { currentHeight += it },
+                                initialCharOffset = 0
                             )
                         } else if (linesThatFit >= 2) {
                             // Split paragraph across current page and subsequent page(s)
                             val firstLines = lines.subList(0, linesThatFit)
-                            val firstText = firstLines.joinToString("\n")
+                            val firstText = firstLines.joinToString(" ")
+                            val firstEndChar = firstText.length.coerceAtMost(block.text.length)
                             val firstHeight = firstLines.size * lineHeight
 
                             currentPage.add(
@@ -223,7 +225,7 @@ object PaginationEngine {
                                     originalBlock = block,
                                     lineSliceText = firstText,
                                     startChar = 0,
-                                    endChar = firstText.length,
+                                    endChar = firstEndChar,
                                     isContinuation = false,
                                     hasContinuation = true,
                                     heightPt = firstHeight
@@ -232,6 +234,7 @@ object PaginationEngine {
                             commitCurrentPageAndStartNew()
 
                             val remainingLines = lines.subList(linesThatFit, lines.size)
+                            val nextCharOffset = (firstEndChar + 1).coerceAtMost(block.text.length)
                             paginateParagraphAcrossPages(
                                 blockIndex = blockIndex,
                                 block = block,
@@ -244,7 +247,8 @@ object PaginationEngine {
                                     commitCurrentPageAndStartNew()
                                 },
                                 onHeightAdded = { currentHeight += it },
-                                isInitialContinuation = true
+                                isInitialContinuation = true,
+                                initialCharOffset = nextCharOffset
                             )
                         } else {
                             // Even on empty page, paragraph is taller than an entire page
@@ -259,7 +263,8 @@ object PaginationEngine {
                                 onPageFilled = {
                                     commitCurrentPageAndStartNew()
                                 },
-                                onHeightAdded = { currentHeight += it }
+                                onHeightAdded = { currentHeight += it },
+                                initialCharOffset = 0
                             )
                         }
                     }
@@ -336,10 +341,12 @@ object PaginationEngine {
         onAddItem: (PageItem) -> Unit,
         onPageFilled: () -> Unit,
         onHeightAdded: (Float) -> Unit,
-        isInitialContinuation: Boolean = false
+        isInitialContinuation: Boolean = false,
+        initialCharOffset: Int = 0
     ) {
         var lineIndex = 0
         var isContinuation = isInitialContinuation
+        var runningCharOffset = initialCharOffset
 
         while (lineIndex < lines.size) {
             val linesThatFit = (printableHeightPt / lineHeight).toInt().coerceAtLeast(1)
@@ -349,13 +356,21 @@ object PaginationEngine {
             val isLastChunk = endLine == lines.size
             val chunkHeight = (chunkLines.size * lineHeight) + (if (isLastChunk) paragraphSpacing else 0f)
 
+            val chunkStartChar = runningCharOffset.coerceIn(0, block.text.length)
+            val chunkCharLen = chunkLines.sumOf { it.length } + (chunkLines.size - 1).coerceAtLeast(0)
+            val chunkEndChar = if (isLastChunk) {
+                block.text.length
+            } else {
+                (chunkStartChar + chunkCharLen).coerceIn(chunkStartChar, block.text.length)
+            }
+
             onAddItem(
                 ParagraphPageItem(
                     originalBlockIndex = blockIndex,
                     originalBlock = block,
                     lineSliceText = chunkText,
-                    startChar = 0,
-                    endChar = chunkText.length,
+                    startChar = chunkStartChar,
+                    endChar = chunkEndChar,
                     isContinuation = isContinuation,
                     hasContinuation = !isLastChunk,
                     heightPt = chunkHeight
@@ -363,6 +378,7 @@ object PaginationEngine {
             )
             onHeightAdded(chunkHeight)
 
+            runningCharOffset = (chunkEndChar + 1).coerceAtMost(block.text.length)
             lineIndex = endLine
             isContinuation = true
 

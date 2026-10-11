@@ -65,6 +65,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -74,6 +75,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -431,6 +433,12 @@ fun HomeScreen(
 
             // Section Header
             item {
+                val sectionHeaderTitle = when {
+                    searchQuery.isNotBlank() -> "Search Results (${documents.size})"
+                    activeFilter == HomeFilter.PINNED -> "Pinned Documents (${documents.size})"
+                    activeFilter == HomeFilter.RECENT -> "Recent Documents (${documents.size})"
+                    else -> "All Documents (${documents.size})"
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -438,7 +446,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (searchQuery.isNotBlank()) "Search Results (${documents.size})" else "Recent Documents",
+                        text = sectionHeaderTitle,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -451,6 +459,7 @@ fun HomeScreen(
                 item {
                     EmptyDocumentsView(
                         isSearching = searchQuery.isNotBlank(),
+                        activeFilter = activeFilter,
                         onCreateClick = {
                             viewModel.createDocument("Untitled Document", TemplateType.BLANK) {
                                 onNavigateToEditor(it)
@@ -641,8 +650,13 @@ fun HomeScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { selectedTemplateForCreation = t }
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 2.dp)
                         ) {
+                            RadioButton(
+                                selected = selectedTemplateForCreation == t,
+                                onClick = { selectedTemplateForCreation = t }
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = t.title,
                                 color = if (selectedTemplateForCreation == t) WordPrimary else MaterialTheme.colorScheme.onSurface,
@@ -1029,7 +1043,7 @@ fun DocumentGridCard(
                 Box {
                     IconButton(
                         onClick = { menuExpanded = true },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.minimumInteractiveComponentSize()
                     ) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Options", modifier = Modifier.size(18.dp))
                     }
@@ -1040,26 +1054,48 @@ fun DocumentGridCard(
                     ) {
                         DropdownMenuItem(
                             text = { Text(if (doc.isPinned) "Unpin" else "Pin") },
+                            leadingIcon = {
+                                Icon(
+                                    if (doc.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                                    contentDescription = null
+                                )
+                            },
                             onClick = { menuExpanded = false; onTogglePin() }
                         )
                         DropdownMenuItem(
                             text = { Text("Rename") },
+                            leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
                             onClick = { menuExpanded = false; onRename() }
                         )
                         DropdownMenuItem(
                             text = { Text("Duplicate") },
+                            leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
                             onClick = { menuExpanded = false; onDuplicate() }
                         )
                         DropdownMenuItem(
                             text = { Text("Export DOCX") },
+                            leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary) },
                             onClick = { menuExpanded = false; onExportDocx() }
                         )
                         DropdownMenuItem(
                             text = { Text("Export PDF") },
+                            leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, contentDescription = null) },
                             onClick = { menuExpanded = false; onExportPdf() }
                         )
                         DropdownMenuItem(
+                            text = { Text("Print") },
+                            leadingIcon = { Icon(Icons.Outlined.Print, contentDescription = null) },
+                            onClick = { menuExpanded = false; onPrint() }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            },
                             onClick = { menuExpanded = false; onDelete() }
                         )
                     }
@@ -1067,13 +1103,25 @@ fun DocumentGridCard(
             }
 
             Column {
-                Text(
-                    text = doc.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = doc.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (doc.isPinned) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.PushPin,
+                            contentDescription = "Pinned",
+                            tint = WordPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = doc.snippet,
@@ -1107,6 +1155,7 @@ fun DocumentGridCard(
 @Composable
 fun EmptyDocumentsView(
     isSearching: Boolean,
+    activeFilter: HomeFilter = HomeFilter.ALL,
     onCreateClick: () -> Unit
 ) {
     Column(
@@ -1123,7 +1172,7 @@ fun EmptyDocumentsView(
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = Icons.Default.Description,
+                    imageVector = if (activeFilter == HomeFilter.PINNED && !isSearching) Icons.Default.PushPin else Icons.Default.Description,
                     contentDescription = null,
                     tint = WordPrimary,
                     modifier = Modifier.size(36.dp)
@@ -1133,8 +1182,21 @@ fun EmptyDocumentsView(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        val emptyTitle = when {
+            isSearching -> "No matching documents"
+            activeFilter == HomeFilter.PINNED -> "No pinned documents"
+            activeFilter == HomeFilter.RECENT -> "No recent documents"
+            else -> "No documents yet"
+        }
+
+        val emptySubtitle = when {
+            isSearching -> "Try a different search term"
+            activeFilter == HomeFilter.PINNED -> "Pin important documents from their menu to access them quickly here."
+            else -> "Create your first document or start from a template above."
+        }
+
         Text(
-            text = if (isSearching) "No matching documents" else "No documents yet",
+            text = emptyTitle,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -1142,13 +1204,13 @@ fun EmptyDocumentsView(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = if (isSearching) "Try a different search term" else "Create your first document or start from a template above.",
+            text = emptySubtitle,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        if (!isSearching) {
+        if (!isSearching && activeFilter != HomeFilter.PINNED) {
             Spacer(modifier = Modifier.height(18.dp))
             Button(
                 onClick = onCreateClick,

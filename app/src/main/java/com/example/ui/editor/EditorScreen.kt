@@ -152,8 +152,14 @@ import com.example.ui.editor.components.InsertHyperlinkDialog
 import com.example.ui.editor.components.InsertTableDialog
 import com.example.ui.editor.components.PageLayoutDialog
 import com.example.ui.editor.components.PageNumberInsertDialog
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.minimumInteractiveComponentSize
 import com.example.ui.editor.components.TableCellEditDialog
 import com.example.ui.editor.components.TablePropertiesDialog
+import com.example.ui.theme.WordDeskCanvasDark
 import com.example.ui.theme.WordDeskCanvasLight
 import com.example.ui.theme.WordPrimary
 import java.io.File
@@ -188,6 +194,18 @@ fun EditorScreen(
     val findQuery by viewModel.findQuery.collectAsStateWithLifecycle()
     val replaceQuery by viewModel.replaceQuery.collectAsStateWithLifecycle()
     val matchCount by viewModel.matchCount.collectAsStateWithLifecycle()
+    val showWordCount by viewModel.showWordCount.collectAsStateWithLifecycle()
+    val showRuler by viewModel.showRuler.collectAsStateWithLifecycle()
+
+    val actualPageCount = remember(paginatedPages, document) {
+        if (paginatedPages.isNotEmpty()) paginatedPages.size else (document?.estimatedPageCount ?: 1)
+    }
+    val currentPageNumber = remember(paginatedPages, activeBlockIndex) {
+        val foundPage = paginatedPages.firstOrNull { page ->
+            page.items.any { it.originalBlockIndex == activeBlockIndex }
+        }
+        foundPage?.pageNumber ?: 1
+    }
 
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showTitleEditDialog by remember { mutableStateOf(false) }
@@ -383,14 +401,6 @@ fun EditorScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Rename Document...") },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showTitleEditDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
                                     text = { Text("Save as DOCX (SAF)...") },
                                     leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary) },
                                     onClick = {
@@ -410,20 +420,11 @@ fun EditorScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Export to PDF...") },
+                                    text = { Text("Export / Save PDF...") },
                                     leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = WordPrimary) },
                                     onClick = {
                                         showOptionsMenu = false
                                         showExportPdfDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Save as PDF (SAF)...") },
-                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                                        safPdfSaveLauncher.launch("$safeTitle.pdf")
                                     }
                                 )
                                 DropdownMenuItem(
@@ -446,7 +447,7 @@ fun EditorScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Page Setup...") },
-                                    leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
                                     onClick = {
                                         showOptionsMenu = false
                                         showLayoutDialog = true
@@ -454,7 +455,7 @@ fun EditorScreen(
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Document Statistics") },
-                                    leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) },
+                                    leadingIcon = { Icon(Icons.Default.FormatListNumbered, contentDescription = null) },
                                     onClick = {
                                         showOptionsMenu = false
                                         showStatsDialog = true
@@ -485,17 +486,21 @@ fun EditorScreen(
             // Word Status Bar
             EditorStatusBar(
                 document = document,
+                currentPageNumber = currentPageNumber,
+                totalPages = actualPageCount,
+                showWordCount = showWordCount,
                 autosaveStatus = autosaveStatus,
                 zoomPercent = zoomPercent,
                 activeBlock = activeParagraph
             )
         }
     ) { innerPadding ->
+        val deskCanvasColor = if (isSystemInDarkTheme()) WordDeskCanvasDark else WordDeskCanvasLight
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(WordDeskCanvasLight)
+                .background(deskCanvasColor)
                 .imePadding() // Keyboard-aware layout: ensures soft keyboard does not obscure active content
         ) {
             // Microsoft Word Ribbon Component
@@ -600,13 +605,18 @@ fun EditorScreen(
                         paginatedPages = paginatedPages,
                         viewMode = viewMode,
                         zoomPercent = zoomPercent,
+                        showRuler = showRuler,
                         isTabletOrExpanded = isTabletOrExpanded,
                         activeBlockIndex = activeBlockIndex,
                         onBlockSelected = viewModel::setActiveBlock,
                         onUpdateBlockText = { index, text, sel -> viewModel.updateParagraphText(index, text, sel) },
+                        onUpdateSubSliceText = { index, startChar, endChar, text, sel ->
+                            viewModel.updateParagraphSubSliceText(index, startChar, endChar, text, sel)
+                        },
                         onSelectionChanged = viewModel::updateSelection,
                         onInsertParagraph = viewModel::insertParagraph,
                         onDeleteCurrentBlock = viewModel::deleteCurrentBlock,
+                        onDeleteBlockById = viewModel::deleteBlockById,
                         onEditTableProperties = { table -> selectedTableForProperties = table },
                         onEditTableCell = { table, r, c -> selectedCellForEdit = Triple(table, r, c) },
                         onQuickAddTableRow = { id -> viewModel.addTableRow(id) },
@@ -884,6 +894,7 @@ fun EditorScreen(
     if (showExportPdfDialog && document != null) {
         ExportPdfDialog(
             document = document!!,
+            actualPageCount = actualPageCount,
             onDismiss = { showExportPdfDialog = false },
             onSaveToStorage = {
                 val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
@@ -914,7 +925,7 @@ fun EditorScreen(
                     StatRow("Words", "${doc?.wordCount ?: 0}")
                     StatRow("Characters", "${doc?.characterCount ?: 0}")
                     StatRow("Paragraphs", "${doc?.blocks?.count { it is ParagraphBlock } ?: 0}")
-                    StatRow("Estimated Pages", "${doc?.estimatedPageCount ?: 1}")
+                    StatRow("Pages", "$actualPageCount")
                     StatRow("Paper Size", doc?.layoutConfig?.pageSize?.displayName ?: "A4")
                     StatRow("Orientation", doc?.layoutConfig?.orientation?.name ?: "PORTRAIT")
                     StatRow("Active Language", if (activeParagraph?.isRtl == true) "Urdu (RTL Nastaliq)" else "English (LTR)")
@@ -1007,33 +1018,61 @@ fun WordRibbon(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
-            // Tab Header Strip
+            // Tab Header Strip with Ribbon Collapse/Expand Toggle
             val tabs = RibbonTab.entries
             val selectedIndex = tabs.indexOf(activeTab)
 
-            TabRow(
-                selectedTabIndex = selectedIndex,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = WordPrimary,
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
-                        color = WordPrimary,
-                        height = 3.dp
-                    )
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                tabs.forEach { tab ->
-                    Tab(
-                        selected = activeTab == tab,
-                        onClick = { onTabSelected(tab) },
-                        text = {
-                            Text(
-                                text = tab.name.lowercase().replaceFirstChar { it.uppercase() },
-                                fontWeight = if (activeTab == tab) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 13.sp
-                            )
-                        }
+                TabRow(
+                    selectedTabIndex = selectedIndex,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = WordPrimary,
+                    modifier = Modifier.weight(1f),
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
+                            color = WordPrimary,
+                            height = 3.dp
+                        )
+                    }
+                ) {
+                    tabs.forEach { tab ->
+                        Tab(
+                            selected = activeTab == tab,
+                            onClick = {
+                                if (activeTab == tab) {
+                                    onToggleRibbon()
+                                } else {
+                                    onTabSelected(tab)
+                                    if (!isRibbonVisible) {
+                                        onToggleRibbon()
+                                    }
+                                }
+                            },
+                            text = {
+                                Text(
+                                    text = tab.name.lowercase().replaceFirstChar { it.uppercase() },
+                                    fontWeight = if (activeTab == tab) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onToggleRibbon,
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("toggle_ribbon_visibility")
+                ) {
+                    Icon(
+                        imageVector = if (isRibbonVisible) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isRibbonVisible) "Collapse Ribbon" else "Expand Ribbon",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -1150,6 +1189,12 @@ fun InsertRibbonControls(
     onOpenPageNumberDialog: () -> Unit
 ) {
     RibbonActionButton(
+        icon = Icons.Default.Add,
+        label = "Paragraph",
+        onClick = { viewModel.insertParagraph() }
+    )
+
+    RibbonActionButton(
         icon = Icons.Default.TableChart,
         label = "Table",
         onClick = onOpenTableDialog
@@ -1159,12 +1204,6 @@ fun InsertRibbonControls(
         icon = Icons.Default.Image,
         label = "Picture",
         onClick = onOpenPhotoPicker
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.Link,
-        label = "Hyperlink",
-        onClick = onOpenLinkDialog
     )
 
     RibbonActionButton(
@@ -1219,7 +1258,7 @@ fun LayoutRibbonControls(
         )
     }
 
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     Text("Orientation:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     FilterChip(
@@ -1233,7 +1272,7 @@ fun LayoutRibbonControls(
         label = { Text("Landscape", fontSize = 11.sp) }
     )
 
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     Text("Margins:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     listOf(MarginPreset.NORMAL, MarginPreset.NARROW, MarginPreset.WIDE).forEach { mp ->
@@ -1244,10 +1283,10 @@ fun LayoutRibbonControls(
         )
     }
 
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     RibbonActionButton(
-        icon = Icons.Default.Edit,
+        icon = Icons.Default.Tune,
         label = "Page Setup...",
         onClick = onOpenLayoutDialog
     )
@@ -1271,18 +1310,18 @@ fun ViewRibbonControls(viewModel: EditorViewModel) {
         modifier = Modifier.testTag("view_mode_mobile")
     )
 
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     IconButton(
         onClick = { viewModel.setZoomPercent(zoomPercent - 10) },
-        modifier = Modifier.size(32.dp).testTag("zoom_out_button")
+        modifier = Modifier.minimumInteractiveComponentSize().size(36.dp).testTag("zoom_out_button")
     ) {
         Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out")
     }
     Text("$zoomPercent%", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("zoom_percent_text"))
     IconButton(
         onClick = { viewModel.setZoomPercent(zoomPercent + 10) },
-        modifier = Modifier.size(32.dp).testTag("zoom_in_button")
+        modifier = Modifier.minimumInteractiveComponentSize().size(36.dp).testTag("zoom_in_button")
     ) {
         Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
     }
@@ -1305,14 +1344,8 @@ fun FileRibbonControls(
 
     RibbonActionButton(
         icon = Icons.Default.PictureAsPdf,
-        label = "Export PDF",
+        label = "Export / Save PDF",
         onClick = onOpenExportPdfDialog
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.Save,
-        label = "Save As PDF",
-        onClick = onSaveAsPdf
     )
 
     RibbonActionButton(
@@ -1323,7 +1356,7 @@ fun FileRibbonControls(
 
     RibbonActionButton(
         icon = Icons.Default.Description,
-        label = "Export DOCX",
+        label = "Share DOCX",
         onClick = {
             viewModel.exportToDocx(context) { file ->
                 file?.let { shareDocxFile(context, it) }
@@ -1333,7 +1366,7 @@ fun FileRibbonControls(
 
     RibbonActionButton(
         icon = Icons.Default.Save,
-        label = "Save As DOCX",
+        label = "Save DOCX (SAF)",
         onClick = onSaveAsDocx
     )
 
@@ -1348,7 +1381,7 @@ fun FileRibbonControls(
     )
 
     RibbonActionButton(
-        icon = Icons.Default.Title,
+        icon = Icons.Default.FormatListNumbered,
         label = "Statistics",
         onClick = onOpenStatsDialog
     )
@@ -1376,19 +1409,124 @@ fun RibbonActionButton(
     }
 }
 
+private fun isColorDarkHex(hex: String): Boolean {
+    return try {
+        val colorInt = android.graphics.Color.parseColor(hex)
+        val r = android.graphics.Color.red(colorInt) / 255.0
+        val g = android.graphics.Color.green(colorInt) / 255.0
+        val b = android.graphics.Color.blue(colorInt) / 255.0
+        val luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        luminance < 0.45
+    } catch (e: Exception) {
+        false
+    }
+}
+
+@Composable
+fun DocumentRulerBar(
+    layout: PageLayoutConfig,
+    maxSheetWidth: androidx.compose.ui.unit.Dp
+) {
+    val leftMarginDp = (layout.leftMarginMm * 1.25f).dp.coerceIn(16.dp, 48.dp)
+    val rightMarginDp = (layout.rightMarginMm * 1.25f).dp.coerceIn(16.dp, 48.dp)
+    val totalWidthMm = if (layout.orientation == PageOrientation.LANDSCAPE) {
+        layout.pageSize.heightMm.toInt()
+    } else {
+        layout.pageSize.widthMm.toInt()
+    }
+
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .widthIn(max = maxSheetWidth)
+            .padding(bottom = 8.dp)
+            .height(22.dp)
+            .testTag("document_ruler_bar")
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left Margin Shaded Zone
+            Box(
+                modifier = Modifier
+                    .width(leftMarginDp)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${layout.leftMarginMm.toInt()}",
+                    fontSize = 8.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Printable Content Tick Marks (in cm)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                val cmSteps = (totalWidthMm / 20).coerceIn(4, 12)
+                for (i in 1..cmSteps) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${i * 2}",
+                            fontSize = 8.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(4.dp)
+                                .background(MaterialTheme.colorScheme.onSurfaceVariant)
+                        )
+                    }
+                }
+            }
+
+            // Right Margin Shaded Zone
+            Box(
+                modifier = Modifier
+                    .width(rightMarginDp)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${layout.rightMarginMm.toInt()}",
+                    fontSize = 8.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun DocumentCanvas(
     document: RichDocument,
     paginatedPages: List<com.example.core.layout.DocumentPage>,
     viewMode: EditorViewMode,
     zoomPercent: Int,
+    showRuler: Boolean = true,
     isTabletOrExpanded: Boolean,
     activeBlockIndex: Int,
     onBlockSelected: (Int) -> Unit,
     onUpdateBlockText: (Int, String, TextRange) -> Unit,
+    onUpdateSubSliceText: (Int, Int, Int, String, TextRange) -> Unit = { idx, _, _, text, sel ->
+        onUpdateBlockText(idx, text, sel)
+    },
     onSelectionChanged: (TextRange) -> Unit,
     onInsertParagraph: () -> Unit,
     onDeleteCurrentBlock: () -> Unit,
+    onDeleteBlockById: (String) -> Unit = {},
     onEditTableProperties: (TableBlock) -> Unit = {},
     onEditTableCell: (TableBlock, Int, Int) -> Unit = { _, _, _ -> },
     onQuickAddTableRow: (String) -> Unit = {},
@@ -1398,6 +1536,22 @@ fun DocumentCanvas(
     onEditImageProperties: (ImageBlock) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+    val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
+
+    // Pre-compute global sequential list numbers across the entire document so numbered lists
+    // never reset to 1 at page boundaries
+    val globalListNumbers = remember(document.blocks) {
+        val map = mutableMapOf<Int, Int>()
+        var counter = 1
+        document.blocks.forEachIndexed { idx, block ->
+            if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
+                map[idx] = counter++
+            } else {
+                counter = 1
+            }
+        }
+        map
+    }
 
     Column(
         modifier = Modifier
@@ -1413,11 +1567,25 @@ fun DocumentCanvas(
                 paginatedPages
             }
 
+            val baseMaxSheetWidth = if (document.layoutConfig.orientation == PageOrientation.LANDSCAPE) {
+                if (isTabletOrExpanded) 920.dp else 720.dp
+            } else {
+                if (isTabletOrExpanded) 760.dp else 640.dp
+            }
+            val scaledMaxSheetWidth = (baseMaxSheetWidth.value * zoomScale).dp
+
+            if (showRuler) {
+                DocumentRulerBar(
+                    layout = document.layoutConfig,
+                    maxSheetWidth = scaledMaxSheetWidth
+                )
+            }
+
             pagesToDisplay.forEach { page ->
                 // Page indicator badge above physical sheet
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                     shadowElevation = 1.dp,
                     modifier = Modifier.padding(bottom = 8.dp)
                 ) {
@@ -1425,7 +1593,7 @@ fun DocumentCanvas(
                         text = "Page ${page.pageNumber} of ${page.totalPages} • ${page.layout.pageSize.name} (${page.layout.orientation.name.lowercase().replaceFirstChar { it.uppercase() }})",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFF64748B),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -1433,6 +1601,7 @@ fun DocumentCanvas(
                 val pageBgColor = try {
                     Color(android.graphics.Color.parseColor(page.layout.pageBackgroundHex))
                 } catch (e: Exception) { Color.White }
+                val isDarkPage = isColorDarkHex(page.layout.pageBackgroundHex)
 
                 val borderStroke = when (page.layout.borderStyle) {
                     com.example.core.layout.PageBorderStyle.SINGLE_THIN -> androidx.compose.foundation.BorderStroke(1.dp, Color(try { android.graphics.Color.parseColor(page.layout.borderColorHex) } catch (e: Exception) { android.graphics.Color.LTGRAY }))
@@ -1442,23 +1611,17 @@ fun DocumentCanvas(
                     com.example.core.layout.PageBorderStyle.NONE -> null
                 }
 
-                val maxSheetWidth = if (page.layout.orientation == PageOrientation.LANDSCAPE) {
-                    if (isTabletOrExpanded) 920.dp else 720.dp
-                } else {
-                    if (isTabletOrExpanded) 760.dp else 640.dp
-                }
-
-                // Margins mapped to responsive dp
-                val leftMarginDp = (page.layout.leftMarginMm * 1.25f).dp.coerceIn(16.dp, 48.dp)
-                val rightMarginDp = (page.layout.rightMarginMm * 1.25f).dp.coerceIn(16.dp, 48.dp)
-                val topMarginDp = (page.layout.topMarginMm * 1.2f).dp.coerceIn(20.dp, 44.dp)
-                val bottomMarginDp = (page.layout.bottomMarginMm * 1.2f).dp.coerceIn(20.dp, 44.dp)
+                // Margins mapped to responsive dp scaled by zoom
+                val leftMarginDp = ((page.layout.leftMarginMm * 1.25f).coerceIn(16f, 48f) * zoomScale).dp
+                val rightMarginDp = ((page.layout.rightMarginMm * 1.25f).coerceIn(16f, 48f) * zoomScale).dp
+                val topMarginDp = ((page.layout.topMarginMm * 1.2f).coerceIn(20f, 44f) * zoomScale).dp
+                val bottomMarginDp = ((page.layout.bottomMarginMm * 1.2f).coerceIn(20f, 44f) * zoomScale).dp
 
                 // Physical Paper Sheet Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .widthIn(max = maxSheetWidth)
+                        .widthIn(max = scaledMaxSheetWidth)
                         .shadow(6.dp, RoundedCornerShape(2.dp)),
                     shape = RoundedCornerShape(2.dp),
                     colors = CardDefaults.cardColors(containerColor = pageBgColor),
@@ -1487,35 +1650,74 @@ fun DocumentCanvas(
                                 Text(
                                     text = page.formattedHeader,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray
+                                    color = if (isDarkPage) Color(0xFFCBD5E1) else Color.Gray
                                 )
                             }
                             Spacer(modifier = Modifier.height(4.dp))
-                            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                            HorizontalDivider(
+                                color = if (isDarkPage) Color(0xFF334155) else Color(0xFFE5E7EB),
+                                thickness = 0.5.dp
+                            )
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
                         // Content items on this page
-                        var listNumberCounter = 1
                         page.items.forEach { pageItem ->
                             when (pageItem) {
                                 is com.example.core.layout.ParagraphPageItem -> {
                                     val block = pageItem.originalBlock
-                                    val itemNumber = if (block.listType == ListType.NUMBERED) {
-                                        listNumberCounter++
+                                    val isSplitSlice = pageItem.startChar > 0 || (pageItem.endChar > 0 && pageItem.endChar < block.text.length)
+                                    val sliceStart = if (isSplitSlice) pageItem.startChar.coerceIn(0, block.text.length) else 0
+                                    val sliceEnd = if (isSplitSlice) pageItem.endChar.coerceIn(sliceStart, block.text.length) else block.text.length
+
+                                    val displayBlock = remember(block, isSplitSlice, sliceStart, sliceEnd) {
+                                        if (isSplitSlice) {
+                                            val subSpans = block.spans.mapNotNull { span ->
+                                                val spStart = (span.start - sliceStart).coerceAtLeast(0)
+                                                val spEnd = (span.end - sliceStart).coerceAtMost(sliceEnd - sliceStart)
+                                                if (spStart < spEnd) span.copy(start = spStart, end = spEnd) else null
+                                            }
+                                            block.copy(
+                                                text = block.text.substring(sliceStart, sliceEnd),
+                                                spans = subSpans,
+                                                listType = if (pageItem.isContinuation) ListType.NONE else block.listType
+                                            )
+                                        } else {
+                                            block
+                                        }
+                                    }
+
+                                    val itemNumber = if (!pageItem.isContinuation && block.listType == ListType.NUMBERED) {
+                                        globalListNumbers[pageItem.originalBlockIndex] ?: 1
                                     } else {
-                                        listNumberCounter = 1
                                         null
                                     }
 
                                     BlockItemView(
-                                        block = block,
+                                        block = displayBlock,
                                         itemNumber = itemNumber,
                                         isActive = pageItem.originalBlockIndex == activeBlockIndex,
+                                        isDarkPage = isDarkPage,
+                                        zoomScale = zoomScale,
+                                        canDeleteBlock = document.blocks.size > 1,
                                         onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
-                                        onSelectionChanged = onSelectionChanged,
-                                        onTextChanged = { newText, sel -> onUpdateBlockText(pageItem.originalBlockIndex, newText, sel) },
-                                        onEnterPressed = onInsertParagraph
+                                        onSelectionChanged = { sel ->
+                                            onSelectionChanged(
+                                                TextRange(
+                                                    (sliceStart + sel.start).coerceIn(0, block.text.length),
+                                                    (sliceStart + sel.end).coerceIn(0, block.text.length)
+                                                )
+                                            )
+                                        },
+                                        onTextChanged = { newText, sel ->
+                                            if (isSplitSlice) {
+                                                onUpdateSubSliceText(pageItem.originalBlockIndex, sliceStart, sliceEnd, newText, sel)
+                                            } else {
+                                                onUpdateBlockText(pageItem.originalBlockIndex, newText, sel)
+                                            }
+                                        },
+                                        onEnterPressed = onInsertParagraph,
+                                        onDeleteBlock = { onDeleteBlockById(block.id) }
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                 }
@@ -1523,6 +1725,10 @@ fun DocumentCanvas(
                                 is com.example.core.layout.TablePageItem -> {
                                     TableBlockView(
                                         table = pageItem.originalBlock,
+                                        startRow = pageItem.startRow,
+                                        endRow = pageItem.endRow,
+                                        isDarkPage = isDarkPage,
+                                        zoomScale = zoomScale,
                                         onEditProperties = { onEditTableProperties(pageItem.originalBlock) },
                                         onEditCell = { r, c -> onEditTableCell(pageItem.originalBlock, r, c) },
                                         onAddRow = { onQuickAddTableRow(pageItem.originalBlock.id) },
@@ -1536,6 +1742,7 @@ fun DocumentCanvas(
                                 is com.example.core.layout.ImagePageItem -> {
                                     ImageBlockView(
                                         imageBlock = pageItem.originalBlock,
+                                        zoomScale = zoomScale,
                                         onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
                                         onEditProperties = { onEditImageProperties(pageItem.originalBlock) }
                                     )
@@ -1543,15 +1750,62 @@ fun DocumentCanvas(
                                 }
 
                                 is com.example.core.layout.DividerPageItem -> {
-                                    HorizontalDivider(
-                                        color = Color(0xFFCBD5E1),
-                                        thickness = 1.dp,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    )
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        HorizontalDivider(
+                                            color = if (isDarkPage) Color(0xFF475569) else Color(0xFFCBD5E1),
+                                            thickness = 1.dp,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        if (document.blocks.size > 1) {
+                                            IconButton(
+                                                onClick = { onDeleteBlockById(pageItem.originalBlock.id) },
+                                                modifier = Modifier.size(24.dp).testTag("delete_divider_${pageItem.originalBlock.id}")
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Delete Horizontal Line",
+                                                    tint = if (isDarkPage) Color(0xFF94A3B8) else Color.Gray,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
 
                                 is com.example.core.layout.PageBreakPageItem -> {
-                                    // Page break boundary is naturally reflected by the next paper sheet
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        HorizontalDivider(modifier = Modifier.weight(1f), color = WordPrimary.copy(alpha = 0.35f))
+                                        Text(
+                                            text = " PAGE BREAK ",
+                                            fontSize = 9.sp,
+                                            color = WordPrimary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        HorizontalDivider(modifier = Modifier.weight(1f), color = WordPrimary.copy(alpha = 0.35f))
+                                        if (document.blocks.size > 1) {
+                                            IconButton(
+                                                onClick = { onDeleteBlockById(pageItem.originalBlock.id) },
+                                                modifier = Modifier.size(24.dp).testTag("delete_page_break_${pageItem.originalBlock.id}")
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Remove Page Break",
+                                                    tint = WordPrimary,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1559,7 +1813,10 @@ fun DocumentCanvas(
                         // Footer Area with Automatic Page Numbering
                         if (page.hasFooter) {
                             Spacer(modifier = Modifier.height(20.dp))
-                            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                            HorizontalDivider(
+                                color = if (isDarkPage) Color(0xFF334155) else Color(0xFFE5E7EB),
+                                thickness = 0.5.dp
+                            )
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1572,7 +1829,7 @@ fun DocumentCanvas(
                                 Text(
                                     text = page.formattedFooter,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray
+                                    color = if (isDarkPage) Color(0xFFCBD5E1) else Color.Gray
                                 )
                             }
                         }
@@ -1584,24 +1841,34 @@ fun DocumentCanvas(
             }
         } else {
             // Continuous Mobile View
+            val pageBgColor = try {
+                Color(android.graphics.Color.parseColor(document.layoutConfig.pageBackgroundHex))
+            } catch (e: Exception) { Color.White }
+            val isDarkPage = isColorDarkHex(document.layoutConfig.pageBackgroundHex)
+
+            if (showRuler) {
+                DocumentRulerBar(
+                    layout = document.layoutConfig,
+                    maxSheetWidth = 920.dp
+                )
+            }
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .shadow(1.dp, RoundedCornerShape(12.dp)),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = pageBgColor)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    var listNumberCounter = 1
                     document.blocks.forEachIndexed { index, block ->
                         val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
-                            listNumberCounter++
+                            globalListNumbers[index] ?: 1
                         } else {
-                            listNumberCounter = 1
                             null
                         }
 
@@ -1609,10 +1876,14 @@ fun DocumentCanvas(
                             block = block,
                             itemNumber = itemNumber,
                             isActive = index == activeBlockIndex,
+                            isDarkPage = isDarkPage,
+                            zoomScale = zoomScale,
+                            canDeleteBlock = document.blocks.size > 1,
                             onFocus = { onBlockSelected(index) },
                             onSelectionChanged = onSelectionChanged,
                             onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
                             onEnterPressed = onInsertParagraph,
+                            onDeleteBlock = { onDeleteBlockById(block.id) },
                             onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
                             onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
                             onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
@@ -1632,6 +1903,10 @@ fun DocumentCanvas(
 @Composable
 fun TableBlockView(
     table: TableBlock,
+    startRow: Int = 0,
+    endRow: Int = table.rowCount,
+    isDarkPage: Boolean = false,
+    zoomScale: Float = 1f,
     onEditProperties: () -> Unit = {},
     onEditCell: (row: Int, col: Int) -> Unit = { _, _ -> },
     onAddRow: () -> Unit = {},
@@ -1653,94 +1928,129 @@ fun TableBlockView(
     }
 
     val widthFraction = (table.tableWidthPercent.coerceIn(20, 100) / 100f)
+    val safeStartRow = startRow.coerceIn(0, table.rowCount)
+    val safeEndRow = endRow.coerceIn(safeStartRow, table.rowCount)
 
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = tableAlignment
     ) {
-        // Table Header Quick Action Toolbar
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-            modifier = Modifier.fillMaxWidth(widthFraction)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+        // Table Header Quick Action Toolbar (shown on first slice of table)
+        if (safeStartRow == 0) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                modifier = Modifier.fillMaxWidth(widthFraction)
             ) {
                 Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.TableChart,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = WordPrimary
-                    )
-                    Text(
-                        text = "Table (${table.rowCount}×${table.columnCount})",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = WordPrimary.copy(alpha = 0.12f),
-                        modifier = Modifier
-                            .clickable(onClick = onAddRow)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                            .testTag("quick_add_row_${table.id}")
-                    ) {
-                        Text("+ Row", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = WordPrimary.copy(alpha = 0.12f),
-                        modifier = Modifier
-                            .clickable(onClick = onAddCol)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                            .testTag("quick_add_col_${table.id}")
-                    ) {
-                        Text("+ Col", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
-                    }
-
-                    IconButton(
-                        onClick = onEditProperties,
-                        modifier = Modifier.size(24.dp).testTag("table_properties_btn_${table.id}")
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "Table Properties",
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            imageVector = Icons.Default.TableChart,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = WordPrimary
                         )
+                        Text(
+                            text = "Table (${table.rowCount}×${table.columnCount})",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = WordPrimary.copy(alpha = 0.12f),
+                            modifier = Modifier
+                                .clickable(onClick = onAddRow)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .testTag("quick_add_row_${table.id}")
+                        ) {
+                            Text("+ Row", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
+                        }
+
+                        if (table.rowCount > 1) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .clickable(onClick = onDeleteRow)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("quick_del_row_${table.id}")
+                            ) {
+                                Text("- Row", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = WordPrimary.copy(alpha = 0.12f),
+                            modifier = Modifier
+                                .clickable(onClick = onAddCol)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .testTag("quick_add_col_${table.id}")
+                        ) {
+                            Text("+ Col", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
+                        }
+
+                        if (table.columnCount > 1) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .clickable(onClick = onDeleteCol)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("quick_del_col_${table.id}")
+                            ) {
+                                Text("- Col", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onEditProperties,
+                            modifier = Modifier.size(24.dp).testTag("table_properties_btn_${table.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Table Properties",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Table Body Grid
+        // Table Body Grid (renders only rows in [safeStartRow, safeEndRow))
         Column(
             modifier = Modifier
                 .fillMaxWidth(widthFraction)
                 .border(
                     width = if (table.hasBorders) 1.dp else 0.5.dp,
                     color = if (table.hasBorders) tableBorderColor else Color(0xFFE2E8F0),
-                    shape = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
+                    shape = RoundedCornerShape(
+                        topStart = if (safeStartRow > 0) 4.dp else 0.dp,
+                        topEnd = if (safeStartRow > 0) 4.dp else 0.dp,
+                        bottomStart = 8.dp,
+                        bottomEnd = 8.dp
+                    )
                 )
         ) {
-            for (r in 0 until table.rowCount) {
+            for (r in safeStartRow until safeEndRow) {
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (c in 0 until table.columnCount) {
                         val cell = table.cells.getOrNull(r)?.getOrNull(c) ?: TableCell()
@@ -1748,9 +2058,9 @@ fun TableBlockView(
                         val cellBg = when {
                             cell.backgroundColorHex != null -> try {
                                 Color(android.graphics.Color.parseColor(cell.backgroundColorHex))
-                            } catch (e: Exception) { Color.White }
-                            r == 0 -> Color(0xFFF1F5F9)
-                            else -> Color.White
+                            } catch (e: Exception) { if (isDarkPage) Color(0xFF1E293B) else Color.White }
+                            r == 0 -> if (isDarkPage) Color(0xFF334155) else Color(0xFFF1F5F9)
+                            else -> if (isDarkPage) Color(0xFF1E293B) else Color.White
                         }
 
                         val cellTextAlign = when (cell.alignment) {
@@ -1758,6 +2068,12 @@ fun TableBlockView(
                             TextAlignment.END -> TextAlign.End
                             TextAlignment.JUSTIFY -> TextAlign.Justify
                             TextAlignment.START -> TextAlign.Start
+                        }
+
+                        val cellIsDark = if (cell.backgroundColorHex != null) {
+                            isColorDarkHex(cell.backgroundColorHex)
+                        } else {
+                            isDarkPage
                         }
 
                         Box(
@@ -1781,9 +2097,13 @@ fun TableBlockView(
                                 text = cell.text.ifBlank { "—" },
                                 fontWeight = if (cell.isBold || r == 0) FontWeight.Bold else FontWeight.Normal,
                                 fontStyle = if (cell.isItalic) FontStyle.Italic else FontStyle.Normal,
-                                fontSize = 12.sp,
+                                fontSize = (12f * zoomScale).sp,
                                 textAlign = cellTextAlign,
-                                color = if (cell.text.isBlank()) Color.LightGray else Color(0xFF1E293B),
+                                color = when {
+                                    cell.text.isBlank() -> if (cellIsDark) Color(0xFF64748B) else Color.LightGray
+                                    cellIsDark -> Color(0xFFF8FAFC)
+                                    else -> Color(0xFF1E293B)
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -1797,6 +2117,7 @@ fun TableBlockView(
 @Composable
 fun ImageBlockView(
     imageBlock: ImageBlock,
+    zoomScale: Float = 1f,
     onFocus: () -> Unit = {},
     onEditProperties: () -> Unit = {}
 ) {
@@ -1806,6 +2127,8 @@ fun ImageBlockView(
         TextAlignment.END -> Alignment.End
         else -> Alignment.CenterHorizontally
     }
+    val scaledWidthDp = (imageBlock.widthDp * zoomScale).dp
+    val scaledHeightDp = (imageBlock.heightDp * zoomScale).dp
 
     Column(
         modifier = Modifier
@@ -1816,8 +2139,8 @@ fun ImageBlockView(
     ) {
         Box(
             modifier = Modifier
-                .width(imageBlock.widthDp.dp)
-                .height(imageBlock.heightDp.dp)
+                .width(scaledWidthDp)
+                .height(scaledHeightDp)
                 .clip(RoundedCornerShape(8.dp))
                 .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
                 .clickable { onEditProperties() }
@@ -1906,7 +2229,7 @@ fun ImageBlockView(
                     TextAlignment.END -> TextAlign.End
                     else -> TextAlign.Center
                 },
-                modifier = Modifier.width(imageBlock.widthDp.dp)
+                modifier = Modifier.width(scaledWidthDp)
             )
         }
     }
@@ -1917,10 +2240,14 @@ fun BlockItemView(
     block: BlockElement,
     itemNumber: Int?,
     isActive: Boolean,
+    isDarkPage: Boolean = false,
+    zoomScale: Float = 1f,
+    canDeleteBlock: Boolean = false,
     onFocus: () -> Unit,
     onSelectionChanged: (TextRange) -> Unit,
     onTextChanged: (String, TextRange) -> Unit,
     onEnterPressed: () -> Unit,
+    onDeleteBlock: () -> Unit = {},
     onEditTableProperties: () -> Unit = {},
     onEditTableCell: (Int, Int) -> Unit = { _, _ -> },
     onAddTableRow: () -> Unit = {},
@@ -1945,18 +2272,21 @@ fun BlockItemView(
                 isRtl = block.isRtl
             )
 
-            val baseFontSize = when (block.headingStyle) {
-                HeadingStyle.TITLE -> 26.sp
-                HeadingStyle.SUBTITLE -> 18.sp
-                HeadingStyle.HEADING_1 -> 22.sp
-                HeadingStyle.HEADING_2 -> 18.sp
-                HeadingStyle.HEADING_3 -> 16.sp
-                HeadingStyle.QUOTE -> 15.sp
-                HeadingStyle.NORMAL -> 15.sp
+            val unscaledFontSize = when (block.headingStyle) {
+                HeadingStyle.TITLE -> 26f
+                HeadingStyle.SUBTITLE -> 18f
+                HeadingStyle.HEADING_1 -> 22f
+                HeadingStyle.HEADING_2 -> 18f
+                HeadingStyle.HEADING_3 -> 16f
+                HeadingStyle.QUOTE -> 15f
+                HeadingStyle.NORMAL -> 15f
             }
+            val baseFontSize = (unscaledFontSize * zoomScale).sp
 
             val defaultTextColor = when {
-                block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 -> WordPrimary
+                block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 ->
+                    if (isDarkPage) Color(0xFF60A5FA) else WordPrimary
+                isDarkPage -> Color(0xFFF8FAFC)
                 else -> Color(0xFF1E293B)
             }
 
@@ -1965,7 +2295,7 @@ fun BlockItemView(
                 mutableStateOf(TextFieldValue(text = block.text, selection = TextRange(block.text.length)))
             }
 
-            // Sync with external updates (such as undo, redo, find & replace) without resetting cursor on span edits
+            // Sync with external updates (such as undo, redo, find & replace, or slice updates)
             LaunchedEffect(block.text) {
                 if (textFieldValue.text != block.text) {
                     val safeStart = textFieldValue.selection.start.coerceIn(0, block.text.length)
@@ -1996,7 +2326,7 @@ fun BlockItemView(
                         .padding(start = indentPadding)
                         .clickable(onClick = onFocus)
                         .background(
-                            if (isActive) WordPrimary.copy(alpha = 0.04f) else Color.Transparent,
+                            if (isActive) WordPrimary.copy(alpha = if (isDarkPage) 0.14f else 0.04f) else Color.Transparent,
                             RoundedCornerShape(4.dp)
                         )
                         .padding(horizontal = 4.dp, vertical = 2.dp),
@@ -2009,7 +2339,7 @@ fun BlockItemView(
                                 text = "• ",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = baseFontSize,
-                                color = WordPrimary,
+                                color = if (isDarkPage) Color(0xFF60A5FA) else WordPrimary,
                                 modifier = Modifier.padding(end = 6.dp)
                             )
                         }
@@ -2023,7 +2353,7 @@ fun BlockItemView(
                                 text = formattedNumber,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = baseFontSize,
-                                color = WordPrimary,
+                                color = if (isDarkPage) Color(0xFF60A5FA) else WordPrimary,
                                 modifier = Modifier.padding(end = 6.dp)
                             )
                         }
@@ -2053,7 +2383,7 @@ fun BlockItemView(
                                 textDirection = textDirection,
                                 lineHeight = baseFontSize * (if (block.isRtl) block.lineSpacingMultiplier.coerceAtLeast(1.4f) else block.lineSpacingMultiplier)
                             ),
-                            cursorBrush = SolidColor(WordPrimary),
+                            cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .onFocusChanged { focusState ->
@@ -2064,6 +2394,20 @@ fun BlockItemView(
                                 .testTag("paragraph_input_${block.id}")
                         )
                     }
+
+                    if (isActive && canDeleteBlock && block.text.isEmpty()) {
+                        IconButton(
+                            onClick = onDeleteBlock,
+                            modifier = Modifier.size(22.dp).testTag("delete_paragraph_${block.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete empty paragraph",
+                                tint = if (isDarkPage) Color(0xFF94A3B8) else Color.Gray,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -2071,6 +2415,8 @@ fun BlockItemView(
         is TableBlock -> {
             TableBlockView(
                 table = block,
+                isDarkPage = isDarkPage,
+                zoomScale = zoomScale,
                 onEditProperties = onEditTableProperties,
                 onEditCell = onEditTableCell,
                 onAddRow = onAddTableRow,
@@ -2083,24 +2429,45 @@ fun BlockItemView(
         is ImageBlock -> {
             ImageBlockView(
                 imageBlock = block,
+                zoomScale = zoomScale,
                 onFocus = onFocus,
                 onEditProperties = onEditImageProperties
             )
         }
 
         is DividerBlock -> {
-            HorizontalDivider(
-                color = Color(0xFFCBD5E1),
-                thickness = 1.dp,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(
+                    color = if (isDarkPage) Color(0xFF475569) else Color(0xFFCBD5E1),
+                    thickness = 1.dp,
+                    modifier = Modifier.weight(1f)
+                )
+                if (canDeleteBlock) {
+                    IconButton(
+                        onClick = onDeleteBlock,
+                        modifier = Modifier.size(24.dp).testTag("delete_divider_${block.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete Horizontal Line",
+                            tint = if (isDarkPage) Color(0xFF94A3B8) else Color.Gray,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
         }
 
         is PageBreakBlock -> {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 HorizontalDivider(modifier = Modifier.weight(1f), color = WordPrimary.copy(alpha = 0.4f))
@@ -2111,6 +2478,19 @@ fun BlockItemView(
                     fontWeight = FontWeight.Bold
                 )
                 HorizontalDivider(modifier = Modifier.weight(1f), color = WordPrimary.copy(alpha = 0.4f))
+                if (canDeleteBlock) {
+                    IconButton(
+                        onClick = onDeleteBlock,
+                        modifier = Modifier.size(24.dp).testTag("delete_page_break_${block.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove Page Break",
+                            tint = WordPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -2119,6 +2499,9 @@ fun BlockItemView(
 @Composable
 fun EditorStatusBar(
     document: RichDocument?,
+    currentPageNumber: Int = 1,
+    totalPages: Int = document?.estimatedPageCount ?: 1,
+    showWordCount: Boolean = true,
     autosaveStatus: AutosaveStatus,
     zoomPercent: Int,
     activeBlock: ParagraphBlock?
@@ -2126,7 +2509,9 @@ fun EditorStatusBar(
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 4.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
     ) {
         Row(
             modifier = Modifier
@@ -2140,22 +2525,24 @@ fun EditorStatusBar(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Page 1 of ${document?.estimatedPageCount ?: 1}",
+                    text = "Page $currentPageNumber of $totalPages",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                Text(
-                    text = "${document?.wordCount ?: 0} words",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                Text(
-                    text = "${document?.characterCount ?: 0} chars",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (showWordCount) {
+                    Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        text = "${document?.wordCount ?: 0} words",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        text = "${document?.characterCount ?: 0} chars",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 Text(
                     text = if (activeBlock?.isRtl == true) "Urdu (RTL)" else "English (LTR)",

@@ -77,10 +77,10 @@ fun FindReplaceBar(
                         onValueChange = onFindQueryChanged,
                         placeholder = { Text("Find in document...", fontSize = 13.sp) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
                             .testTag("find_input_field")
                     )
 
@@ -88,14 +88,14 @@ fun FindReplaceBar(
 
                     if (findQuery.isNotBlank()) {
                         Surface(
-                            color = if (matchCount > 0) WordPrimary.copy(alpha = 0.12f) else Color(0xFFFFEBEE),
+                            color = if (matchCount > 0) WordPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.errorContainer,
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
                                 text = if (matchCount > 0) "$matchCount found" else "0 found",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (matchCount > 0) WordPrimary else Color.Red,
+                                color = if (matchCount > 0) WordPrimary else MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -103,7 +103,7 @@ fun FindReplaceBar(
 
                     IconButton(
                         onClick = onClose,
-                        modifier = Modifier.size(36.dp).testTag("close_find_replace")
+                        modifier = Modifier.testTag("close_find_replace")
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Close Find and Replace")
                     }
@@ -121,10 +121,10 @@ fun FindReplaceBar(
                         onValueChange = onReplaceQueryChanged,
                         placeholder = { Text("Replace with...", fontSize = 13.sp) },
                         leadingIcon = { Icon(Icons.Default.FindReplace, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
                             .testTag("replace_input_field")
                     )
 
@@ -136,7 +136,7 @@ fun FindReplaceBar(
                         colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
-                            .height(44.dp)
+                            .height(48.dp)
                             .testTag("replace_all_button")
                     ) {
                         Text("Replace All", fontSize = 12.sp)
