@@ -180,11 +180,17 @@ class PdfExportServiceImpl : DocumentExportService {
         try {
             outputFile.parentFile?.mkdirs()
             val pdfDocument = generatePdfDocument(context, document)
-            FileOutputStream(outputFile).use { out ->
-                pdfDocument.writeTo(out)
-                out.flush()
+            try {
+                FileOutputStream(outputFile).use { out ->
+                    pdfDocument.writeTo(out)
+                    out.flush()
+                }
+            } finally {
+                try {
+                    pdfDocument.close()
+                } catch (_: Exception) {
+                }
             }
-            pdfDocument.close()
             DocumentResult.Success(outputFile)
         } catch (e: Exception) {
             // When running under local JVM / Robolectric where native Skia/Pdfium library is unmocked
@@ -216,17 +222,22 @@ class PdfExportServiceImpl : DocumentExportService {
                 )
             pfd.use { descriptor ->
                 FileOutputStream(descriptor.fileDescriptor).use { outputStream ->
+                    var pdfDocument: PdfDocument? = null
                     try {
-                        val pdfDocument = generatePdfDocument(context, document)
+                        pdfDocument = generatePdfDocument(context, document)
                         pdfDocument.writeTo(outputStream)
                         outputStream.flush()
-                        pdfDocument.close()
                     } catch (e: Exception) {
                         if (e.message?.contains("document is closed") == true || e is java.lang.IllegalStateException) {
                             outputStream.write("%PDF-1.4\n%SmartWord Processor Multilingual PDF Export\n%%EOF".toByteArray(Charsets.UTF_8))
                             outputStream.flush()
                         } else {
                             throw e
+                        }
+                    } finally {
+                        try {
+                            pdfDocument?.close()
+                        } catch (_: Exception) {
                         }
                     }
                 }
