@@ -180,7 +180,7 @@ class EditorViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     val showRuler: StateFlow<Boolean> = preferencesManager.showRuler
-        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val isDirty: StateFlow<Boolean> = autosaveController.status.map {
         it == AutosaveStatus.DIRTY || it == AutosaveStatus.ERROR

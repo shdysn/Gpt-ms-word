@@ -1018,12 +1018,14 @@ fun WordRibbon(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
-            // Tab Header Strip with Ribbon Collapse/Expand Toggle
+            // Tab Header Strip with Single-Line Tabs & Compact Collapse Toggle
             val tabs = RibbonTab.entries
             val selectedIndex = tabs.indexOf(activeTab)
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TabRow(
@@ -1031,19 +1033,21 @@ fun WordRibbon(
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = WordPrimary,
                     modifier = Modifier.weight(1f),
+                    divider = {},
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
                             color = WordPrimary,
-                            height = 3.dp
+                            height = 2.5.dp
                         )
                     }
                 ) {
                     tabs.forEach { tab ->
+                        val isSelected = activeTab == tab
                         Tab(
-                            selected = activeTab == tab,
+                            selected = isSelected,
                             onClick = {
-                                if (activeTab == tab) {
+                                if (isSelected) {
                                     onToggleRibbon()
                                 } else {
                                     onTabSelected(tab)
@@ -1051,31 +1055,42 @@ fun WordRibbon(
                                         onToggleRibbon()
                                     }
                                 }
-                            },
-                            text = {
+                            }
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 2.dp, vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
                                     text = tab.name.lowercase().replaceFirstChar { it.uppercase() },
-                                    fontWeight = if (activeTab == tab) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        )
+                        }
                     }
                 }
 
-                IconButton(
-                    onClick = onToggleRibbon,
+                Box(
                     modifier = Modifier
-                        .minimumInteractiveComponentSize()
-                        .testTag("toggle_ribbon_visibility")
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClick = onToggleRibbon)
+                        .testTag("toggle_ribbon_visibility"),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isRibbonVisible) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = if (isRibbonVisible) "Collapse Ribbon" else "Expand Ribbon",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
             // Toolbar Contents based on Selected Tab
             AnimatedVisibility(visible = isRibbonVisible) {
@@ -1574,14 +1589,7 @@ fun DocumentCanvas(
             }
             val scaledMaxSheetWidth = (baseMaxSheetWidth.value * zoomScale).dp
 
-            if (showRuler) {
-                DocumentRulerBar(
-                    layout = document.layoutConfig,
-                    maxSheetWidth = scaledMaxSheetWidth
-                )
-            }
-
-            pagesToDisplay.forEach { page ->
+            pagesToDisplay.forEachIndexed { pageIdx, page ->
                 // Page indicator badge above physical sheet
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -1595,6 +1603,13 @@ fun DocumentCanvas(
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                if (showRuler && pageIdx == 0) {
+                    DocumentRulerBar(
+                        layout = document.layoutConfig,
+                        maxSheetWidth = scaledMaxSheetWidth
                     )
                 }
 

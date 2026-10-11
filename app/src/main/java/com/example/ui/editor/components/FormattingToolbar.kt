@@ -128,18 +128,21 @@ fun FormattingToolbar(
                     shape = RoundedCornerShape(6.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier
+                        .height(34.dp)
                         .clickable { styleMenuExpanded = true }
                         .testTag("heading_style_selector")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
                         Text(
                             text = currentHeadingStyle.displayName,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = WordPrimary
+                            color = WordPrimary,
+                            maxLines = 1,
+                            softWrap = false
                         )
                         Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Heading Style", modifier = Modifier.size(16.dp), tint = WordPrimary)
                     }
@@ -174,17 +177,20 @@ fun FormattingToolbar(
                     shape = RoundedCornerShape(6.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier
+                        .height(34.dp)
                         .clickable { fontMenuExpanded = true }
                         .testTag("font_family_selector")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
                         Text(
                             text = currentFontDisplay,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
                         )
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
@@ -232,18 +238,21 @@ fun FormattingToolbar(
                     shape = RoundedCornerShape(6.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier
+                        .height(34.dp)
                         .clickable { sizeMenuExpanded = true }
                         .testTag("font_size_selector")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
                         val currentSize = activeFormatting.fontSizeSp ?: 11f
                         Text(
                             text = "${currentSize.toInt()} pt",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            softWrap = false
                         )
                         Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
@@ -515,8 +524,7 @@ fun FormatToggleButton(
         color = if (isActive) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
         border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, WordPrimary) else null,
         modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .size(36.dp)
+            .size(34.dp)
             .clickable(onClick = onClick)
             .testTag(tag)
     ) {
@@ -525,7 +533,7 @@ fun FormatToggleButton(
                 imageVector = icon,
                 contentDescription = label,
                 tint = if (isActive) WordPrimary else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(19.dp)
             )
         }
     }
@@ -544,8 +552,7 @@ fun FormatTextToggleButton(
         color = if (isActive) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
         border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, WordPrimary) else null,
         modifier = Modifier
-            .minimumInteractiveComponentSize()
-            .size(36.dp)
+            .size(34.dp)
             .clickable(onClick = onClick)
             .testTag(tag)
     ) {

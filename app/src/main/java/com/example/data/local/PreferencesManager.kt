@@ -40,7 +40,7 @@ class PreferencesManager(private val context: Context) {
     }
 
     val showRuler: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[KEY_SHOW_RULER] ?: true
+        preferences[KEY_SHOW_RULER] ?: false
     }
 
     val showWordCount: Flow<Boolean> = context.dataStore.data.map { preferences ->
