@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatIndentDecrease
 import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignJustify
 import androidx.compose.material.icons.filled.FormatBold
@@ -86,6 +87,7 @@ fun FormattingToolbar(
     onToggleRtl: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var styleMenuExpanded by remember { mutableStateOf(false) }
     var fontMenuExpanded by remember { mutableStateOf(false) }
     var sizeMenuExpanded by remember { mutableStateOf(false) }
     var textColorMenuExpanded by remember { mutableStateOf(false) }
@@ -95,6 +97,7 @@ fun FormattingToolbar(
     val fontOptions = com.example.core.typography.DocumentFontManager.AVAILABLE_FONTS
     val defaultFontForDisplay = if (isRtl) "Noto Nastaliq Urdu" else "Calibri"
     val currentFontDisplay = activeFormatting.fontFamilyName ?: defaultFontForDisplay
+    val currentHeadingStyle = activeParagraph?.headingStyle ?: HeadingStyle.NORMAL
 
     val fontSizes = listOf(10f, 11f, 12f, 14f, 16f, 18f, 20f, 24f, 28f, 36f)
 
@@ -119,6 +122,63 @@ fun FormattingToolbar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            // Heading Style & Preset Selector (Word Styles)
+            Box {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (currentHeadingStyle != HeadingStyle.NORMAL) WordPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .clickable { styleMenuExpanded = true }
+                        .testTag("heading_style_selector")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = currentHeadingStyle.displayName,
+                            fontSize = 12.sp,
+                            fontWeight = if (currentHeadingStyle != HeadingStyle.NORMAL) FontWeight.Bold else FontWeight.Medium,
+                            color = if (currentHeadingStyle != HeadingStyle.NORMAL) WordPrimary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                }
+
+                DropdownMenu(
+                    expanded = styleMenuExpanded,
+                    onDismissRequest = { styleMenuExpanded = false }
+                ) {
+                    HeadingStyle.entries.forEach { style ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = style.displayName,
+                                    fontSize = when (style) {
+                                        HeadingStyle.TITLE -> 17.sp
+                                        HeadingStyle.HEADING_1 -> 16.sp
+                                        HeadingStyle.HEADING_2 -> 15.sp
+                                        else -> 13.sp
+                                    },
+                                    fontWeight = if (style.isBold) FontWeight.Bold else FontWeight.Normal,
+                                    fontStyle = if (style == HeadingStyle.QUOTE) androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal,
+                                    color = if (currentHeadingStyle == style) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            trailingIcon = if (currentHeadingStyle == style) {
+                                { Icon(androidx.compose.material.icons.Icons.Default.Check, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(16.dp)) }
+                            } else null,
+                            onClick = {
+                                styleMenuExpanded = false
+                                onSetHeadingStyle(style)
+                            }
+                        )
+                    }
+                }
+            }
+
+            ToolbarDivider()
+
             // Font Family Selector
             Box {
                 Surface(

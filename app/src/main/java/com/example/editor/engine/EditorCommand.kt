@@ -264,6 +264,55 @@ data class ChangeListTypeCommand(
 }
 
 /**
+ * Command for updating document title.
+ */
+data class UpdateTitleCommand(
+    val oldTitle: String,
+    val newTitle: String
+) : EditorCommand {
+    override val description: String = "Rename Title to \"$newTitle\""
+
+    override fun apply(document: RichDocument): RichDocument =
+        document.copy(title = newTitle)
+
+    override fun revert(document: RichDocument): RichDocument =
+        document.copy(title = oldTitle)
+}
+
+/**
+ * Command for replacing a single search match in a paragraph while preserving formatting.
+ */
+data class ReplaceSingleMatchCommand(
+    val blockId: String,
+    val oldText: String,
+    val newText: String,
+    val oldSpans: List<InlineSpan>,
+    val newSpans: List<InlineSpan>,
+    val matchWord: String,
+    val replaceWord: String
+) : EditorCommand {
+    override val description: String = "Replace \"$matchWord\" with \"$replaceWord\""
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(text = newText, spans = newSpans)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(text = oldText, spans = oldSpans)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+}
+
+/**
  * Command for in-document Find and Replace operations across paragraphs.
  */
 data class BatchReplaceTextCommand(

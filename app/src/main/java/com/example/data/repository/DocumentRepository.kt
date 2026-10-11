@@ -13,11 +13,12 @@ import java.io.File
  */
 enum class TemplateType(val title: String, val description: String) {
     BLANK("Blank document", "Start from scratch with clean A4 layout"),
-    BUSINESS_LETTER("Business Letter", "Formal letterhead, address blocks, and professional closing"),
-    PROJECT_REPORT("Formal Report", "Cover layout, abstract, numbered sections, and conclusion"),
+    BUSINESS_LETTER("Letter", "Formal letter format with address, salutation, body, and closing"),
+    PROJECT_REPORT("Report", "Cover layout, executive summary, numbered sections, and data table"),
+    APPLICATION("Application", "Formal job, leave, or academic application format"),
+    URDU_DOCUMENT("Simple Urdu document", "Urdu Nastaliq RTL document with title, paragraphs, and closing"),
     MEETING_MINUTES("Meeting Minutes", "Attendees, agenda items, decisions, and action tables"),
-    PAGINATION_SHOWCASE("Multi-Page Specification", "Comprehensive multi-page whitepaper with page breaks, tables, and headers"),
-    URDU_DOCUMENT("Urdu & Multilingual Document", "Urdu Nastaliq RTL document with mixed English, numbers, lists, and formatting")
+    PAGINATION_SHOWCASE("Multi-Page Specification", "Comprehensive multi-page whitepaper with page breaks, tables, and headers")
 }
 
 /**

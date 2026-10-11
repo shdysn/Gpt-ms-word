@@ -67,6 +67,42 @@ enum class EditorViewMode {
     CONTINUOUS_MOBILE // Flowing full-bleed mobile document canvas
 }
 
+data class SearchMatch(
+    val blockIndex: Int,
+    val blockId: String,
+    val startOffset: Int,
+    val endOffset: Int,
+    val previewText: String
+)
+
+data class DocumentStatistics(
+    val wordCount: Int = 0,
+    val charCount: Int = 0,
+    val charCountNoSpaces: Int = 0,
+    val paragraphCount: Int = 0,
+    val estimatedPageCount: Int = 1,
+    val selectedWordCount: Int = 0,
+    val selectedCharCount: Int = 0
+)
+
+data class OutlineItem(
+    val blockIndex: Int,
+    val blockId: String,
+    val text: String,
+    val headingStyle: HeadingStyle,
+    val level: Int
+)
+
+data class ProofingIssue(
+    val blockIndex: Int,
+    val blockId: String,
+    val start: Int,
+    val end: Int,
+    val issueText: String,
+    val suggestion: String,
+    val message: String
+)
+
 class EditorViewModel(
     private val documentId: String,
     private val repository: DocumentRepository,
@@ -120,12 +156,91 @@ class EditorViewModel(
     private val _replaceQuery = MutableStateFlow("")
     val replaceQuery: StateFlow<String> = _replaceQuery.asStateFlow()
 
+    private val _isCaseSensitive = MutableStateFlow(false)
+    val isCaseSensitive: StateFlow<Boolean> = _isCaseSensitive.asStateFlow()
+
     private val _matchCount = MutableStateFlow(0)
     val matchCount: StateFlow<Int> = _matchCount.asStateFlow()
+
+    private val _currentMatchIndex = MutableStateFlow(0)
+    val currentMatchIndex: StateFlow<Int> = _currentMatchIndex.asStateFlow()
+
+    private val _matches = MutableStateFlow<List<SearchMatch>>(emptyList())
+    val matches: StateFlow<List<SearchMatch>> = _matches.asStateFlow()
+
+    // Navigation Drawer / Document Headings Outline
+    private val _isNavigationPaneVisible = MutableStateFlow(false)
+    val isNavigationPaneVisible: StateFlow<Boolean> = _isNavigationPaneVisible.asStateFlow()
+
+    val documentOutline: StateFlow<List<OutlineItem>> = _document.map { doc ->
+        if (doc == null) emptyList()
+        else {
+            doc.blocks.mapIndexedNotNull { index, block ->
+                if (block is ParagraphBlock && block.headingStyle != HeadingStyle.NORMAL && block.text.isNotBlank()) {
+                    val level = when (block.headingStyle) {
+                        HeadingStyle.TITLE -> 0
+                        HeadingStyle.SUBTITLE -> 1
+                        HeadingStyle.HEADING_1 -> 1
+                        HeadingStyle.HEADING_2 -> 2
+                        HeadingStyle.HEADING_3 -> 3
+                        HeadingStyle.QUOTE -> 2
+                        HeadingStyle.NORMAL -> 0
+                    }
+                    OutlineItem(
+                        blockIndex = index,
+                        blockId = block.id,
+                        text = block.text.take(80),
+                        headingStyle = block.headingStyle,
+                        level = level
+                    )
+                } else null
+            }
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     // Selection & Pending Typing Attributes
     private val _selection = MutableStateFlow(androidx.compose.ui.text.TextRange.Zero)
     val selection: StateFlow<androidx.compose.ui.text.TextRange> = _selection.asStateFlow()
+
+    val documentStatistics: StateFlow<DocumentStatistics> = combine(
+        _document,
+        _activeBlockIndex,
+        _selection
+    ) { doc, blockIdx, sel ->
+        if (doc == null) {
+            DocumentStatistics()
+        } else {
+            var selWords = 0
+            var selChars = 0
+            if (!sel.collapsed && sel.min < sel.max) {
+                val block = doc.blocks.getOrNull(blockIdx) as? ParagraphBlock
+                if (block != null) {
+                    val safeStart = sel.min.coerceIn(0, block.text.length)
+                    val safeEnd = sel.max.coerceIn(safeStart, block.text.length)
+                    val selSub = block.text.substring(safeStart, safeEnd)
+                    selChars = selSub.length
+                    selWords = if (selSub.isBlank()) 0 else selSub.trim().split("\\s+".toRegex()).count { it.isNotBlank() }
+                }
+            }
+            DocumentStatistics(
+                wordCount = doc.wordCount,
+                charCount = doc.characterCount,
+                charCountNoSpaces = doc.characterCountNoSpaces,
+                paragraphCount = doc.paragraphCount,
+                estimatedPageCount = doc.estimatedPageCount,
+                selectedWordCount = selWords,
+                selectedCharCount = selChars
+            )
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = DocumentStatistics()
+    )
 
     private val _pendingFormatting = MutableStateFlow(com.example.editor.engine.ActiveFormatting())
     val pendingFormatting: StateFlow<com.example.editor.engine.ActiveFormatting> = _pendingFormatting.asStateFlow()
@@ -230,9 +345,9 @@ class EditorViewModel(
         _canRedo.value = undoRedoManager.canRedo
     }
 
-    private fun executeCommand(command: EditorCommand) {
+    private fun executeCommand(command: EditorCommand, coalesce: Boolean = false) {
         val currentDoc = _document.value ?: return
-        val newDoc = undoRedoManager.execute(command, currentDoc)
+        val newDoc = undoRedoManager.execute(command, currentDoc, coalesce)
         _document.value = newDoc
         updateUndoRedoStates()
         autosaveController.scheduleAutosave()
@@ -240,18 +355,20 @@ class EditorViewModel(
 
     fun undo() {
         val currentDoc = _document.value ?: return
-        val (revertedDoc, _) = undoRedoManager.undo(currentDoc)
+        val (revertedDoc, cmd) = undoRedoManager.undo(currentDoc)
         _document.value = revertedDoc
         updateUndoRedoStates()
         autosaveController.scheduleAutosave()
+        cmd?.let { _statusMessage.value = "Undone: ${it.description}" }
     }
 
     fun redo() {
         val currentDoc = _document.value ?: return
-        val (reappliedDoc, _) = undoRedoManager.redo(currentDoc)
+        val (reappliedDoc, cmd) = undoRedoManager.redo(currentDoc)
         _document.value = reappliedDoc
         updateUndoRedoStates()
         autosaveController.scheduleAutosave()
+        cmd?.let { _statusMessage.value = "Redone: ${it.description}" }
     }
 
     // ----------------------------------------------------
@@ -260,8 +377,9 @@ class EditorViewModel(
 
     fun updateTitle(newTitle: String) {
         val currentDoc = _document.value ?: return
-        _document.value = currentDoc.copy(title = newTitle)
-        autosaveController.scheduleAutosave()
+        val oldTitle = currentDoc.title
+        if (oldTitle == newTitle) return
+        executeCommand(com.example.editor.engine.UpdateTitleCommand(oldTitle, newTitle))
     }
 
     fun updateSelection(newSelection: androidx.compose.ui.text.TextRange) {
@@ -294,6 +412,8 @@ class EditorViewModel(
 
         val autoRtl = if (oldText.isBlank() && !block.isRtl && com.example.core.typography.BidiUtils.detectParagraphIsRtl(newText)) true else null
 
+        val shouldCoalesce = deletedLen <= 1 && insertedLen <= 1 && !newText.endsWith(" ") && !newText.endsWith("\n")
+
         executeCommand(
             com.example.editor.engine.UpdateParagraphTextAndSpansCommand(
                 blockId = block.id,
@@ -303,7 +423,8 @@ class EditorViewModel(
                 newSpans = newSpans,
                 wasRtl = block.isRtl,
                 isRtl = autoRtl
-            )
+            ),
+            coalesce = shouldCoalesce
         )
         _selection.value = newSelection
     }
@@ -560,37 +681,145 @@ class EditorViewModel(
             _findQuery.value = ""
             _replaceQuery.value = ""
             _matchCount.value = 0
+            _currentMatchIndex.value = 0
+            _matches.value = emptyList()
         }
+    }
+
+    fun toggleCaseSensitive() {
+        _isCaseSensitive.value = !_isCaseSensitive.value
+        recomputeMatches(_findQuery.value, _isCaseSensitive.value)
     }
 
     fun updateFindQuery(query: String) {
         _findQuery.value = query
-        recomputeMatches(query)
+        recomputeMatches(query, _isCaseSensitive.value)
     }
 
     fun updateReplaceQuery(query: String) {
         _replaceQuery.value = query
     }
 
-    private fun recomputeMatches(query: String) {
+    private fun recomputeMatches(query: String, caseSensitive: Boolean) {
         val doc = _document.value ?: return
         if (query.isBlank()) {
             _matchCount.value = 0
+            _currentMatchIndex.value = 0
+            _matches.value = emptyList()
             return
         }
-        var total = 0
-        for (block in doc.blocks) {
+
+        val foundList = mutableListOf<SearchMatch>()
+        doc.blocks.forEachIndexed { blockIdx, block ->
             if (block is ParagraphBlock) {
                 var idx = 0
-                while (true) {
-                    val found = block.text.indexOf(query, idx, ignoreCase = true)
+                while (idx < block.text.length) {
+                    val found = block.text.indexOf(query, idx, ignoreCase = !caseSensitive)
                     if (found == -1) break
-                    total++
-                    idx = found + query.length
+                    val previewStart = maxOf(0, found - 20)
+                    val previewEnd = minOf(block.text.length, found + query.length + 20)
+                    foundList.add(
+                        SearchMatch(
+                            blockIndex = blockIdx,
+                            blockId = block.id,
+                            startOffset = found,
+                            endOffset = found + query.length,
+                            previewText = block.text.substring(previewStart, previewEnd)
+                        )
+                    )
+                    idx = found + maxOf(1, query.length)
                 }
             }
         }
-        _matchCount.value = total
+
+        _matches.value = foundList
+        _matchCount.value = foundList.size
+        if (foundList.isNotEmpty()) {
+            if (_currentMatchIndex.value !in 1..foundList.size) {
+                _currentMatchIndex.value = 1
+            }
+            highlightCurrentMatch()
+        } else {
+            _currentMatchIndex.value = 0
+        }
+    }
+
+    fun findNext() {
+        val count = _matchCount.value
+        if (count == 0) return
+        val nextIdx = if (_currentMatchIndex.value >= count) 1 else _currentMatchIndex.value + 1
+        _currentMatchIndex.value = nextIdx
+        highlightCurrentMatch()
+    }
+
+    fun findPrevious() {
+        val count = _matchCount.value
+        if (count == 0) return
+        val prevIdx = if (_currentMatchIndex.value <= 1) count else _currentMatchIndex.value - 1
+        _currentMatchIndex.value = prevIdx
+        highlightCurrentMatch()
+    }
+
+    private fun highlightCurrentMatch() {
+        val idx = _currentMatchIndex.value
+        val list = _matches.value
+        if (idx in 1..list.size) {
+            val match = list[idx - 1]
+            _activeBlockIndex.value = match.blockIndex
+            _selection.value = androidx.compose.ui.text.TextRange(match.startOffset, match.endOffset)
+        }
+    }
+
+    fun replaceNext() {
+        val doc = _document.value ?: return
+        val find = _findQuery.value
+        val replace = _replaceQuery.value
+        val list = _matches.value
+        val idx = _currentMatchIndex.value
+        if (find.isBlank() || list.isEmpty() || idx !in 1..list.size) return
+
+        val match = list[idx - 1]
+        val block = doc.blocks.getOrNull(match.blockIndex) as? ParagraphBlock ?: return
+        val oldText = block.text
+
+        // Verify bounds
+        if (match.startOffset >= oldText.length || match.endOffset > oldText.length) {
+            recomputeMatches(find, _isCaseSensitive.value)
+            return
+        }
+
+        val actualSub = oldText.substring(match.startOffset, match.endOffset)
+        if (!actualSub.equals(find, ignoreCase = !_isCaseSensitive.value)) {
+            recomputeMatches(find, _isCaseSensitive.value)
+            return
+        }
+
+        val newText = StringBuilder(oldText).apply {
+            replace(match.startOffset, match.endOffset, replace)
+        }.toString()
+
+        val newSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+            spans = block.spans,
+            editOffset = match.startOffset,
+            deletedLength = find.length,
+            insertedLength = replace.length,
+            pendingFormatting = null
+        )
+
+        executeCommand(
+            com.example.editor.engine.ReplaceSingleMatchCommand(
+                blockId = block.id,
+                oldText = oldText,
+                newText = newText,
+                oldSpans = block.spans,
+                newSpans = newSpans,
+                matchWord = find,
+                replaceWord = replace
+            )
+        )
+
+        _statusMessage.value = "Replaced 1 occurrence"
+        recomputeMatches(find, _isCaseSensitive.value)
     }
 
     fun replaceAll() {
@@ -599,27 +828,197 @@ class EditorViewModel(
         val replace = _replaceQuery.value
         if (find.isBlank()) return
 
-        var count = 0
+        var totalReplacements = 0
         val newBlocks = doc.blocks.map { block ->
-            if (block is ParagraphBlock && block.text.contains(find, ignoreCase = true)) {
-                val replacedText = block.text.replace(find, replace, ignoreCase = true)
-                count += (block.text.length - replacedText.length).coerceAtLeast(1)
-                block.copy(text = replacedText)
+            if (block is ParagraphBlock) {
+                val occurrences = mutableListOf<Int>()
+                var idx = 0
+                while (idx < block.text.length) {
+                    val found = block.text.indexOf(find, idx, ignoreCase = !_isCaseSensitive.value)
+                    if (found == -1) break
+                    occurrences.add(found)
+                    idx = found + maxOf(1, find.length)
+                }
+
+                if (occurrences.isEmpty()) {
+                    block
+                } else {
+                    totalReplacements += occurrences.size
+                    // Replace right to left so earlier match offsets remain intact
+                    var updatedText = block.text
+                    var updatedSpans = block.spans
+
+                    for (matchStart in occurrences.reversed()) {
+                        val matchEnd = matchStart + find.length
+                        updatedText = StringBuilder(updatedText).apply {
+                            replace(matchStart, matchEnd, replace)
+                        }.toString()
+
+                        updatedSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+                            spans = updatedSpans,
+                            editOffset = matchStart,
+                            deletedLength = find.length,
+                            insertedLength = replace.length,
+                            pendingFormatting = null
+                        )
+                    }
+
+                    block.copy(text = updatedText, spans = updatedSpans)
+                }
             } else block
         }
 
-        if (count > 0 || newBlocks != doc.blocks) {
+        if (totalReplacements > 0) {
             val newDoc = doc.copy(blocks = newBlocks)
             executeCommand(
                 com.example.editor.engine.BatchReplaceTextCommand(
                     oldDocument = doc,
                     newDocument = newDoc,
-                    replacementsCount = _matchCount.value
+                    replacementsCount = totalReplacements
                 )
             )
-            _statusMessage.value = "Replaced occurrences"
-            recomputeMatches(find)
+            _statusMessage.value = "Replaced $totalReplacements occurrences"
+            recomputeMatches(find, _isCaseSensitive.value)
         }
+    }
+
+    // ----------------------------------------------------
+    // Selection & Navigation Helpers
+    // ----------------------------------------------------
+
+    fun selectAllInActiveBlock() {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        _selection.value = androidx.compose.ui.text.TextRange(0, block.text.length)
+    }
+
+    fun moveCursorToStart() {
+        _selection.value = androidx.compose.ui.text.TextRange.Zero
+    }
+
+    fun moveCursorToEnd() {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        _selection.value = androidx.compose.ui.text.TextRange(block.text.length)
+    }
+
+    fun toggleNavigationPane() {
+        _isNavigationPaneVisible.value = !_isNavigationPaneVisible.value
+    }
+
+    fun jumpToOutlineItem(item: OutlineItem) {
+        _activeBlockIndex.value = item.blockIndex
+        _selection.value = androidx.compose.ui.text.TextRange.Zero
+    }
+
+    // ----------------------------------------------------
+    // Proofing & Spell Check Engine
+    // ----------------------------------------------------
+
+    private val commonTypoDictionary = mapOf(
+        "teh" to "the",
+        "recieve" to "receive",
+        "seperate" to "separate",
+        "untill" to "until",
+        "definately" to "definitely",
+        "occured" to "occurred",
+        "goverment" to "government",
+        "alot" to "a lot",
+        "accomodate" to "accommodate",
+        "beleive" to "believe",
+        "truely" to "truly",
+        "calender" to "calendar",
+        "adress" to "address",
+        "acheive" to "achieve",
+        "neccessary" to "necessary",
+        "dont" to "don't",
+        "wont" to "won't",
+        "cant" to "can't",
+        "didnt" to "didn't",
+        "isnt" to "isn't",
+        "arent" to "aren't"
+    )
+
+    fun runProofingCheck(): List<ProofingIssue> {
+        val doc = _document.value ?: return emptyList()
+        val issues = mutableListOf<ProofingIssue>()
+
+        doc.blocks.forEachIndexed { blockIdx, block ->
+            if (block is ParagraphBlock && block.text.isNotBlank()) {
+                val text = block.text
+
+                // 1. Repeated consecutive words: "the the", "in in"
+                val repeatedWordRegex = "\\b([a-zA-Z]+)\\s+\\1\\b".toRegex(RegexOption.IGNORE_CASE)
+                repeatedWordRegex.findAll(text).forEach { m ->
+                    val word = m.groupValues[1]
+                    issues.add(
+                        ProofingIssue(
+                            blockIndex = blockIdx,
+                            blockId = block.id,
+                            start = m.range.first,
+                            end = m.range.last + 1,
+                            issueText = m.value,
+                            suggestion = word,
+                            message = "Repeated word: \"$word\""
+                        )
+                    )
+                }
+
+                // 2. Dictionary typos
+                val wordRegex = "\\b[a-zA-Z']+\\b".toRegex()
+                wordRegex.findAll(text).forEach { m ->
+                    val wordLower = m.value.lowercase()
+                    val suggestion = commonTypoDictionary[wordLower]
+                    if (suggestion != null) {
+                        val corrected = if (m.value.first().isUpperCase()) suggestion.replaceFirstChar { it.uppercase() } else suggestion
+                        issues.add(
+                            ProofingIssue(
+                                blockIndex = blockIdx,
+                                blockId = block.id,
+                                start = m.range.first,
+                                end = m.range.last + 1,
+                                issueText = m.value,
+                                suggestion = corrected,
+                                message = "Possible typo: did you mean \"$corrected\"?"
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return issues
+    }
+
+    fun applyProofingIssue(issue: ProofingIssue) {
+        val doc = _document.value ?: return
+        val block = doc.blocks.getOrNull(issue.blockIndex) as? ParagraphBlock ?: return
+        if (issue.end > block.text.length) return
+
+        val oldText = block.text
+        val newText = StringBuilder(oldText).apply {
+            replace(issue.start, issue.end, issue.suggestion)
+        }.toString()
+
+        val newSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+            spans = block.spans,
+            editOffset = issue.start,
+            deletedLength = issue.issueText.length,
+            insertedLength = issue.suggestion.length,
+            pendingFormatting = null
+        )
+
+        executeCommand(
+            com.example.editor.engine.ReplaceSingleMatchCommand(
+                blockId = block.id,
+                oldText = oldText,
+                newText = newText,
+                oldSpans = block.spans,
+                newSpans = newSpans,
+                matchWord = issue.issueText,
+                replaceWord = issue.suggestion
+            )
+        )
+        _statusMessage.value = "Corrected: \"${issue.issueText}\" → \"${issue.suggestion}\""
     }
 
     // ----------------------------------------------------

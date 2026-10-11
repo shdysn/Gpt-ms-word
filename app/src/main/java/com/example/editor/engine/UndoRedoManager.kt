@@ -22,12 +22,32 @@ class UndoRedoManager(
 
     /**
      * Executes a command on the document and records it to the undo stack.
+     * When coalesce is true and the last command is of the same type on the same target,
+     * the commands are merged to provide natural word-level typing undo steps.
      */
-    fun execute(command: EditorCommand, currentDoc: RichDocument): RichDocument {
+    fun execute(command: EditorCommand, currentDoc: RichDocument, coalesce: Boolean = false): RichDocument {
         val newDoc = command.apply(currentDoc)
-        undoStack.addLast(command)
-        if (undoStack.size > maxHistorySize) {
-            undoStack.removeFirst()
+        val lastCommand = undoStack.lastOrNull()
+
+        if (coalesce && lastCommand is UpdateParagraphTextAndSpansCommand && command is UpdateParagraphTextAndSpansCommand
+            && lastCommand.blockId == command.blockId) {
+            // Merge typing sequences
+            undoStack.removeLast()
+            val mergedCommand = UpdateParagraphTextAndSpansCommand(
+                blockId = command.blockId,
+                oldText = lastCommand.oldText,
+                newText = command.newText,
+                oldSpans = lastCommand.oldSpans,
+                newSpans = command.newSpans,
+                wasRtl = lastCommand.wasRtl,
+                isRtl = command.isRtl
+            )
+            undoStack.addLast(mergedCommand)
+        } else {
+            undoStack.addLast(command)
+            if (undoStack.size > maxHistorySize) {
+                undoStack.removeFirst()
+            }
         }
         redoStack.clear()
         return newDoc

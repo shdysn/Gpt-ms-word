@@ -141,12 +141,51 @@ data class RichDocument(
     val blocks: List<BlockElement> = listOf(ParagraphBlock())
 ) {
     val wordCount: Int
-        get() = blocks.filterIsInstance<ParagraphBlock>().sumOf { block ->
-            block.text.trim().split("\\s+".toRegex()).count { it.isNotBlank() }
+        get() {
+            var words = blocks.filterIsInstance<ParagraphBlock>().sumOf { block ->
+                if (block.text.isBlank()) 0
+                else block.text.trim().split("\\s+".toRegex()).count { it.isNotBlank() }
+            }
+            blocks.filterIsInstance<TableBlock>().forEach { table ->
+                table.cells.forEach { row ->
+                    row.forEach { cell ->
+                        if (cell.text.isNotBlank()) {
+                            words += cell.text.trim().split("\\s+".toRegex()).count { it.isNotBlank() }
+                        }
+                    }
+                }
+            }
+            return words
         }
 
     val characterCount: Int
-        get() = blocks.filterIsInstance<ParagraphBlock>().sumOf { it.text.length }
+        get() {
+            var chars = blocks.filterIsInstance<ParagraphBlock>().sumOf { it.text.length }
+            blocks.filterIsInstance<TableBlock>().forEach { table ->
+                table.cells.forEach { row ->
+                    row.forEach { cell ->
+                        chars += cell.text.length
+                    }
+                }
+            }
+            return chars
+        }
+
+    val characterCountNoSpaces: Int
+        get() {
+            var chars = blocks.filterIsInstance<ParagraphBlock>().sumOf { it.text.count { c -> !c.isWhitespace() } }
+            blocks.filterIsInstance<TableBlock>().forEach { table ->
+                table.cells.forEach { row ->
+                    row.forEach { cell ->
+                        chars += cell.text.count { c -> !c.isWhitespace() }
+                    }
+                }
+            }
+            return chars
+        }
+
+    val paragraphCount: Int
+        get() = blocks.count { it is ParagraphBlock }
 
     val plainTextSnippet: String
         get() = blocks.filterIsInstance<ParagraphBlock>()

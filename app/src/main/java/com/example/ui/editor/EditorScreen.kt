@@ -41,6 +41,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
@@ -49,13 +50,16 @@ import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
@@ -66,6 +70,14 @@ import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.SyncProblem
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -187,6 +199,11 @@ fun EditorScreen(
     val findQuery by viewModel.findQuery.collectAsStateWithLifecycle()
     val replaceQuery by viewModel.replaceQuery.collectAsStateWithLifecycle()
     val matchCount by viewModel.matchCount.collectAsStateWithLifecycle()
+    val currentMatchIndex by viewModel.currentMatchIndex.collectAsStateWithLifecycle()
+    val isCaseSensitive by viewModel.isCaseSensitive.collectAsStateWithLifecycle()
+    val documentStats by viewModel.documentStatistics.collectAsStateWithLifecycle()
+    val isNavigationPaneVisible by viewModel.isNavigationPaneVisible.collectAsStateWithLifecycle()
+    val documentOutline by viewModel.documentOutline.collectAsStateWithLifecycle()
 
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showTitleEditDialog by remember { mutableStateOf(false) }
@@ -198,6 +215,8 @@ fun EditorScreen(
     var showStatsDialog by remember { mutableStateOf(false) }
     var showHeaderFooterDialog by remember { mutableStateOf(false) }
     var showPageNumberDialog by remember { mutableStateOf(false) }
+    var showProofingDialog by remember { mutableStateOf(false) }
+    var showShortcutsDialog by remember { mutableStateOf(false) }
     var selectedTableForProperties by remember { mutableStateOf<TableBlock?>(null) }
     var selectedCellForEdit by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
     var selectedImageForProperties by remember { mutableStateOf<ImageBlock?>(null) }
@@ -305,8 +324,23 @@ fun EditorScreen(
                         }
                     },
                     actions = {
-                        // Autosave Status Chip
-                        AutosaveChip(status = autosaveStatus)
+                        // Autosave Status Chip (clickable to trigger instant save)
+                        AutosaveChip(
+                            status = autosaveStatus,
+                            onClick = { viewModel.saveNow() }
+                        )
+
+                        // Navigation Pane (Outline) Toggle Button
+                        IconButton(
+                            onClick = { viewModel.toggleNavigationPane() },
+                            modifier = Modifier.testTag("action_toggle_navigation_pane")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.List,
+                                contentDescription = "Document Outline",
+                                tint = if (isNavigationPaneVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
 
                         // Undo Button
                         IconButton(
@@ -454,6 +488,22 @@ fun EditorScreen(
                                         showStatsDialog = true
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Spell Check & Proofing...") },
+                                    leadingIcon = { Icon(Icons.Default.Spellcheck, contentDescription = null, tint = WordPrimary) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showProofingDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Keyboard Shortcuts...") },
+                                    leadingIcon = { Icon(Icons.Default.Keyboard, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showShortcutsDialog = true
+                                    }
+                                )
                             }
                         }
                     },
@@ -468,8 +518,14 @@ fun EditorScreen(
                     findQuery = findQuery,
                     replaceQuery = replaceQuery,
                     matchCount = matchCount,
+                    currentMatchIndex = currentMatchIndex,
+                    isCaseSensitive = isCaseSensitive,
                     onFindQueryChanged = viewModel::updateFindQuery,
                     onReplaceQueryChanged = viewModel::updateReplaceQuery,
+                    onToggleCaseSensitive = viewModel::toggleCaseSensitive,
+                    onFindNext = viewModel::findNext,
+                    onFindPrevious = viewModel::findPrevious,
+                    onReplaceNext = viewModel::replaceNext,
                     onReplaceAll = viewModel::replaceAll,
                     onClose = { viewModel.toggleFindReplace() }
                 )
@@ -479,9 +535,11 @@ fun EditorScreen(
             // Word Status Bar
             EditorStatusBar(
                 document = document,
+                documentStats = documentStats,
                 autosaveStatus = autosaveStatus,
                 zoomPercent = zoomPercent,
-                activeBlock = activeParagraph
+                activeBlock = activeParagraph,
+                onOpenStatsDialog = { showStatsDialog = true }
             )
         }
     ) { innerPadding ->
@@ -491,6 +549,52 @@ fun EditorScreen(
                 .padding(innerPadding)
                 .background(WordDeskCanvasLight)
                 .imePadding() // Keyboard-aware layout: ensures soft keyboard does not obscure active content
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        val isModifier = event.isCtrlPressed || event.isMetaPressed
+                        if (isModifier) {
+                            when (event.key) {
+                                Key.Z -> {
+                                    if (event.isShiftPressed) viewModel.redo() else viewModel.undo()
+                                    true
+                                }
+                                Key.Y -> {
+                                    viewModel.redo()
+                                    true
+                                }
+                                Key.S -> {
+                                    viewModel.saveNow()
+                                    true
+                                }
+                                Key.F, Key.H -> {
+                                    viewModel.toggleFindReplace()
+                                    true
+                                }
+                                Key.B -> {
+                                    viewModel.toggleBold()
+                                    true
+                                }
+                                Key.I -> {
+                                    viewModel.toggleItalic()
+                                    true
+                                }
+                                Key.U -> {
+                                    viewModel.toggleUnderline()
+                                    true
+                                }
+                                Key.A -> {
+                                    viewModel.selectAllInActiveBlock()
+                                    true
+                                }
+                                Key.P -> {
+                                    viewModel.printDocument(context)
+                                    true
+                                }
+                                else -> false
+                            }
+                        } else false
+                    } else false
+                }
         ) {
             // Microsoft Word Ribbon Component
             WordRibbon(
@@ -877,10 +981,18 @@ fun EditorScreen(
             title = { Text("Document Statistics") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatRow("Words", "${doc?.wordCount ?: 0}")
-                    StatRow("Characters", "${doc?.characterCount ?: 0}")
-                    StatRow("Paragraphs", "${doc?.blocks?.count { it is ParagraphBlock } ?: 0}")
-                    StatRow("Estimated Pages", "${doc?.estimatedPageCount ?: 1}")
+                    StatRow("Words", "${documentStats.wordCount}")
+                    if (documentStats.selectedWordCount > 0) {
+                        StatRow("Selected Words", "${documentStats.selectedWordCount}")
+                    }
+                    StatRow("Characters (with spaces)", "${documentStats.charCount}")
+                    StatRow("Characters (no spaces)", "${documentStats.charCountNoSpaces}")
+                    if (documentStats.selectedCharCount > 0) {
+                        StatRow("Selected Characters", "${documentStats.selectedCharCount}")
+                    }
+                    StatRow("Paragraphs", "${documentStats.paragraphCount}")
+                    StatRow("Estimated Pages", "${documentStats.estimatedPageCount}")
+                    StatRow("Estimated Reading Time", "~${(documentStats.wordCount / 200).coerceAtLeast(1)} min")
                     StatRow("Paper Size", doc?.layoutConfig?.pageSize?.displayName ?: "A4")
                     StatRow("Orientation", doc?.layoutConfig?.orientation?.name ?: "PORTRAIT")
                     StatRow("Active Language", if (activeParagraph?.isRtl == true) "Urdu (RTL Nastaliq)" else "English (LTR)")
@@ -889,6 +1001,362 @@ fun EditorScreen(
             confirmButton = {
                 Button(
                     onClick = { showStatsDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                ) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Document Navigation Pane Dialog (Headings Outline & Structure)
+    if (isNavigationPaneVisible) {
+        var selectedNavTab by remember { mutableStateOf(0) } // 0: Headings, 1: Pages, 2: Results
+        AlertDialog(
+            onDismissRequest = { viewModel.toggleNavigationPane() },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Navigation")
+                    IconButton(
+                        onClick = { viewModel.toggleNavigationPane() },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close Navigation")
+                    }
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    TabRow(
+                        selectedTabIndex = selectedNavTab,
+                        containerColor = Color.Transparent,
+                        contentColor = WordPrimary
+                    ) {
+                        Tab(
+                            selected = selectedNavTab == 0,
+                            onClick = { selectedNavTab = 0 },
+                            text = { Text("Headings (${documentOutline.size})", fontSize = 12.sp) }
+                        )
+                        Tab(
+                            selected = selectedNavTab == 1,
+                            onClick = { selectedNavTab = 1 },
+                            text = { Text("Pages (${documentStats.estimatedPageCount})", fontSize = 12.sp) }
+                        )
+                        Tab(
+                            selected = selectedNavTab == 2,
+                            onClick = { selectedNavTab = 2 },
+                            text = { Text("Results (${matchCount})", fontSize = 12.sp) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(280.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        when (selectedNavTab) {
+                            0 -> {
+                                if (documentOutline.isEmpty()) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            "No headings found.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            "Apply Title or Heading styles to paragraphs to create a document outline.",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.outline,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        documentOutline.forEach { item ->
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (activeBlockIndex == item.blockIndex) WordPrimary.copy(alpha = 0.12f) else Color.Transparent,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        viewModel.jumpToOutlineItem(item)
+                                                        viewModel.toggleNavigationPane()
+                                                    }
+                                                    .padding(start = (item.level * 16).dp, top = 4.dp, bottom = 4.dp, end = 6.dp)
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.padding(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "• ",
+                                                        color = WordPrimary,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = item.text,
+                                                        fontSize = if (item.level == 0) 14.sp else 13.sp,
+                                                        fontWeight = if (item.level <= 1) FontWeight.Bold else FontWeight.Medium,
+                                                        color = if (activeBlockIndex == item.blockIndex) WordPrimary else MaterialTheme.colorScheme.onSurface,
+                                                        maxLines = 2,
+                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            1 -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    for (p in 1..documentStats.estimatedPageCount) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    viewModel.toggleNavigationPane()
+                                                }
+                                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(20.dp))
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Text("Page $p of ${documentStats.estimatedPageCount}", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            2 -> {
+                                if (findQuery.isBlank() || matchCount == 0) {
+                                    Column(
+                                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            "No active search results.",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            "Use Find in document to search text.",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.outline
+                                        )
+                                    }
+                                } else {
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = "$matchCount matches found for \"$findQuery\":",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = WordPrimary
+                                        )
+                                        Button(
+                                            onClick = {
+                                                viewModel.findNext()
+                                                viewModel.toggleNavigationPane()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("Jump to Next Match ($currentMatchIndex of $matchCount)", fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.toggleNavigationPane() }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Spell Check & Document Proofing Dialog
+    if (showProofingDialog) {
+        val issues = remember(document) { viewModel.runProofingCheck() }
+        AlertDialog(
+            onDismissRequest = { showProofingDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Spellcheck, contentDescription = null, tint = WordPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Proofing & Spell Check")
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (issues.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF107C41), modifier = Modifier.size(36.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Document Check Complete",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = Color(0xFF107C41)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "No repeated words, typo patterns, or formatting inconsistencies were found in the document.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "${issues.size} potential issues identified:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Column(
+                            modifier = Modifier.height(260.dp).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            issues.forEach { issue ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "\"${issue.issueText}\" → \"${issue.suggestion}\"",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = WordPrimary
+                                            )
+                                            Text(
+                                                text = issue.message,
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Button(
+                                            onClick = {
+                                                viewModel.applyProofingIssue(issue)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(34.dp)
+                                        ) {
+                                            Text("Correct", fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showProofingDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                ) {
+                    Text("Done")
+                }
+            }
+        )
+    }
+
+    // Keyboard Shortcuts Dialog
+    if (showShortcutsDialog) {
+        AlertDialog(
+            onDismissRequest = { showShortcutsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Keyboard, contentDescription = null, tint = WordPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Keyboard Shortcuts")
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val shortcuts = listOf(
+                        "Ctrl + Z" to "Undo last action",
+                        "Ctrl + Y" to "Redo last action",
+                        "Ctrl + Shift + Z" to "Redo last action",
+                        "Ctrl + S" to "Save document immediately",
+                        "Ctrl + F" to "Open Find and Replace",
+                        "Ctrl + H" to "Open Find and Replace",
+                        "Ctrl + B" to "Toggle Bold text formatting",
+                        "Ctrl + I" to "Toggle Italic text formatting",
+                        "Ctrl + U" to "Toggle Underline text formatting",
+                        "Ctrl + A" to "Select all text in paragraph",
+                        "Ctrl + P" to "Print / Export to PDF"
+                    )
+                    shortcuts.forEach { (key, desc) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    text = key,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WordPrimary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            Text(
+                                text = desc,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showShortcutsDialog = false },
                     colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
                 ) {
                     Text("Close")
@@ -910,7 +1378,7 @@ fun StatRow(label: String, value: String) {
 }
 
 @Composable
-fun AutosaveChip(status: AutosaveStatus) {
+fun AutosaveChip(status: AutosaveStatus, onClick: (() -> Unit)? = null) {
     val (text, color, icon) = when (status) {
         AutosaveStatus.IDLE -> Triple("Saved", Color(0xFF107C41), Icons.Default.Check)
         AutosaveStatus.DIRTY -> Triple("Editing", Color(0xFFD83B01), Icons.Outlined.Sync)
@@ -922,7 +1390,10 @@ fun AutosaveChip(status: AutosaveStatus) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = color.copy(alpha = 0.12f),
-        modifier = Modifier.padding(end = 4.dp)
+        modifier = Modifier
+            .padding(end = 4.dp)
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .testTag("autosave_status_chip")
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1989,6 +2460,11 @@ fun BlockItemView(
                                     onTextChanged(newTfv.text, newTfv.selection)
                                 }
                             },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                                autoCorrect = true,
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Text
+                            ),
                             visualTransformation = richTransformation,
                             textStyle = TextStyle(
                                 fontSize = baseFontSize,
@@ -2066,9 +2542,11 @@ fun BlockItemView(
 @Composable
 fun EditorStatusBar(
     document: RichDocument?,
+    documentStats: DocumentStatistics,
     autosaveStatus: AutosaveStatus,
     zoomPercent: Int,
-    activeBlock: ParagraphBlock?
+    activeBlock: ParagraphBlock?,
+    onOpenStatsDialog: () -> Unit
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -2084,40 +2562,98 @@ fun EditorStatusBar(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.clickable(onClick = onOpenStatsDialog)
             ) {
                 Text(
-                    text = "Page 1 of ${document?.estimatedPageCount ?: 1}",
+                    text = "Page 1 of ${documentStats.estimatedPageCount}",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 Text(
-                    text = "${document?.wordCount ?: 0} words",
+                    text = if (documentStats.selectedWordCount > 0)
+                        "${documentStats.selectedWordCount}/${documentStats.wordCount} words"
+                    else
+                        "${documentStats.wordCount} words",
+                    fontSize = 11.sp,
+                    fontWeight = if (documentStats.selectedWordCount > 0) FontWeight.Bold else FontWeight.Normal,
+                    color = if (documentStats.selectedWordCount > 0) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                Text(
+                    text = "${documentStats.charCount} chars",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 Text(
-                    text = "${document?.characterCount ?: 0} chars",
+                    text = "${documentStats.paragraphCount} paras",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                // Autosave status badge
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    when (autosaveStatus) {
+                        AutosaveStatus.SAVING -> {
+                            CircularProgressIndicator(
+                                strokeWidth = 1.5.dp,
+                                modifier = Modifier.size(10.dp),
+                                color = WordPrimary
+                            )
+                            Text("Saving...", fontSize = 10.sp, color = WordPrimary)
+                        }
+                        AutosaveStatus.SAVED, AutosaveStatus.IDLE -> {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color(0xFF107C41)
+                            )
+                            Text("Saved", fontSize = 10.sp, color = Color(0xFF107C41))
+                        }
+                        AutosaveStatus.DIRTY -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(Color(0xFFE65100), CircleShape)
+                            )
+                            Text("Unsaved", fontSize = 10.sp, color = Color(0xFFE65100))
+                        }
+                        AutosaveStatus.ERROR -> {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = Color.Red
+                            )
+                            Text("Save error", fontSize = 10.sp, color = Color.Red)
+                        }
+                    }
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     text = if (activeBlock?.isRtl == true) "Urdu (RTL)" else "English (LTR)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = WordPrimary
                 )
+                Text(
+                    text = "$zoomPercent%",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-
-            Text(
-                text = "$zoomPercent%",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
