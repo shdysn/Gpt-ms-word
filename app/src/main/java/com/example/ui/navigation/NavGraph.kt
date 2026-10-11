@@ -23,8 +23,15 @@ fun WordNavGraph(
     repository: DocumentRepository,
     preferencesManager: PreferencesManager,
     modifier: Modifier = Modifier,
+    initialDocumentId: String? = null,
     navController: NavHostController = rememberNavController()
 ) {
+    androidx.compose.runtime.LaunchedEffect(initialDocumentId) {
+        if (!initialDocumentId.isNullOrBlank()) {
+            navController.navigate(Screen.Editor.createRoute(initialDocumentId))
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route,

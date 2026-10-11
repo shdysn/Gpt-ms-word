@@ -854,6 +854,39 @@ class EditorViewModel(
         }
     }
 
+    fun exportToDocx(context: Context, onComplete: (File?) -> Unit) {
+        val doc = _document.value ?: return
+        viewModelScope.launch {
+            val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+            val outFile = File(exportDir, "$sanitized.docx")
+            when (val res = repository.exportToDocx(context, doc, outFile)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "Word Document (.docx) Exported: ${outFile.name}"
+                    onComplete(outFile)
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "DOCX Error: ${res.error.message}"
+                    onComplete(null)
+                }
+            }
+        }
+    }
+
+    fun exportDocxToSafUri(context: Context, uri: Uri) {
+        val doc = _document.value ?: return
+        viewModelScope.launch {
+            when (val res = repository.exportDocxToUri(context, doc, uri)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "Word Document (.docx) saved to external storage"
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "Save DOCX failed: ${res.error.message}"
+                }
+            }
+        }
+    }
+
     fun exportPdfToSafUri(context: Context, uri: Uri) {
         val doc = _document.value ?: return
         viewModelScope.launch {

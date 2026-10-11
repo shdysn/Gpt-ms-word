@@ -21,6 +21,7 @@ import com.example.data.repository.DocumentRepositoryImpl
 import com.example.data.repository.TemplateType
 import com.example.data.service.DocumentExportService
 import com.example.data.service.DocumentImportService
+import com.example.data.service.docx.DocxImportResult
 import com.example.data.storage.DocumentStorageManager
 import com.example.editor.engine.AutosaveController
 import com.example.editor.engine.AutosaveStatus
@@ -71,10 +72,14 @@ class DocumentPersistenceRobolectricTest {
                 DocumentResult.Success(outputFile)
             override suspend fun exportPdfToUri(context: Context, document: RichDocument, targetUri: android.net.Uri) =
                 DocumentResult.Success(Unit)
+            override suspend fun exportDocxToUri(context: Context, document: RichDocument, targetUri: android.net.Uri) =
+                DocumentResult.Success(Unit)
         }
         val dummyImportService = object : DocumentImportService {
             override suspend fun importDocumentFromUri(context: Context, uri: android.net.Uri) =
                 DocumentResult.Success(RichDocument())
+            override suspend fun importDocxFromUri(context: Context, uri: android.net.Uri) =
+                DocumentResult.Success(DocxImportResult(RichDocument()))
         }
 
         repository = DocumentRepositoryImpl(

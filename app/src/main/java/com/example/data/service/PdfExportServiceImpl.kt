@@ -161,37 +161,24 @@ class PdfExportServiceImpl : DocumentExportService {
         printManager.print(jobName.ifBlank { "Smart Word Document" }, printAdapter, attributes)
     }
 
+    private val docxService: com.example.data.service.docx.DocxService by lazy {
+        com.example.data.service.docx.DocxServiceImpl()
+    }
+
     override suspend fun exportToDocx(
         context: Context,
         document: RichDocument,
         outputFile: File
-    ): DocumentResult<File> = withContext(Dispatchers.IO) {
-        // Architecture Hook for Phase 2: OpenXML / Apache POI packaging
-        // For Phase 1, generate a structured interoperable document package
-        try {
-            outputFile.parentFile?.mkdirs()
-            // In Phase 1 foundation: write plain text representation or draft XML structure
-            val textBuilder = StringBuilder()
-            textBuilder.append("Smart Word Processor - Document Export\n")
-            textBuilder.append("Title: ${document.title}\n")
-            textBuilder.append("Author: ${document.author}\n")
-            textBuilder.append("----------------------------------------\n\n")
-            for (block in document.blocks) {
-                when (block) {
-                    is ParagraphBlock -> textBuilder.append(block.text).append("\n\n")
-                    is TableBlock -> textBuilder.append("[Table ${block.rowCount}x${block.columnCount}]\n\n")
-                    is DividerBlock -> textBuilder.append("----------------------------------------\n\n")
-                    is PageBreakBlock -> textBuilder.append("=== PAGE BREAK ===\n\n")
-                    else -> Unit
-                }
-            }
-            outputFile.writeText(textBuilder.toString())
-            DocumentResult.Success(outputFile)
-        } catch (e: Exception) {
-            DocumentResult.Failure(
-                DocumentError.ExportError("DOCX foundation export failed: ${e.message}", "DOCX", e)
-            )
-        }
+    ): DocumentResult<File> {
+        return docxService.exportToDocx(context, document, outputFile)
+    }
+
+    override suspend fun exportDocxToUri(
+        context: Context,
+        document: RichDocument,
+        targetUri: Uri
+    ): DocumentResult<Unit> {
+        return docxService.exportDocxToUri(context, document, targetUri)
     }
 
     override suspend fun exportToPlainText(

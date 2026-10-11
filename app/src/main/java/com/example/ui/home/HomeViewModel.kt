@@ -240,6 +240,32 @@ class HomeViewModel(
         }
     }
 
+    fun exportDocumentToDocx(context: Context, docId: String, onComplete: (File?) -> Unit) {
+        viewModelScope.launch {
+            when (val docRes = repository.getDocument(docId)) {
+                is DocumentResult.Success -> {
+                    val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+                    val sanitizedTitle = docRes.data.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                    val outFile = File(exportDir, "$sanitizedTitle.docx")
+                    when (val exportRes = repository.exportToDocx(context, docRes.data, outFile)) {
+                        is DocumentResult.Success -> {
+                            _infoMessage.value = "Word Document (.docx) exported: ${outFile.name}"
+                            onComplete(outFile)
+                        }
+                        is DocumentResult.Failure -> {
+                            _infoMessage.value = "DOCX export error: ${exportRes.error.message}"
+                            onComplete(null)
+                        }
+                    }
+                }
+                is DocumentResult.Failure -> {
+                    _infoMessage.value = "Could not load document: ${docRes.error.message}"
+                    onComplete(null)
+                }
+            }
+        }
+    }
+
     fun printDocument(context: Context, docId: String) {
         viewModelScope.launch {
             when (val docRes = repository.getDocument(docId)) {

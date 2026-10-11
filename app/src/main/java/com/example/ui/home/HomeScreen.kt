@@ -183,7 +183,15 @@ fun HomeScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { safImportLauncher.launch(arrayOf("*/*")) },
+                        onClick = {
+                            safImportLauncher.launch(
+                                arrayOf(
+                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "application/msword",
+                                    "*/*"
+                                )
+                            )
+                        },
                         modifier = Modifier.testTag("action_open_document")
                     ) {
                         Icon(
@@ -288,7 +296,15 @@ fun HomeScreen(
                     }
 
                     OutlinedButton(
-                        onClick = { safImportLauncher.launch(arrayOf("*/*")) },
+                        onClick = {
+                            safImportLauncher.launch(
+                                arrayOf(
+                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "application/msword",
+                                    "*/*"
+                                )
+                            )
+                        },
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
                             .weight(1f)
@@ -297,7 +313,7 @@ fun HomeScreen(
                     ) {
                         Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp), tint = WordPrimary)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open Document", color = WordPrimary, fontWeight = FontWeight.SemiBold)
+                        Text("Open DOCX", color = WordPrimary, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -462,6 +478,11 @@ fun HomeScreen(
                                         onTogglePin = { viewModel.togglePinned(doc.id, doc.isPinned) },
                                         onRename = { renameTargetDoc = doc },
                                         onDuplicate = { viewModel.duplicateDocument(doc.id) },
+                                        onExportDocx = {
+                                            viewModel.exportDocumentToDocx(context, doc.id) { file ->
+                                                file?.let { shareDocxFile(context, it) }
+                                            }
+                                        },
                                         onExportPdf = {
                                             viewModel.exportDocumentToPdf(context, doc.id) { file ->
                                                 file?.let { shareFile(context, it) }
@@ -485,6 +506,11 @@ fun HomeScreen(
                             onTogglePin = { viewModel.togglePinned(doc.id, doc.isPinned) },
                             onRename = { renameTargetDoc = doc },
                             onDuplicate = { viewModel.duplicateDocument(doc.id) },
+                            onExportDocx = {
+                                viewModel.exportDocumentToDocx(context, doc.id) { file ->
+                                    file?.let { shareDocxFile(context, it) }
+                                }
+                            },
                             onExportPdf = {
                                 viewModel.exportDocumentToPdf(context, doc.id) { file ->
                                     file?.let { shareFile(context, it) }
@@ -769,6 +795,7 @@ fun DocumentItemRow(
     onTogglePin: () -> Unit,
     onRename: () -> Unit,
     onDuplicate: () -> Unit,
+    onExportDocx: () -> Unit,
     onExportPdf: () -> Unit,
     onPrint: () -> Unit,
     onDelete: () -> Unit
@@ -906,6 +933,14 @@ fun DocumentItemRow(
                         }
                     )
                     DropdownMenuItem(
+                        text = { Text("Export as DOCX (.docx)") },
+                        leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary) },
+                        onClick = {
+                            menuExpanded = false
+                            onExportDocx()
+                        }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Export as PDF") },
                         leadingIcon = { Icon(Icons.Outlined.PictureAsPdf, contentDescription = null) },
                         onClick = {
@@ -948,6 +983,7 @@ fun DocumentGridCard(
     onTogglePin: () -> Unit,
     onRename: () -> Unit,
     onDuplicate: () -> Unit,
+    onExportDocx: () -> Unit,
     onExportPdf: () -> Unit,
     onPrint: () -> Unit,
     onDelete: () -> Unit
@@ -1013,6 +1049,10 @@ fun DocumentGridCard(
                         DropdownMenuItem(
                             text = { Text("Duplicate") },
                             onClick = { menuExpanded = false; onDuplicate() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export DOCX") },
+                            onClick = { menuExpanded = false; onExportDocx() }
                         )
                         DropdownMenuItem(
                             text = { Text("Export PDF") },
@@ -1141,3 +1181,24 @@ fun shareFile(context: Context, file: File) {
         // Fallback
     }
 }
+
+fun shareDocxFile(context: Context, file: File) {
+    try {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(sendIntent, "Share Word Document (.docx)")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        // Fallback
+    }
+}
+

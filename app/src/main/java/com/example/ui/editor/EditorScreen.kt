@@ -41,6 +41,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.HorizontalRule
@@ -211,6 +212,13 @@ fun EditorScreen(
         uri?.let { viewModel.exportPdfToSafUri(context, it) }
     }
 
+    // SAF DOCX Save Launcher
+    val safDocxSaveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    ) { uri ->
+        uri?.let { viewModel.exportDocxToSafUri(context, it) }
+    }
+
     // Safe navigation back handling: prompt user if unsaved changes exist
     val handleBackNavigation = {
         if (isDirty) {
@@ -364,6 +372,25 @@ fun EditorScreen(
                                     }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Save as DOCX (SAF)...") },
+                                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                                        safDocxSaveLauncher.launch("$safeTitle.docx")
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Export as Word DOCX (.docx)") },
+                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = WordPrimary) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        viewModel.exportToDocx(context) { file ->
+                                            file?.let { shareDocxFile(context, it) }
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Save as PDF (SAF)...") },
                                     leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
                                     onClick = {
@@ -461,7 +488,11 @@ fun EditorScreen(
                 },
                 onOpenLayoutDialog = { showLayoutDialog = true },
                 onOpenStatsDialog = { showStatsDialog = true },
-                onOpenLinkDialog = { showLinkDialog = true }
+                onOpenLinkDialog = { showLinkDialog = true },
+                onSaveAsDocx = {
+                    val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                    safDocxSaveLauncher.launch("$safeTitle.docx")
+                }
             )
 
             // Document Crash/Restart Recovery Notification Banner
@@ -796,7 +827,8 @@ fun WordRibbon(
     onOpenPhotoPicker: () -> Unit,
     onOpenLayoutDialog: () -> Unit,
     onOpenStatsDialog: () -> Unit,
-    onOpenLinkDialog: () -> Unit
+    onOpenLinkDialog: () -> Unit,
+    onSaveAsDocx: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
 
@@ -923,7 +955,8 @@ fun WordRibbon(
                             FileRibbonControls(
                                 viewModel = viewModel,
                                 context = context,
-                                onOpenStatsDialog = onOpenStatsDialog
+                                onOpenStatsDialog = onOpenStatsDialog,
+                                onSaveAsDocx = onSaveAsDocx
                             )
                         }
                     }
@@ -1053,12 +1086,29 @@ fun ViewRibbonControls(viewModel: EditorViewModel) {
 fun FileRibbonControls(
     viewModel: EditorViewModel,
     context: Context,
-    onOpenStatsDialog: () -> Unit
+    onOpenStatsDialog: () -> Unit,
+    onSaveAsDocx: () -> Unit = {}
 ) {
     RibbonActionButton(
         icon = Icons.Default.Save,
         label = "Save Now",
         onClick = { viewModel.saveNow() }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.Description,
+        label = "Export DOCX",
+        onClick = {
+            viewModel.exportToDocx(context) { file ->
+                file?.let { shareDocxFile(context, it) }
+            }
+        }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.Save,
+        label = "Save As DOCX",
+        onClick = onSaveAsDocx
     )
 
     RibbonActionButton(
@@ -1735,6 +1785,26 @@ fun shareTextFile(context: Context, file: File) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         val chooser = Intent.createChooser(sendIntent, "Share Plain Text Document")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        // Fallback
+    }
+}
+
+fun shareDocxFile(context: Context, file: File) {
+    try {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(sendIntent, "Share Word Document (.docx)")
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
     } catch (e: Exception) {

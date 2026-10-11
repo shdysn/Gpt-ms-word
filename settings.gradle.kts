@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Smart Word Processor"
+rootProject.name = "Smart Word"
 
 include(":app")

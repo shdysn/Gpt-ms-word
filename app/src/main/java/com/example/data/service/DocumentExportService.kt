@@ -35,4 +35,9 @@ interface DocumentExportService {
      * Writes document PDF directly into a Storage Access Framework (SAF) URI.
      */
     suspend fun exportPdfToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
+
+    /**
+     * Writes genuine Microsoft Word (.docx) package directly into a Storage Access Framework (SAF) URI.
+     */
+    suspend fun exportDocxToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
 }

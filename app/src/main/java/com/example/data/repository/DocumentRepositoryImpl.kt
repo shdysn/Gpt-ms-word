@@ -229,6 +229,22 @@ class DocumentRepositoryImpl(
         return exportService.exportPdfToUri(context, document, targetUri)
     }
 
+    override suspend fun exportToDocx(
+        context: Context,
+        document: RichDocument,
+        outputFile: File
+    ): DocumentResult<File> {
+        return exportService.exportToDocx(context, document, outputFile)
+    }
+
+    override suspend fun exportDocxToUri(
+        context: Context,
+        document: RichDocument,
+        targetUri: Uri
+    ): DocumentResult<Unit> {
+        return exportService.exportDocxToUri(context, document, targetUri)
+    }
+
     override suspend fun exportToPlainText(
         context: Context,
         document: RichDocument,
@@ -256,6 +272,24 @@ class DocumentRepositoryImpl(
                 importedResult
             }
         }
+
+    override suspend fun importDocxFromUri(
+        context: Context,
+        uri: Uri
+    ): DocumentResult<com.example.data.service.docx.DocxImportResult> = withContext(Dispatchers.IO) {
+        val importedResult = importService.importDocxFromUri(context, uri)
+        if (importedResult is DocumentResult.Success) {
+            val doc = importedResult.data.document.copy(
+                id = UUID.randomUUID().toString(),
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+            saveDocument(doc)
+            DocumentResult.Success(importedResult.data.copy(document = doc))
+        } else {
+            importedResult
+        }
+    }
 
     override suspend fun initializeDefaultDocumentsIfEmpty() = withContext(Dispatchers.IO) {
         val count = documentDao.getDocumentCount()

@@ -49,11 +49,17 @@ interface DocumentRepository {
 
     suspend fun exportPdfToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
 
+    suspend fun exportToDocx(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
+
+    suspend fun exportDocxToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
+
     suspend fun exportToPlainText(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
 
     fun printDocument(context: Context, document: RichDocument)
 
     suspend fun importFromUri(context: Context, uri: Uri): DocumentResult<RichDocument>
+
+    suspend fun importDocxFromUri(context: Context, uri: Uri): DocumentResult<com.example.data.service.docx.DocxImportResult>
 
     suspend fun saveDocumentAs(originalDoc: RichDocument, newTitle: String): DocumentResult<RichDocument>
 
