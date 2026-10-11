@@ -209,6 +209,8 @@ fun EditorScreen(
 
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showTitleEditDialog by remember { mutableStateOf(false) }
+    var showSaveOptionsDialog by remember { mutableStateOf(false) }
+    var showExportOptionsDialog by remember { mutableStateOf(false) }
     var showSaveAsDialog by remember { mutableStateOf(false) }
     var showDiscardDialog by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
@@ -377,65 +379,32 @@ fun EditorScreen(
                                 onDismissRequest = { showOptionsMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Save Document") },
-                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
+                                    text = { Text("Save...") },
+                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null, tint = WordPrimary) },
                                     onClick = {
                                         showOptionsMenu = false
-                                        viewModel.saveNow()
-                                    }
+                                        showSaveOptionsDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_save_options")
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Save As (Duplicate)...") },
-                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showSaveAsDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Save as DOCX (SAF)...") },
-                                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                                        safDocxSaveLauncher.launch("$safeTitle.docx")
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Export as Word DOCX (.docx)") },
+                                    text = { Text("Export...") },
                                     leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = WordPrimary) },
                                     onClick = {
                                         showOptionsMenu = false
-                                        viewModel.exportToDocx(context) { file ->
-                                            file?.let { shareDocxFile(context, it) }
-                                        }
-                                    }
+                                        showExportOptionsDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_export_options")
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("Export / Save PDF...") },
-                                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = WordPrimary) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showExportPdfDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Export as Plain Text (.txt)") },
-                                    leadingIcon = { Icon(Icons.Default.TextFields, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        viewModel.exportToPlainText(context) { file ->
-                                            file?.let { shareTextFile(context, it) }
-                                        }
-                                    }
-                                )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                                 DropdownMenuItem(
                                     text = { Text("Print") },
                                     leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) },
                                     onClick = {
                                         showOptionsMenu = false
                                         viewModel.printDocument(context)
-                                    }
+                                    },
+                                    modifier = Modifier.testTag("menu_print")
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Document Statistics") },
@@ -443,7 +412,8 @@ fun EditorScreen(
                                     onClick = {
                                         showOptionsMenu = false
                                         showStatsDialog = true
-                                    }
+                                    },
+                                    modifier = Modifier.testTag("menu_stats")
                                 )
                             }
                         }
@@ -634,6 +604,283 @@ fun EditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showTitleEditDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Save Options Popup Dialog
+    if (showSaveOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveOptionsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Save,
+                        contentDescription = null,
+                        tint = WordPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Save Document", style = MaterialTheme.typography.titleLarge)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    // Option 1: Quick Save Current Edits
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showSaveOptionsDialog = false
+                                viewModel.saveNow()
+                            }
+                            .testTag("save_dialog_quick_save")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(WordPrimary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Save, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Save Document", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Save all current edits instantly", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Option 2: Save As (Duplicate)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showSaveOptionsDialog = false
+                                showSaveAsDialog = true
+                            }
+                            .testTag("save_dialog_save_as")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(WordPrimary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Save As (Duplicate)...", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Create an independent copy with a new title", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Option 3: Save as DOCX (SAF)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showSaveOptionsDialog = false
+                                val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                                safDocxSaveLauncher.launch("$safeTitle.docx")
+                            }
+                            .testTag("save_dialog_save_saf")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(WordPrimary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Description, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Save as DOCX (SAF)...", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Save .docx file directly to device storage", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { showSaveOptionsDialog = false },
+                    modifier = Modifier.testTag("dismiss_save_dialog")
+                ) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Export Options Popup Dialog
+    if (showExportOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportOptionsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = null,
+                        tint = WordPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Export Document", style = MaterialTheme.typography.titleLarge)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    // Option 1: Export as PDF
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showExportOptionsDialog = false
+                                showExportPdfDialog = true
+                            }
+                            .testTag("export_dialog_pdf")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE53935).copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Export / Save PDF...", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Generate standard high-resolution PDF document", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Option 2: Export as Word DOCX
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showExportOptionsDialog = false
+                                viewModel.exportToDocx(context) { file ->
+                                    file?.let { shareDocxFile(context, it) }
+                                }
+                            }
+                            .testTag("export_dialog_docx")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(WordPrimary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Export as Word DOCX (.docx)", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Share Microsoft Word compatible format to apps", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    // Option 3: Export as Plain Text
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                showExportOptionsDialog = false
+                                viewModel.exportToPlainText(context) { file ->
+                                    file?.let { shareTextFile(context, it) }
+                                }
+                            }
+                            .testTag("export_dialog_txt")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.TextFields, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Export as Plain Text (.txt)", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text("Share raw text content without formatting", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = { showExportOptionsDialog = false },
+                    modifier = Modifier.testTag("dismiss_export_dialog")
+                ) {
+                    Text("Close")
+                }
             }
         )
     }
