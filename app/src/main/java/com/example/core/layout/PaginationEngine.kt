@@ -205,7 +205,7 @@ object PaginationEngine {
                                 lineHeight = lineHeight,
                                 paragraphSpacing = paragraphSpacing,
                                 printableHeightPt = printableHeightPt,
-                                currentPage = currentPage,
+                                onAddItem = { currentPage.add(it) },
                                 onPageFilled = {
                                     commitCurrentPageAndStartNew()
                                 },
@@ -239,7 +239,7 @@ object PaginationEngine {
                                 lineHeight = lineHeight,
                                 paragraphSpacing = paragraphSpacing,
                                 printableHeightPt = printableHeightPt,
-                                currentPage = currentPage,
+                                onAddItem = { currentPage.add(it) },
                                 onPageFilled = {
                                     commitCurrentPageAndStartNew()
                                 },
@@ -255,7 +255,7 @@ object PaginationEngine {
                                 lineHeight = lineHeight,
                                 paragraphSpacing = paragraphSpacing,
                                 printableHeightPt = printableHeightPt,
-                                currentPage = currentPage,
+                                onAddItem = { currentPage.add(it) },
                                 onPageFilled = {
                                     commitCurrentPageAndStartNew()
                                 },
@@ -333,7 +333,7 @@ object PaginationEngine {
         lineHeight: Float,
         paragraphSpacing: Float,
         printableHeightPt: Float,
-        currentPage: MutableList<PageItem>,
+        onAddItem: (PageItem) -> Unit,
         onPageFilled: () -> Unit,
         onHeightAdded: (Float) -> Unit,
         isInitialContinuation: Boolean = false
@@ -349,7 +349,7 @@ object PaginationEngine {
             val isLastChunk = endLine == lines.size
             val chunkHeight = (chunkLines.size * lineHeight) + (if (isLastChunk) paragraphSpacing else 0f)
 
-            currentPage.add(
+            onAddItem(
                 ParagraphPageItem(
                     originalBlockIndex = blockIndex,
                     originalBlock = block,
@@ -432,12 +432,16 @@ object PaginationEngine {
     }
 
     /**
-     * Measures width in points, falling back to proportional typographic metrics if Paint is unmocked.
+     * Measures width in points, falling back to proportional typographic metrics if Paint is unmocked or in test environment.
      */
     private fun measureWidth(text: String, paint: Paint?, fontSizePt: Float, isBold: Boolean): Float {
+        val estimatedMin = text.length * (fontSizePt * 0.35f)
         if (paint != null) {
             try {
-                return paint.measureText(text)
+                val measured = paint.measureText(text)
+                if (measured >= estimatedMin) {
+                    return measured
+                }
             } catch (e: Throwable) {
                 // fall through to typography estimation
             }

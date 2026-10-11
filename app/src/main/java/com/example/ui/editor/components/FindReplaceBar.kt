@@ -35,14 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.WordPrimary
 
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.IconButtonDefaults
-
 /**
  * In-document Search & Replace bar allowing quick text search,
- * case-sensitive toggle, match navigation, single replace, and batch replacement.
+ * match counting, and batch replacement.
  */
 @Composable
 fun FindReplaceBar(
@@ -50,14 +45,8 @@ fun FindReplaceBar(
     findQuery: String,
     replaceQuery: String,
     matchCount: Int,
-    currentMatchIndex: Int = 0,
-    isCaseSensitive: Boolean = false,
     onFindQueryChanged: (String) -> Unit,
     onReplaceQueryChanged: (String) -> Unit,
-    onToggleCaseSensitive: () -> Unit = {},
-    onFindNext: () -> Unit = {},
-    onFindPrevious: () -> Unit = {},
-    onReplaceNext: () -> Unit = {},
     onReplaceAll: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
@@ -69,7 +58,7 @@ fun FindReplaceBar(
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 4.dp,
+            shadowElevation = 3.dp,
             shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
             modifier = modifier.fillMaxWidth()
         ) {
@@ -88,23 +77,6 @@ fun FindReplaceBar(
                         onValueChange = onFindQueryChanged,
                         placeholder = { Text("Find in document...", fontSize = 13.sp) },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        trailingIcon = {
-                            // Match Case Toggle Button (Aa)
-                            IconButton(
-                                onClick = onToggleCaseSensitive,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .testTag("toggle_case_sensitive"),
-                                colors = if (isCaseSensitive) IconButtonDefaults.iconButtonColors(containerColor = WordPrimary.copy(alpha = 0.15f)) else IconButtonDefaults.iconButtonColors()
-                            ) {
-                                Text(
-                                    text = "Aa",
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isCaseSensitive) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isCaseSensitive) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
@@ -112,7 +84,7 @@ fun FindReplaceBar(
                             .testTag("find_input_field")
                     )
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     if (findQuery.isNotBlank()) {
                         Surface(
@@ -120,38 +92,18 @@ fun FindReplaceBar(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = if (matchCount > 0) "$currentMatchIndex of $matchCount" else "0 found",
+                                text = if (matchCount > 0) "$matchCount found" else "0 found",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (matchCount > 0) WordPrimary else Color.Red,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
-
-                        Spacer(modifier = Modifier.width(2.dp))
-
-                        // Previous Match Button
-                        IconButton(
-                            onClick = onFindPrevious,
-                            enabled = matchCount > 0,
-                            modifier = Modifier.size(32.dp).testTag("find_previous_match")
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous Match", modifier = Modifier.size(20.dp))
-                        }
-
-                        // Next Match Button
-                        IconButton(
-                            onClick = onFindNext,
-                            enabled = matchCount > 0,
-                            modifier = Modifier.size(32.dp).testTag("find_next_match")
-                        ) {
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next Match", modifier = Modifier.size(20.dp))
-                        }
                     }
 
                     IconButton(
                         onClick = onClose,
-                        modifier = Modifier.size(34.dp).testTag("close_find_replace")
+                        modifier = Modifier.size(36.dp).testTag("close_find_replace")
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Close Find and Replace")
                     }
@@ -178,21 +130,6 @@ fun FindReplaceBar(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // Replace Single Match Button
-                    OutlinedButton(
-                        onClick = onReplaceNext,
-                        enabled = findQuery.isNotBlank() && matchCount > 0,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .height(44.dp)
-                            .testTag("replace_single_button")
-                    ) {
-                        Text("Replace", fontSize = 12.sp, color = if (findQuery.isNotBlank() && matchCount > 0) WordPrimary else MaterialTheme.colorScheme.outline)
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // Replace All Matches Button
                     Button(
                         onClick = onReplaceAll,
                         enabled = findQuery.isNotBlank() && matchCount > 0,

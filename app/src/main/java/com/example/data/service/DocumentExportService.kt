@@ -22,6 +22,13 @@ interface DocumentExportService {
     fun printDocument(context: Context, document: RichDocument, jobName: String = document.title)
 
     /**
+     * Creates an Android PrintDocumentAdapter for system printing workflows and testing.
+     */
+    fun createPrintDocumentAdapter(context: Context, document: RichDocument): android.print.PrintDocumentAdapter {
+        throw UnsupportedOperationException("PrintDocumentAdapter not implemented")
+    }
+
+    /**
      * Interface hook for Microsoft Word (.docx) packaging (Phase 2 OpenXML integration).
      */
     suspend fun exportToDocx(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>

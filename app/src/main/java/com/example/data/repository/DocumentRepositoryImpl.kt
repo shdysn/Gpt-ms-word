@@ -150,7 +150,6 @@ class DocumentRepositoryImpl(
 
             TemplateType.BUSINESS_LETTER -> createBusinessLetterTemplate(newId, title, now)
             TemplateType.PROJECT_REPORT -> createProjectReportTemplate(newId, title, now)
-            TemplateType.APPLICATION -> createApplicationTemplate(newId, title, now)
             TemplateType.MEETING_MINUTES -> createMeetingMinutesTemplate(newId, title, now)
             TemplateType.PAGINATION_SHOWCASE -> createPaginationShowcaseTemplate(newId, title, now)
             TemplateType.URDU_DOCUMENT -> createUrduDocumentTemplate(newId, title, now)
@@ -258,6 +257,10 @@ class DocumentRepositoryImpl(
         exportService.printDocument(context, document)
     }
 
+    override fun createPrintDocumentAdapter(context: Context, document: RichDocument): android.print.PrintDocumentAdapter {
+        return exportService.createPrintDocumentAdapter(context, document)
+    }
+
     override suspend fun importFromUri(context: Context, uri: Uri): DocumentResult<RichDocument> =
         withContext(Dispatchers.IO) {
             val importedResult = importService.importDocumentFromUri(context, uri)
@@ -346,52 +349,6 @@ class DocumentRepositoryImpl(
                 pageSize = PageSize.A4,
                 marginPreset = MarginPreset.NORMAL,
                 headerText = "Apex Corporation - Official Correspondence"
-            ),
-            blocks = blocks
-        )
-    }
-
-    private fun createApplicationTemplate(id: String, title: String, timestamp: Long): RichDocument {
-        val blocks = listOf(
-            ParagraphBlock(
-                text = "FORMAL APPLICATION",
-                alignment = TextAlignment.CENTER,
-                headingStyle = HeadingStyle.TITLE,
-                spans = listOf(InlineSpan(start = 0, end = 18, isBold = true, textColorHex = "#185ABD"))
-            ),
-            DividerBlock(),
-            ParagraphBlock(text = "Date: October 11, 2026"),
-            ParagraphBlock(text = "To,\nThe Hiring Manager / Department Chair,\nFaculty of Computer Science & Engineering,\nInstitute of Advanced Technology"),
-            ParagraphBlock(
-                text = "Subject: Formal Application for Software Engineer Position",
-                headingStyle = HeadingStyle.HEADING_2,
-                spans = listOf(InlineSpan(start = 0, end = 58, isBold = true))
-            ),
-            ParagraphBlock(text = "Respected Sir / Madam,"),
-            ParagraphBlock(
-                text = "I am writing to formally submit my application for the Software Engineer position recently announced at your esteemed organization. With a robust background in Android architecture, Kotlin, Jetpack Compose, and enterprise systems, I am eager to contribute effectively to your development initiatives."
-            ),
-            ParagraphBlock(
-                text = "During my professional career, I have successfully engineered scalable client-side architectures, optimized complex real-time render pipelines, and ensured high accessibility standards across mobile platforms."
-            ),
-            ParagraphBlock(
-                text = "Enclosed please find my curriculum vitae and project credentials for your perusal. Thank you very much for your time and kind consideration of my candidacy."
-            ),
-            ParagraphBlock(
-                text = "Yours sincerely,\n\nAbdul Ghani\nLead Application Engineer\nEmail: contact@example.com | Phone: +1 (555) 019-2834"
-            )
-        )
-
-        return RichDocument(
-            id = id,
-            title = title.ifBlank { "Formal Application" },
-            author = "Abdul Ghani",
-            createdAt = timestamp,
-            updatedAt = timestamp,
-            layoutConfig = PageLayoutConfig(
-                pageSize = PageSize.A4,
-                marginPreset = MarginPreset.NORMAL,
-                headerText = "Application for Employment / Official Request"
             ),
             blocks = blocks
         )

@@ -73,7 +73,7 @@ class HomeViewModel(
         flow.map { list ->
             val filtered = when (filter) {
                 HomeFilter.ALL -> list
-                HomeFilter.RECENT -> list.sortedByDescending { it.updatedAt }.take(10)
+                HomeFilter.RECENT -> list
                 HomeFilter.PINNED -> list.filter { it.isPinned }
             }
             when (sortOrder) {
@@ -91,14 +91,6 @@ class HomeViewModel(
                 )
             }
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    val recentDocuments: StateFlow<List<DocumentEntity>> = repository.getAllDocuments().map { list ->
-        list.sortedByDescending { it.updatedAt }.take(8)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
