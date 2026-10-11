@@ -3,6 +3,7 @@ package com.example.ui.editor
 import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material.icons.outlined.Sync
@@ -158,6 +160,8 @@ fun EditorScreen(
     val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
     val activeBlockIndex by viewModel.activeBlockIndex.collectAsStateWithLifecycle()
     val autosaveStatus by viewModel.autosaveStatus.collectAsStateWithLifecycle()
+    val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
+    val recoveryAvailable by viewModel.recoveryAvailable.collectAsStateWithLifecycle()
     val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
 
     val isFindReplaceVisible by viewModel.isFindReplaceVisible.collectAsStateWithLifecycle()
@@ -165,12 +169,31 @@ fun EditorScreen(
     val replaceQuery by viewModel.replaceQuery.collectAsStateWithLifecycle()
     val matchCount by viewModel.matchCount.collectAsStateWithLifecycle()
 
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var showTitleEditDialog by remember { mutableStateOf(false) }
+    var showSaveAsDialog by remember { mutableStateOf(false) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
     var showLinkDialog by remember { mutableStateOf(false) }
     var showLayoutDialog by remember { mutableStateOf(false) }
     var showStatsDialog by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+
+    // Flush edits to storage when application is backgrounded or minimized
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_PAUSE ||
+                event == androidx.lifecycle.Lifecycle.Event.ON_STOP
+            ) {
+                viewModel.onAppBackgrounded()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Android Zero-Permission Photo Picker for Image Insertion
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -186,10 +209,18 @@ fun EditorScreen(
         uri?.let { viewModel.exportPdfToSafUri(context, it) }
     }
 
+    // Safe navigation back handling: prompt user if unsaved changes exist
+    val handleBackNavigation = {
+        if (isDirty) {
+            showDiscardDialog = true
+        } else {
+            onNavigateBack()
+        }
+    }
+
     // Intercept hardware/system back button safely
     BackHandler {
-        viewModel.saveNow()
-        onNavigateBack()
+        handleBackNavigation()
     }
 
     LaunchedEffect(statusMessage) {
@@ -208,10 +239,7 @@ fun EditorScreen(
                 TopAppBar(
                     navigationIcon = {
                         IconButton(
-                            onClick = {
-                                viewModel.saveNow()
-                                onNavigateBack()
-                            },
+                            onClick = { handleBackNavigation() },
                             modifier = Modifier.testTag("editor_back_button")
                         ) {
                             Icon(
@@ -318,6 +346,22 @@ fun EditorScreen(
                                     }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Save As (Duplicate)...") },
+                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showSaveAsDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Rename Document...") },
+                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showTitleEditDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Save as PDF (SAF)...") },
                                     leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
                                     onClick = {
@@ -418,6 +462,62 @@ fun EditorScreen(
                 onOpenLinkDialog = { showLinkDialog = true }
             )
 
+            // Document Crash/Restart Recovery Notification Banner
+            if (recoveryAvailable) {
+                Surface(
+                    color = Color(0xFFFFF3CD),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFEEBA)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .testTag("recovery_banner")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color(0xFF856404),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Unsaved Recovery Draft Found",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFF856404)
+                            )
+                            Text(
+                                text = "A draft from an earlier session is available for restoration.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF856404)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Button(
+                            onClick = { viewModel.restoreRecoveryDraft() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF856404)),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.testTag("restore_recovery_draft_button")
+                        ) {
+                            Text("Restore", fontSize = 11.sp, color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        TextButton(
+                            onClick = { viewModel.dismissRecoveryDraft() },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.testTag("dismiss_recovery_draft_button")
+                        ) {
+                            Text("Dismiss", fontSize = 11.sp, color = Color(0xFF856404))
+                        }
+                    }
+                }
+            }
+
             // Document Canvas Surface with Responsive Phone / Tablet Layout
             BoxWithConstraints(
                 modifier = Modifier
@@ -475,6 +575,91 @@ fun EditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showTitleEditDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Save As Dialog
+    if (showSaveAsDialog) {
+        var saveAsTitle by remember { mutableStateOf("${document?.title ?: "Document"} (Copy)") }
+        AlertDialog(
+            onDismissRequest = { showSaveAsDialog = false },
+            title = { Text("Save As") },
+            text = {
+                Column {
+                    Text("Enter a new title to save an independent copy of this document:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = saveAsTitle,
+                        onValueChange = { saveAsTitle = it },
+                        label = { Text("New Title") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("save_as_title_input")
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val title = saveAsTitle.trim().ifBlank { "${document?.title} (Copy)" }
+                        viewModel.saveAs(title) {
+                            showSaveAsDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                    modifier = Modifier.testTag("confirm_save_as_button")
+                ) {
+                    Text("Save Copy")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveAsDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Unsaved Changes Discard Warning Dialog
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Unsaved Changes") },
+            text = {
+                Text("You have unsaved changes in '${document?.title ?: "this document"}'. Would you like to save before leaving?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            viewModel.flushSave()
+                            showDiscardDialog = false
+                            onNavigateBack()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                    modifier = Modifier.testTag("save_and_exit_button")
+                ) {
+                    Text("Save & Exit")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            viewModel.dismissRecoveryDraft()
+                            showDiscardDialog = false
+                            onNavigateBack()
+                        },
+                        modifier = Modifier.testTag("discard_changes_button")
+                    ) {
+                        Text("Discard", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    TextButton(onClick = { showDiscardDialog = false }) {
+                        Text("Keep Editing")
+                    }
+                }
             }
         )
     }

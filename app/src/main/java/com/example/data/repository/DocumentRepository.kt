@@ -54,5 +54,15 @@ interface DocumentRepository {
 
     suspend fun importFromUri(context: Context, uri: Uri): DocumentResult<RichDocument>
 
+    suspend fun saveDocumentAs(originalDoc: RichDocument, newTitle: String): DocumentResult<RichDocument>
+
+    fun hasRecoveryDraft(id: String): Boolean
+
+    suspend fun loadRecoveryDraft(id: String): DocumentResult<RichDocument>
+
+    suspend fun saveRecoveryDraft(document: RichDocument): DocumentResult<Unit>
+
+    suspend fun clearRecoveryDraft(id: String): DocumentResult<Unit>
+
     suspend fun initializeDefaultDocumentsIfEmpty()
 }

@@ -37,9 +37,10 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -110,6 +112,7 @@ fun HomeScreen(
     val documents by viewModel.documents.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val activeFilter by viewModel.activeFilter.collectAsStateWithLifecycle()
+    val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
     val isGridView by viewModel.isGridView.collectAsStateWithLifecycle()
     val infoMessage by viewModel.infoMessage.collectAsStateWithLifecycle()
 
@@ -120,6 +123,7 @@ fun HomeScreen(
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
     var selectedTemplateForCreation by remember { mutableStateOf(TemplateType.BLANK) }
     var renameTargetDoc by remember { mutableStateOf<DocumentEntity?>(null) }
     var deleteTargetDoc by remember { mutableStateOf<DocumentEntity?>(null) }
@@ -192,7 +196,7 @@ fun HomeScreen(
                         modifier = Modifier.testTag("toggle_view_mode")
                     ) {
                         Icon(
-                            imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
+                            imageVector = if (isGridView) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
                             contentDescription = "Toggle Grid or List View"
                         )
                     }
@@ -336,33 +340,76 @@ fun HomeScreen(
                 }
             }
 
-            // Filter Tabs (All / Recent / Pinned)
+            // Filter Tabs (All / Recent / Pinned) & Sort Selector
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilterChip(
-                        selected = activeFilter == HomeFilter.ALL,
-                        onClick = { viewModel.onFilterChanged(HomeFilter.ALL) },
-                        label = { Text("All Documents") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = activeFilter == HomeFilter.ALL,
+                            onClick = { viewModel.onFilterChanged(HomeFilter.ALL) },
+                            label = { Text("All") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         )
-                    )
-                    FilterChip(
-                        selected = activeFilter == HomeFilter.RECENT,
-                        onClick = { viewModel.onFilterChanged(HomeFilter.RECENT) },
-                        label = { Text("Recent") }
-                    )
-                    FilterChip(
-                        selected = activeFilter == HomeFilter.PINNED,
-                        onClick = { viewModel.onFilterChanged(HomeFilter.PINNED) },
-                        label = { Text("Pinned") }
-                    )
+                        FilterChip(
+                            selected = activeFilter == HomeFilter.RECENT,
+                            onClick = { viewModel.onFilterChanged(HomeFilter.RECENT) },
+                            label = { Text("Recent") }
+                        )
+                        FilterChip(
+                            selected = activeFilter == HomeFilter.PINNED,
+                            onClick = { viewModel.onFilterChanged(HomeFilter.PINNED) },
+                            label = { Text("Pinned") }
+                        )
+                    }
+
+                    // Sort Order Dropdown
+                    Box {
+                        AssistChip(
+                            onClick = { showSortMenu = true },
+                            label = { Text(sortOrder.displayName, fontSize = 12.sp) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = "Sort options",
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            },
+                            modifier = Modifier.testTag("btn_sort_documents")
+                        )
+
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            DocumentSortOrder.entries.forEach { order ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = order.displayName,
+                                            fontWeight = if (sortOrder == order) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (sortOrder == order) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.onSortOrderChanged(order)
+                                        showSortMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

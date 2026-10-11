@@ -22,10 +22,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
+import kotlinx.coroutines.flow.map
+
 enum class HomeFilter {
     ALL,
     RECENT,
     PINNED
+}
+
+enum class DocumentSortOrder(val displayName: String) {
+    MODIFIED_DESC("Newest first"),
+    MODIFIED_ASC("Oldest first"),
+    TITLE_ASC("Title (A-Z)"),
+    TITLE_DESC("Title (Z-A)")
 }
 
 class HomeViewModel(
@@ -39,6 +48,9 @@ class HomeViewModel(
     private val _activeFilter = MutableStateFlow(HomeFilter.ALL)
     val activeFilter: StateFlow<HomeFilter> = _activeFilter.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow(DocumentSortOrder.MODIFIED_DESC)
+    val sortOrder: StateFlow<DocumentSortOrder> = _sortOrder.asStateFlow()
+
     private val _isGridView = MutableStateFlow(false)
     val isGridView: StateFlow<Boolean> = _isGridView.asStateFlow()
 
@@ -48,20 +60,36 @@ class HomeViewModel(
     @OptIn(ExperimentalCoroutinesApi::class)
     val documents: StateFlow<List<DocumentEntity>> = combine(
         _searchQuery,
-        _activeFilter
-    ) { query, filter ->
-        query to filter
-    }.flatMapLatest { (query, filter) ->
-        if (query.isBlank()) {
+        _activeFilter,
+        _sortOrder
+    ) { query, filter, sortOrder ->
+        Triple(query, filter, sortOrder)
+    }.flatMapLatest { (query, filter, sortOrder) ->
+        val flow = if (query.isBlank()) {
             repository.getAllDocuments()
         } else {
             repository.searchDocuments(query.trim())
         }
-    }.combine(_activeFilter) { docs, filter ->
-        when (filter) {
-            HomeFilter.ALL -> docs
-            HomeFilter.RECENT -> docs.sortedByDescending { it.updatedAt }
-            HomeFilter.PINNED -> docs.filter { it.isPinned }
+        flow.map { list ->
+            val filtered = when (filter) {
+                HomeFilter.ALL -> list
+                HomeFilter.RECENT -> list
+                HomeFilter.PINNED -> list.filter { it.isPinned }
+            }
+            when (sortOrder) {
+                DocumentSortOrder.MODIFIED_DESC -> filtered.sortedWith(
+                    compareByDescending<DocumentEntity> { it.isPinned }.thenByDescending { it.updatedAt }
+                )
+                DocumentSortOrder.MODIFIED_ASC -> filtered.sortedWith(
+                    compareByDescending<DocumentEntity> { it.isPinned }.thenBy { it.updatedAt }
+                )
+                DocumentSortOrder.TITLE_ASC -> filtered.sortedWith(
+                    compareByDescending<DocumentEntity> { it.isPinned }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
+                )
+                DocumentSortOrder.TITLE_DESC -> filtered.sortedWith(
+                    compareByDescending<DocumentEntity> { it.isPinned }.thenByDescending(String.CASE_INSENSITIVE_ORDER) { it.title }
+                )
+            }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -127,6 +155,10 @@ class HomeViewModel(
 
     fun onFilterChanged(filter: HomeFilter) {
         _activeFilter.value = filter
+    }
+
+    fun onSortOrderChanged(order: DocumentSortOrder) {
+        _sortOrder.value = order
     }
 
     fun toggleViewMode() {

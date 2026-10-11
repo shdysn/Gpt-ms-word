@@ -23,5 +23,6 @@ data class DocumentEntity(
     val formatType: String = DocumentFormatType.SWP_NATIVE.name,
     val pageSize: String = "A4",
     val orientation: String = "PORTRAIT",
-    val marginPreset: String = "NORMAL"
+    val marginPreset: String = "NORMAL",
+    val hasRecoveryDraft: Boolean = false
 )

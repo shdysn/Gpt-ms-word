@@ -69,10 +69,63 @@ class DocumentRepositoryImpl(
                 filePath = "documents/${updatedDoc.id}.swp",
                 pageSize = updatedDoc.layoutConfig.pageSize.name,
                 orientation = updatedDoc.layoutConfig.orientation.name,
-                marginPreset = updatedDoc.layoutConfig.marginPreset.name
+                marginPreset = updatedDoc.layoutConfig.marginPreset.name,
+                hasRecoveryDraft = false
             )
 
             documentDao.insertOrUpdateDocument(entity)
+            storageManager.clearRecoveryDraft(updatedDoc.id)
+            DocumentResult.Success(Unit)
+        }
+
+    override suspend fun saveDocumentAs(
+        originalDoc: RichDocument,
+        newTitle: String
+    ): DocumentResult<RichDocument> = withContext(Dispatchers.IO) {
+        val newId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val title = newTitle.ifBlank { "${originalDoc.title} (Copy)" }
+
+        val newDoc = originalDoc.copy(
+            id = newId,
+            title = title,
+            createdAt = now,
+            updatedAt = now
+        )
+
+        val saveRes = saveDocument(newDoc)
+        if (saveRes is DocumentResult.Failure) {
+            return@withContext DocumentResult.Failure(saveRes.error)
+        }
+        DocumentResult.Success(newDoc)
+    }
+
+    override fun hasRecoveryDraft(id: String): Boolean {
+        return storageManager.hasRecoveryDraft(id)
+    }
+
+    override suspend fun loadRecoveryDraft(id: String): DocumentResult<RichDocument> =
+        withContext(Dispatchers.IO) {
+            storageManager.loadRecoveryDraft(id)
+        }
+
+    override suspend fun saveRecoveryDraft(document: RichDocument): DocumentResult<Unit> =
+        withContext(Dispatchers.IO) {
+            val res = storageManager.saveRecoveryDraft(document)
+            if (res is DocumentResult.Success) {
+                documentDao.setHasRecoveryDraft(document.id, true)
+                DocumentResult.Success(Unit)
+            } else if (res is DocumentResult.Failure) {
+                DocumentResult.Failure(res.error)
+            } else {
+                DocumentResult.Success(Unit)
+            }
+        }
+
+    override suspend fun clearRecoveryDraft(id: String): DocumentResult<Unit> =
+        withContext(Dispatchers.IO) {
+            storageManager.clearRecoveryDraft(id)
+            documentDao.setHasRecoveryDraft(id, false)
             DocumentResult.Success(Unit)
         }
 

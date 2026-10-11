@@ -41,6 +41,18 @@ interface DocumentDao {
     @Query("UPDATE documents SET title = :newTitle, updatedAt = :updatedAt WHERE id = :id")
     suspend fun renameDocument(id: String, newTitle: String, updatedAt: Long)
 
+    @Query("SELECT * FROM documents ORDER BY isPinned DESC, updatedAt ASC")
+    fun getAllDocumentsByModifiedAsc(): Flow<List<DocumentEntity>>
+
+    @Query("SELECT * FROM documents ORDER BY isPinned DESC, title COLLATE NOCASE ASC")
+    fun getAllDocumentsByTitleAsc(): Flow<List<DocumentEntity>>
+
+    @Query("SELECT * FROM documents ORDER BY isPinned DESC, title COLLATE NOCASE DESC")
+    fun getAllDocumentsByTitleDesc(): Flow<List<DocumentEntity>>
+
+    @Query("UPDATE documents SET hasRecoveryDraft = :hasRecovery WHERE id = :id")
+    suspend fun setHasRecoveryDraft(id: String, hasRecovery: Boolean)
+
     @Query("SELECT COUNT(*) FROM documents")
     suspend fun getDocumentCount(): Int
 }

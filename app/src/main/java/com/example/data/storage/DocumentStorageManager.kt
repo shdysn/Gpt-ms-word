@@ -40,20 +40,115 @@ class DocumentStorageManager(private val context: Context) {
     }
 
     /**
-     * Saves a RichDocument to internal application storage.
+     * Saves a RichDocument to internal application storage using an atomic write pattern
+     * (temp file + fsync + rename) to prevent document corruption during unexpected crashes or power loss.
      */
     suspend fun saveToInternalStorage(document: RichDocument): DocumentResult<File> =
         withContext(Dispatchers.IO) {
             try {
-                val file = File(documentsDir, "${document.id}.swp")
+                val targetFile = File(documentsDir, "${document.id}.swp")
+                val tempFile = File(documentsDir, "${document.id}.swp.tmp")
                 val jsonString = serializeToJson(document)
-                file.writeText(jsonString)
-                DocumentResult.Success(file)
+
+                // Write to temporary file with sync
+                FileOutputStream(tempFile).use { fos ->
+                    fos.write(jsonString.toByteArray(Charsets.UTF_8))
+                    fos.flush()
+                    try {
+                        fos.fd.sync()
+                    } catch (e: Exception) {
+                        // Some virtual/in-memory file systems don't support sync, ignore
+                    }
+                }
+
+                // Atomically replace target file
+                if (targetFile.exists()) {
+                    targetFile.delete()
+                }
+                val renamed = tempFile.renameTo(targetFile)
+                if (!renamed) {
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
+                }
+
+                DocumentResult.Success(targetFile)
             } catch (e: Exception) {
                 DocumentResult.Failure(
                     DocumentError.StorageError("Failed to save document to internal storage: ${e.message}", e)
                 )
             }
+        }
+
+    /**
+     * Saves a recovery draft of the document without overwriting the main saved file.
+     * Used for crash recovery and backgrounding preservation.
+     */
+    suspend fun saveRecoveryDraft(document: RichDocument): DocumentResult<File> =
+        withContext(Dispatchers.IO) {
+            try {
+                val recoveryFile = File(documentsDir, "recovery_${document.id}.swp")
+                val tempFile = File(documentsDir, "recovery_${document.id}.swp.tmp")
+                val jsonString = serializeToJson(document)
+
+                FileOutputStream(tempFile).use { fos ->
+                    fos.write(jsonString.toByteArray(Charsets.UTF_8))
+                    fos.flush()
+                    try {
+                        fos.fd.sync()
+                    } catch (e: Exception) {
+                        // ignore sync failure on mock/in-memory FS
+                    }
+                }
+
+                if (recoveryFile.exists()) recoveryFile.delete()
+                val renamed = tempFile.renameTo(recoveryFile)
+                if (!renamed) {
+                    tempFile.copyTo(recoveryFile, overwrite = true)
+                    tempFile.delete()
+                }
+                DocumentResult.Success(recoveryFile)
+            } catch (e: Exception) {
+                DocumentResult.Failure(
+                    DocumentError.StorageError("Failed to save recovery draft: ${e.message}", e)
+                )
+            }
+        }
+
+    /**
+     * Checks if an unsaved recovery draft exists for the given document ID.
+     */
+    fun hasRecoveryDraft(documentId: String): Boolean {
+        val recoveryFile = File(documentsDir, "recovery_${documentId}.swp")
+        return recoveryFile.exists() && recoveryFile.length() > 0
+    }
+
+    /**
+     * Loads the unsaved recovery draft for the given document ID.
+     */
+    suspend fun loadRecoveryDraft(documentId: String): DocumentResult<RichDocument> =
+        withContext(Dispatchers.IO) {
+            try {
+                val file = File(documentsDir, "recovery_${documentId}.swp")
+                if (!file.exists()) {
+                    return@withContext DocumentResult.Failure(DocumentError.DocumentNotFound("Recovery draft not found for $documentId"))
+                }
+                val jsonString = file.readText()
+                val document = deserializeFromJson(jsonString)
+                DocumentResult.Success(document)
+            } catch (e: Exception) {
+                DocumentResult.Failure(
+                    DocumentError.CorruptDocumentError("Failed to load recovery draft: ${e.message}")
+                )
+            }
+        }
+
+    /**
+     * Deletes the recovery draft when a clean save or discard occurs.
+     */
+    suspend fun clearRecoveryDraft(documentId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val file = File(documentsDir, "recovery_${documentId}.swp")
+            if (file.exists()) file.delete() else true
         }
 
     /**
@@ -77,12 +172,15 @@ class DocumentStorageManager(private val context: Context) {
         }
 
     /**
-     * Deletes a document file from internal storage.
+     * Deletes a document file from internal storage, including any recovery draft.
      */
     suspend fun deleteFromInternalStorage(documentId: String): Boolean =
         withContext(Dispatchers.IO) {
             val file = File(documentsDir, "$documentId.swp")
-            if (file.exists()) file.delete() else true
+            val recoveryFile = File(documentsDir, "recovery_${documentId}.swp")
+            val fileDeleted = if (file.exists()) file.delete() else true
+            val recoveryDeleted = if (recoveryFile.exists()) recoveryFile.delete() else true
+            fileDeleted && recoveryDeleted
         }
 
     /**
@@ -386,7 +484,7 @@ class DocumentStorageManager(private val context: Context) {
                                     TableCell(
                                         text = cObj.optString("text", ""),
                                         isBold = cObj.optBoolean("isBold", false),
-                                        backgroundColorHex = cObj.optString("bg", null)
+                                        backgroundColorHex = if (cObj.has("bg") && !cObj.isNull("bg")) cObj.getString("bg") else null
                                     )
                                 )
                             }

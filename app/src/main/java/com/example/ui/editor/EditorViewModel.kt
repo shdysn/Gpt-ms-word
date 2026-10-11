@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -136,17 +137,32 @@ class EditorViewModel(
         initialValue = com.example.editor.engine.ActiveFormatting()
     )
 
-    // Autosave Controller
+    // Autosave Controller with Crash-Recovery Draft Snapshotting
     private val autosaveController = AutosaveController(
         scope = viewModelScope,
-        debounceMillis = 2000L,
+        debounceMillis = 1500L,
         onPerformSave = {
             val doc = _document.value ?: return@AutosaveController false
             val res = repository.saveDocument(doc)
             res.isSuccess
+        },
+        onPerformRecoverySnapshot = {
+            val doc = _document.value ?: return@AutosaveController
+            repository.saveRecoveryDraft(doc)
         }
     )
     val autosaveStatus: StateFlow<AutosaveStatus> = autosaveController.status
+
+    private val _recoveryAvailable = MutableStateFlow(false)
+    val recoveryAvailable: StateFlow<Boolean> = _recoveryAvailable.asStateFlow()
+
+    val isDirty: StateFlow<Boolean> = autosaveController.status.map {
+        it == AutosaveStatus.DIRTY || it == AutosaveStatus.ERROR
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     init {
         loadDocument()
@@ -154,6 +170,9 @@ class EditorViewModel(
 
     private fun loadDocument() {
         viewModelScope.launch {
+            if (repository.hasRecoveryDraft(documentId)) {
+                _recoveryAvailable.value = true
+            }
             when (val res = repository.getDocument(documentId)) {
                 is DocumentResult.Success -> {
                     _document.value = res.data
@@ -689,11 +708,73 @@ class EditorViewModel(
     }
 
     // ----------------------------------------------------
-    // Save & Export Operations
+    // Save & Recovery & Export Operations
     // ----------------------------------------------------
 
     fun saveNow() {
         autosaveController.triggerImmediateSave()
+    }
+
+    suspend fun flushSave(): Boolean {
+        return autosaveController.flushImmediateSave()
+    }
+
+    fun onAppBackgrounded() {
+        if (autosaveController.isDirty) {
+            autosaveController.triggerImmediateSave()
+        }
+    }
+
+    fun restoreRecoveryDraft() {
+        viewModelScope.launch {
+            when (val draftRes = repository.loadRecoveryDraft(documentId)) {
+                is DocumentResult.Success -> {
+                    _document.value = draftRes.data
+                    _recoveryAvailable.value = false
+                    _statusMessage.value = "Restored recovery draft from previous session"
+                    autosaveController.triggerImmediateSave()
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "Could not restore recovery draft: ${draftRes.error.message}"
+                    _recoveryAvailable.value = false
+                }
+            }
+        }
+    }
+
+    fun dismissRecoveryDraft() {
+        viewModelScope.launch {
+            repository.clearRecoveryDraft(documentId)
+            _recoveryAvailable.value = false
+            _statusMessage.value = "Dismissed recovery draft"
+        }
+    }
+
+    fun saveAs(newTitle: String, onComplete: (RichDocument?) -> Unit) {
+        val currentDoc = _document.value ?: return
+        viewModelScope.launch {
+            when (val res = repository.saveDocumentAs(currentDoc, newTitle)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "Saved copy as '${res.data.title}'"
+                    onComplete(res.data)
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "Save As failed: ${res.error.message}"
+                    onComplete(null)
+                }
+            }
+        }
+    }
+
+    fun renameDocument(newTitle: String) {
+        val currentDoc = _document.value ?: return
+        val trimmed = newTitle.trim().ifBlank { "Untitled Document" }
+        val updated = currentDoc.copy(title = trimmed)
+        _document.value = updated
+        viewModelScope.launch {
+            repository.renameDocument(currentDoc.id, trimmed)
+            autosaveController.triggerImmediateSave()
+        }
     }
 
     fun exportToPdf(context: Context, onComplete: (File?) -> Unit) {
