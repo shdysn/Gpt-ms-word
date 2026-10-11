@@ -82,19 +82,24 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # Conditional Release APK Build (executed when release secrets are provided or requested via dispatch)
+      # Conditional Release APK Build (executed when release secrets are provided)
       - name: Prepare Release Signing Keystore
         id: prepare-keystore
-        if: "${{ (github.event_name == 'workflow_dispatch' && inputs.build_release) || (secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '') }}"
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          BUILD_RELEASE_INPUT: ${{ inputs.build_release }}
         run: |
-          if [ -n "$KEYSTORE_BASE64" ]; then
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
-            echo "keystore_ready=true" >> $GITHUB_OUTPUT
+            echo "keystore_ready=true" >> "$GITHUB_OUTPUT"
+            echo "Release keystore prepared successfully."
+          elif [ "$BUILD_RELEASE_INPUT" = "true" ]; then
+            echo "::warning::build_release was requested via workflow_dispatch, but KEYSTORE_BASE64 or STORE_PASSWORD secret is missing!"
+            echo "keystore_ready=false" >> "$GITHUB_OUTPUT"
           else
-            echo "No KEYSTORE_BASE64 secret provided; skipping release build."
-            echo "keystore_ready=false" >> $GITHUB_OUTPUT
+            echo "No release signing secrets configured; skipping release build."
+            echo "keystore_ready=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Assemble Release APK
