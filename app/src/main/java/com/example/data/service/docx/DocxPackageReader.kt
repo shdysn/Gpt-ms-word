@@ -233,7 +233,7 @@ class DocxPackageReader(private val context: Context?) {
 
                 when (element.tagName) {
                     "w:p" -> {
-                        val parsedBlock = parseParagraphElement(element, numIdToListType, relIdToLocalUri, warnings)
+                        val parsedBlock = parseParagraphElement(element, numIdToListType, relIdToLocalUri, relMap, warnings)
                         if (parsedBlock != null) {
                             blocks.add(parsedBlock)
                         }
@@ -297,6 +297,7 @@ class DocxPackageReader(private val context: Context?) {
         pElement: Element,
         numberingMap: Map<String, ListType>,
         relIdToLocalUri: Map<String, String>,
+        relMap: Map<String, String>,
         warnings: MutableList<String>
     ): BlockElement? {
         // 1. Check for page break
@@ -493,13 +494,19 @@ class DocxPackageReader(private val context: Context?) {
                     val runStart = fullTextBuilder.length
                     val runEnd = runStart + text.length
                     fullTextBuilder.append(text)
+                    val relId = el.getAttribute("r:id").ifBlank {
+                        el.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id")
+                    }
+                    val targetUrl = relMap[relId]?.takeIf { it.isNotBlank() }
+                        ?: el.getAttribute("w:anchor").takeIf { it.isNotBlank() }
+                        ?: "https://external.link"
                     spans.add(
                         InlineSpan(
                             start = runStart,
                             end = runEnd,
                             isUnderline = true,
                             textColorHex = "#185ABD",
-                            linkUrl = "https://external.link"
+                            linkUrl = targetUrl
                         )
                     )
                 }

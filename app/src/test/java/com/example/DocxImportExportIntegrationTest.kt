@@ -431,4 +431,55 @@ class DocxImportExportIntegrationTest {
 
         exportFile.delete()
     }
+
+    // =========================================================================
+    // 9. Hyperlink Export and Import Round-Trip Fidelity Test
+    // =========================================================================
+    @Test
+    fun testHyperlinkExportAndImportFidelity() {
+        val originalDoc = RichDocument(
+            title = "Hyperlink Round-Trip",
+            blocks = listOf(
+                ParagraphBlock(
+                    text = "Visit OpenAI or Google AI for research.",
+                    spans = listOf(
+                        InlineSpan(
+                            start = 6,
+                            end = 12,
+                            isUnderline = true,
+                            textColorHex = "#185ABD",
+                            linkUrl = "https://openai.com"
+                        ),
+                        InlineSpan(
+                            start = 16,
+                            end = 25,
+                            isUnderline = true,
+                            textColorHex = "#185ABD",
+                            linkUrl = "https://ai.google"
+                        )
+                    )
+                )
+            )
+        )
+
+        val byteOut = ByteArrayOutputStream()
+        DocxPackageWriter(context).write(originalDoc, byteOut)
+
+        val importRes = DocxPackageReader(context).read(ByteArrayInputStream(byteOut.toByteArray()))
+        assertTrue("Import must succeed", importRes is DocumentResult.Success)
+
+        val importedDoc = (importRes as DocumentResult.Success).data.document
+        val p = importedDoc.blocks[0] as ParagraphBlock
+        assertEquals("Visit OpenAI or Google AI for research.", p.text)
+
+        val openAiSpan = p.spans.find { it.linkUrl == "https://openai.com" }
+        assertNotNull("OpenAI link must be preserved", openAiSpan)
+        assertEquals(6, openAiSpan!!.start)
+        assertEquals(12, openAiSpan.end)
+
+        val googleSpan = p.spans.find { it.linkUrl == "https://ai.google" }
+        assertNotNull("Google link must be preserved", googleSpan)
+        assertEquals(16, googleSpan!!.start)
+        assertEquals(25, googleSpan.end)
+    }
 }

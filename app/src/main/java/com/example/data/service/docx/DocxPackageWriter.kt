@@ -75,6 +75,21 @@ class DocxPackageWriter(private val context: Context?) {
             }
         }
 
+        // 1b. Collect external hyperlinks
+        val hyperlinkMap = mutableMapOf<String, String>()
+        var linkCounter = 1
+        for (block in document.blocks) {
+            if (block is ParagraphBlock) {
+                for (span in block.spans) {
+                    val url = span.linkUrl
+                    if (!url.isNullOrBlank() && !hyperlinkMap.containsKey(url)) {
+                        hyperlinkMap[url] = "rIdLink$linkCounter"
+                        linkCounter++
+                    }
+                }
+            }
+        }
+
         // 2. Write [Content_Types].xml
         writeZipEntry(zipOut, "[Content_Types].xml", buildContentTypesXml(document, embeddedImages))
 
@@ -86,7 +101,7 @@ class DocxPackageWriter(private val context: Context?) {
         writeZipEntry(zipOut, "docProps/app.xml", buildDocPropsAppXml(document))
 
         // 5. Write word/_rels/document.xml.rels
-        writeZipEntry(zipOut, "word/_rels/document.xml.rels", buildDocumentRelsXml(document, embeddedImages))
+        writeZipEntry(zipOut, "word/_rels/document.xml.rels", buildDocumentRelsXml(document, embeddedImages, hyperlinkMap))
 
         // 6. Write word/styles.xml
         writeZipEntry(zipOut, "word/styles.xml", buildStylesXml())
@@ -108,7 +123,7 @@ class DocxPackageWriter(private val context: Context?) {
         }
 
         // 10. Write word/document.xml
-        writeZipEntry(zipOut, "word/document.xml", buildDocumentXml(document, embeddedImages))
+        writeZipEntry(zipOut, "word/document.xml", buildDocumentXml(document, embeddedImages, hyperlinkMap))
 
         zipOut.flush()
         zipOut.finish()
@@ -188,7 +203,11 @@ class DocxPackageWriter(private val context: Context?) {
 </Relationships>"""
     }
 
-    private fun buildDocumentRelsXml(document: RichDocument, images: List<EmbeddedImage>): String {
+    private fun buildDocumentRelsXml(
+        document: RichDocument,
+        images: List<EmbeddedImage>,
+        hyperlinks: Map<String, String> = emptyMap()
+    ): String {
         val sb = StringBuilder()
         sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
         sb.append("""<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">""")
@@ -203,6 +222,9 @@ class DocxPackageWriter(private val context: Context?) {
         for (img in images) {
             val relativeTarget = img.entryPath.removePrefix("word/")
             sb.append("""<Relationship Id="${img.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="$relativeTarget"/>""")
+        }
+        for ((url, relId) in hyperlinks) {
+            sb.append("""<Relationship Id="$relId" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(url)}" TargetMode="External"/>""")
         }
         sb.append("""</Relationships>""")
         return sb.toString()
@@ -482,7 +504,11 @@ class DocxPackageWriter(private val context: Context?) {
         return sb.toString()
     }
 
-    private fun buildDocumentXml(document: RichDocument, images: List<EmbeddedImage>): String {
+    private fun buildDocumentXml(
+        document: RichDocument,
+        images: List<EmbeddedImage>,
+        hyperlinks: Map<String, String> = emptyMap()
+    ): String {
         val sb = StringBuilder()
         sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
         sb.append("""<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" """)
@@ -496,7 +522,7 @@ class DocxPackageWriter(private val context: Context?) {
         for (block in document.blocks) {
             when (block) {
                 is ParagraphBlock -> {
-                    sb.append(buildParagraphXml(block))
+                    sb.append(buildParagraphXml(block, hyperlinks))
                 }
                 is TableBlock -> {
                     sb.append(buildTableXml(block))
@@ -524,7 +550,7 @@ class DocxPackageWriter(private val context: Context?) {
         return sb.toString()
     }
 
-    private fun buildParagraphXml(block: ParagraphBlock): String {
+    private fun buildParagraphXml(block: ParagraphBlock, hyperlinks: Map<String, String> = emptyMap()): String {
         val sb = StringBuilder()
         sb.append("<w:p>")
 
@@ -586,44 +612,54 @@ class DocxPackageWriter(private val context: Context?) {
         // Runs with segmented spans
         val runs = segmentParagraphRuns(block.text, block.spans)
         for (run in runs) {
-            sb.append("<w:r>")
-            sb.append("<w:rPr>")
+            val runSb = StringBuilder()
+            runSb.append("<w:r>")
+            runSb.append("<w:rPr>")
 
-            if (run.isBold) sb.append("<w:b/>")
-            if (run.isItalic) sb.append("<w:i/>")
-            if (run.isUnderline) sb.append("""<w:u w:val="single"/>""")
-            if (run.isStrikethrough) sb.append("<w:strike/>")
-            if (run.isSuperscript) sb.append("""<w:vertAlign w:val="superscript"/>""")
-            if (run.isSubscript) sb.append("""<w:vertAlign w:val="subscript"/>""")
+            if (run.isBold) runSb.append("<w:b/>")
+            if (run.isItalic) runSb.append("<w:i/>")
+            if (run.isUnderline) runSb.append("""<w:u w:val="single"/>""")
+            if (run.isStrikethrough) runSb.append("<w:strike/>")
+            if (run.isSuperscript) runSb.append("""<w:vertAlign w:val="superscript"/>""")
+            if (run.isSubscript) runSb.append("""<w:vertAlign w:val="subscript"/>""")
 
             if (run.fontSizeSp != null) {
                 val halfPts = (run.fontSizeSp * 2).toInt()
-                sb.append("""<w:sz w:val="$halfPts"/>""")
-                sb.append("""<w:szCs w:val="$halfPts"/>""")
+                runSb.append("""<w:sz w:val="$halfPts"/>""")
+                runSb.append("""<w:szCs w:val="$halfPts"/>""")
             }
 
             if (run.textColorHex != null) {
                 val cleanHex = run.textColorHex.removePrefix("#")
-                sb.append("""<w:color w:val="$cleanHex"/>""")
+                runSb.append("""<w:color w:val="$cleanHex"/>""")
             }
 
             if (run.highlightColorHex != null) {
                 val highlightName = mapColorToWordHighlight(run.highlightColorHex)
-                sb.append("""<w:highlight w:val="$highlightName"/>""")
+                runSb.append("""<w:highlight w:val="$highlightName"/>""")
             }
 
             if (run.fontFamilyName != null) {
                 val font = escapeXml(run.fontFamilyName)
-                sb.append("""<w:rFonts w:ascii="$font" w:hAnsi="$font" w:cs="$font"/>""")
+                runSb.append("""<w:rFonts w:ascii="$font" w:hAnsi="$font" w:cs="$font"/>""")
             }
 
             if (isRtl) {
-                sb.append("<w:rtl/>")
+                runSb.append("<w:rtl/>")
             }
 
-            sb.append("</w:rPr>")
-            sb.append("""<w:t xml:space="preserve">${escapeXml(run.text)}</w:t>""")
-            sb.append("</w:r>")
+            runSb.append("</w:rPr>")
+            runSb.append("""<w:t xml:space="preserve">${escapeXml(run.text)}</w:t>""")
+            runSb.append("</w:r>")
+
+            val relId = run.linkUrl?.let { hyperlinks[it] }
+            if (relId != null) {
+                sb.append("""<w:hyperlink r:id="$relId">""")
+                sb.append(runSb)
+                sb.append("""</w:hyperlink>""")
+            } else {
+                sb.append(runSb)
+            }
         }
 
         sb.append("</w:p>")
@@ -816,7 +852,8 @@ $bordersXml
         val fontSizeSp: Float? = null,
         val textColorHex: String? = null,
         val highlightColorHex: String? = null,
-        val fontFamilyName: String? = null
+        val fontFamilyName: String? = null,
+        val linkUrl: String? = null
     )
 
     private fun segmentParagraphRuns(text: String, spans: List<InlineSpan>): List<FormattedRunSlice> {
@@ -850,6 +887,7 @@ $bordersXml
             var textColorHex: String? = null
             var highlightColorHex: String? = null
             var fontFamilyName: String? = null
+            var linkUrl: String? = null
 
             for (span in matchingSpans) {
                 if (span.isBold) isBold = true
@@ -862,6 +900,7 @@ $bordersXml
                 if (span.textColorHex != null) textColorHex = span.textColorHex
                 if (span.highlightColorHex != null) highlightColorHex = span.highlightColorHex
                 if (span.fontFamilyName != null) fontFamilyName = span.fontFamilyName
+                if (span.linkUrl != null) linkUrl = span.linkUrl
             }
 
             slices.add(
@@ -876,7 +915,8 @@ $bordersXml
                     fontSizeSp = fontSizeSp,
                     textColorHex = textColorHex,
                     highlightColorHex = highlightColorHex,
-                    fontFamilyName = fontFamilyName
+                    fontFamilyName = fontFamilyName,
+                    linkUrl = linkUrl
                 )
             )
         }

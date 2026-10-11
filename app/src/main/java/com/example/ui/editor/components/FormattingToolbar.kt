@@ -36,6 +36,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -466,6 +467,7 @@ fun FormatToggleButton(
         color = if (isActive) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
         border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, WordPrimary) else null,
         modifier = Modifier
+            .minimumInteractiveComponentSize()
             .size(36.dp)
             .clickable(onClick = onClick)
             .testTag(tag)
@@ -494,6 +496,7 @@ fun FormatTextToggleButton(
         color = if (isActive) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
         border = if (isActive) androidx.compose.foundation.BorderStroke(1.dp, WordPrimary) else null,
         modifier = Modifier
+            .minimumInteractiveComponentSize()
             .size(36.dp)
             .clickable(onClick = onClick)
             .testTag(tag)

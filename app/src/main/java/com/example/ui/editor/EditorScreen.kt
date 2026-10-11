@@ -1255,25 +1255,36 @@ fun LayoutRibbonControls(
 
 @Composable
 fun ViewRibbonControls(viewModel: EditorViewModel) {
+    val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
+    val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
+
     FilterChip(
-        selected = true,
+        selected = currentViewMode == EditorViewMode.PAGINATED_A4,
         onClick = { viewModel.setViewMode(EditorViewMode.PAGINATED_A4) },
-        label = { Text("A4 Page View", fontSize = 11.sp) }
+        label = { Text("A4 Page View", fontSize = 11.sp) },
+        modifier = Modifier.testTag("view_mode_a4")
     )
     FilterChip(
-        selected = false,
+        selected = currentViewMode == EditorViewMode.CONTINUOUS_MOBILE,
         onClick = { viewModel.setViewMode(EditorViewMode.CONTINUOUS_MOBILE) },
-        label = { Text("Mobile Continuous", fontSize = 11.sp) }
+        label = { Text("Mobile Continuous", fontSize = 11.sp) },
+        modifier = Modifier.testTag("view_mode_mobile")
     )
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
 
-    IconButton(onClick = { viewModel.setZoomPercent(75) }, modifier = Modifier.size(32.dp)) {
-        Icon(Icons.Default.ZoomOut, contentDescription = "Zoom 75%")
+    IconButton(
+        onClick = { viewModel.setZoomPercent(zoomPercent - 10) },
+        modifier = Modifier.size(32.dp).testTag("zoom_out_button")
+    ) {
+        Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out")
     }
-    Text("100%", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-    IconButton(onClick = { viewModel.setZoomPercent(125) }, modifier = Modifier.size(32.dp)) {
-        Icon(Icons.Default.ZoomIn, contentDescription = "Zoom 125%")
+    Text("$zoomPercent%", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("zoom_percent_text"))
+    IconButton(
+        onClick = { viewModel.setZoomPercent(zoomPercent + 10) },
+        modifier = Modifier.size(32.dp).testTag("zoom_in_button")
+    ) {
+        Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
     }
 }
 
