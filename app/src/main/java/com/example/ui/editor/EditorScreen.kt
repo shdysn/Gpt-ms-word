@@ -366,14 +366,6 @@ fun EditorScreen(
                             )
                         }
 
-                        // Export / Share PDF Quick Action
-                        IconButton(
-                            onClick = { showExportPdfDialog = true },
-                            modifier = Modifier.testTag("action_share_pdf")
-                        ) {
-                            Icon(Icons.Default.PictureAsPdf, contentDescription = "Export / Share PDF")
-                        }
-
                         // Overflow Options Menu
                         Box {
                             IconButton(onClick = { showOptionsMenu = true }) {
@@ -446,14 +438,6 @@ fun EditorScreen(
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Page Setup...") },
-                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showLayoutDialog = true
-                                    }
-                                )
-                                DropdownMenuItem(
                                     text = { Text("Document Statistics") },
                                     leadingIcon = { Icon(Icons.Default.FormatListNumbered, contentDescription = null) },
                                     onClick = {
@@ -519,19 +503,9 @@ fun EditorScreen(
                     )
                 },
                 onOpenLayoutDialog = { showLayoutDialog = true },
-                onOpenStatsDialog = { showStatsDialog = true },
                 onOpenLinkDialog = { showLinkDialog = true },
                 onOpenHeaderFooterDialog = { showHeaderFooterDialog = true },
-                onOpenPageNumberDialog = { showPageNumberDialog = true },
-                onSaveAsDocx = {
-                    val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                    safDocxSaveLauncher.launch("$safeTitle.docx")
-                },
-                onOpenExportPdfDialog = { showExportPdfDialog = true },
-                onSaveAsPdf = {
-                    val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                    safPdfSaveLauncher.launch("$safeTitle.pdf")
-                }
+                onOpenPageNumberDialog = { showPageNumberDialog = true }
             )
 
             // Document Crash/Restart Recovery Notification Banner
@@ -1002,13 +976,9 @@ fun WordRibbon(
     onOpenTableDialog: () -> Unit,
     onOpenPhotoPicker: () -> Unit,
     onOpenLayoutDialog: () -> Unit,
-    onOpenStatsDialog: () -> Unit,
     onOpenLinkDialog: () -> Unit,
     onOpenHeaderFooterDialog: () -> Unit = {},
-    onOpenPageNumberDialog: () -> Unit = {},
-    onSaveAsDocx: () -> Unit = {},
-    onOpenExportPdfDialog: () -> Unit = {},
-    onSaveAsPdf: () -> Unit = {}
+    onOpenPageNumberDialog: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
 
@@ -1058,7 +1028,7 @@ fun WordRibbon(
                             }
                         ) {
                             Box(
-                                modifier = Modifier.padding(horizontal = 2.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -1166,26 +1136,6 @@ fun WordRibbon(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             ViewRibbonControls(viewModel)
-                        }
-                    }
-
-                    RibbonTab.FILE -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            FileRibbonControls(
-                                viewModel = viewModel,
-                                context = context,
-                                onOpenStatsDialog = onOpenStatsDialog,
-                                onSaveAsDocx = onSaveAsDocx,
-                                onOpenExportPdfDialog = onOpenExportPdfDialog,
-                                onSaveAsPdf = onSaveAsPdf
-                            )
                         }
                     }
                 }
@@ -1340,66 +1290,6 @@ fun ViewRibbonControls(viewModel: EditorViewModel) {
     ) {
         Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
     }
-}
-
-@Composable
-fun FileRibbonControls(
-    viewModel: EditorViewModel,
-    context: Context,
-    onOpenStatsDialog: () -> Unit,
-    onSaveAsDocx: () -> Unit = {},
-    onOpenExportPdfDialog: () -> Unit = {},
-    onSaveAsPdf: () -> Unit = {}
-) {
-    RibbonActionButton(
-        icon = Icons.Default.Save,
-        label = "Save Now",
-        onClick = { viewModel.saveNow() }
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.PictureAsPdf,
-        label = "Export / Save PDF",
-        onClick = onOpenExportPdfDialog
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.Print,
-        label = "Print",
-        onClick = { viewModel.printDocument(context) }
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.Description,
-        label = "Share DOCX",
-        onClick = {
-            viewModel.exportToDocx(context) { file ->
-                file?.let { shareDocxFile(context, it) }
-            }
-        }
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.Save,
-        label = "Save DOCX (SAF)",
-        onClick = onSaveAsDocx
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.TextFields,
-        label = "Plain Text",
-        onClick = {
-            viewModel.exportToPlainText(context) { file ->
-                file?.let { shareTextFile(context, it) }
-            }
-        }
-    )
-
-    RibbonActionButton(
-        icon = Icons.Default.FormatListNumbered,
-        label = "Statistics",
-        onClick = onOpenStatsDialog
-    )
 }
 
 @Composable

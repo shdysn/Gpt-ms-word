@@ -55,8 +55,7 @@ enum class RibbonTab {
     HOME,
     INSERT,
     LAYOUT,
-    VIEW,
-    FILE
+    VIEW
 }
 
 /**
