@@ -123,6 +123,37 @@ class DocumentStorageManager(private val context: Context) {
     }
 
     /**
+     * Persists an image from an external Uri (such as Photo Picker or SAF) into internal app storage.
+     * Guarantees the image remains present after saving, reopening, and exporting.
+     */
+    fun persistImageFromUri(sourceUri: Uri): String {
+        return try {
+            val imagesDir = File(context.filesDir, "images").apply {
+                if (!exists()) mkdirs()
+            }
+            val mimeType = try { context.contentResolver.getType(sourceUri) } catch (e: Exception) { null }
+            val extension = when {
+                mimeType?.contains("jpeg") == true || mimeType?.contains("jpg") == true -> "jpg"
+                mimeType?.contains("png") == true -> "png"
+                mimeType?.contains("webp") == true -> "webp"
+                sourceUri.toString().endsWith(".jpg", ignoreCase = true) -> "jpg"
+                sourceUri.toString().endsWith(".png", ignoreCase = true) -> "png"
+                else -> "png"
+            }
+            val targetFile = File(imagesDir, "img_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}.$extension")
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                    output.flush()
+                }
+            }
+            Uri.fromFile(targetFile).toString()
+        } catch (e: Exception) {
+            sourceUri.toString()
+        }
+    }
+
+    /**
      * Loads the unsaved recovery draft for the given document ID.
      */
     suspend fun loadRecoveryDraft(documentId: String): DocumentResult<RichDocument> =
@@ -366,6 +397,10 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("id", block.id)
                         blockObj.put("rowCount", block.rowCount)
                         blockObj.put("columnCount", block.columnCount)
+                        blockObj.put("hasBorders", block.hasBorders)
+                        blockObj.put("borderColorHex", block.borderColorHex)
+                        blockObj.put("tableWidthPercent", block.tableWidthPercent)
+                        blockObj.put("alignment", block.alignment.name)
                         val cellsArray = JSONArray()
                         for (row in block.cells) {
                             val rowArray = JSONArray()
@@ -373,6 +408,8 @@ class DocumentStorageManager(private val context: Context) {
                                 val cellObj = JSONObject().apply {
                                     put("text", cell.text)
                                     put("isBold", cell.isBold)
+                                    put("isItalic", cell.isItalic)
+                                    put("alignment", cell.alignment.name)
                                     cell.backgroundColorHex?.let { put("bg", it) }
                                 }
                                 rowArray.put(cellObj)
@@ -388,6 +425,8 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("caption", block.caption)
                         blockObj.put("widthDp", block.widthDp)
                         blockObj.put("heightDp", block.heightDp)
+                        blockObj.put("alignment", block.alignment.name)
+                        blockObj.put("aspectRatio", block.aspectRatio.toDouble())
                     }
                     is DividerBlock -> {
                         blockObj.put("type", "divider")
@@ -532,6 +571,13 @@ class DocumentStorageManager(private val context: Context) {
                 "table" -> {
                     val rowCount = bObj.optInt("rowCount", 2)
                     val columnCount = bObj.optInt("columnCount", 2)
+                    val hasBorders = bObj.optBoolean("hasBorders", true)
+                    val borderColorHex = bObj.optString("borderColorHex", "#CBD5E1")
+                    val tableWidthPercent = bObj.optInt("tableWidthPercent", 100)
+                    val alignment = try {
+                        TextAlignment.valueOf(bObj.optString("alignment", "CENTER"))
+                    } catch (e: Exception) { TextAlignment.CENTER }
+
                     val cells = mutableListOf<List<TableCell>>()
                     val cellsArr = bObj.optJSONArray("cells")
                     if (cellsArr != null) {
@@ -540,27 +586,48 @@ class DocumentStorageManager(private val context: Context) {
                             val row = mutableListOf<TableCell>()
                             for (c in 0 until rowArr.length()) {
                                 val cObj = rowArr.getJSONObject(c)
+                                val cellAlign = try {
+                                    TextAlignment.valueOf(cObj.optString("alignment", "START"))
+                                } catch (e: Exception) { TextAlignment.START }
                                 row.add(
                                     TableCell(
                                         text = cObj.optString("text", ""),
                                         isBold = cObj.optBoolean("isBold", false),
-                                        backgroundColorHex = if (cObj.has("bg") && !cObj.isNull("bg")) cObj.getString("bg") else null
+                                        isItalic = cObj.optBoolean("isItalic", false),
+                                        backgroundColorHex = if (cObj.has("bg") && !cObj.isNull("bg")) cObj.getString("bg") else null,
+                                        alignment = cellAlign
                                     )
                                 )
                             }
                             cells.add(row)
                         }
                     }
-                    blocks.add(TableBlock(id = blockId, rowCount = rowCount, columnCount = columnCount, cells = cells))
+                    blocks.add(
+                        TableBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            rowCount = rowCount,
+                            columnCount = columnCount,
+                            cells = cells,
+                            hasBorders = hasBorders,
+                            borderColorHex = borderColorHex,
+                            tableWidthPercent = tableWidthPercent,
+                            alignment = alignment
+                        )
+                    )
                 }
                 "image" -> {
+                    val imgAlign = try {
+                        TextAlignment.valueOf(bObj.optString("alignment", "CENTER"))
+                    } catch (e: Exception) { TextAlignment.CENTER }
                     blocks.add(
                         ImageBlock(
-                            id = blockId,
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
                             imageUri = bObj.optString("imageUri", ""),
                             caption = bObj.optString("caption", ""),
                             widthDp = bObj.optInt("widthDp", 240),
-                            heightDp = bObj.optInt("heightDp", 180)
+                            heightDp = bObj.optInt("heightDp", 180),
+                            alignment = imgAlign,
+                            aspectRatio = bObj.optDouble("aspectRatio", 1.333).toFloat()
                         )
                     )
                 }

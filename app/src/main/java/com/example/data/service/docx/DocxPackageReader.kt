@@ -527,6 +527,19 @@ class DocxPackageReader(private val context: Context?) {
         val rows = mutableListOf<List<TableCell>>()
         val trNodes = tblElement.getElementsByTagName("w:tr")
 
+        val tblPr = tblElement.getElementsByTagName("w:tblPr").item(0) as? Element
+        val tblJc = (tblPr?.getElementsByTagName("w:jc")?.item(0) as? Element)?.getAttribute("w:val")
+        val tableAlignment = when (tblJc) {
+            "left" -> TextAlignment.START
+            "right" -> TextAlignment.END
+            else -> TextAlignment.CENTER
+        }
+        val tblBorders = tblPr?.getElementsByTagName("w:tblBorders")?.item(0) as? Element
+        val hasBorders = if (tblBorders != null) {
+            val topVal = (tblBorders.getElementsByTagName("w:top").item(0) as? Element)?.getAttribute("w:val")
+            topVal != "none"
+        } else true
+
         var maxCols = 0
         for (r in 0 until trNodes.length) {
             val tr = trNodes.item(r) as? Element ?: continue
@@ -542,6 +555,14 @@ class DocxPackageReader(private val context: Context?) {
                 }
                 val cellText = textBuilder.toString()
                 val isBold = tc.getElementsByTagName("w:b").length > 0
+                val isItalic = tc.getElementsByTagName("w:i").length > 0
+                val jcNode = tc.getElementsByTagName("w:jc").item(0) as? Element
+                val cellAlign = when (jcNode?.getAttribute("w:val")) {
+                    "center" -> TextAlignment.CENTER
+                    "right" -> TextAlignment.END
+                    "both" -> TextAlignment.JUSTIFY
+                    else -> TextAlignment.START
+                }
 
                 var bgHex: String? = null
                 val shd = tc.getElementsByTagName("w:shd").item(0) as? Element
@@ -555,7 +576,9 @@ class DocxPackageReader(private val context: Context?) {
                     TableCell(
                         text = cellText,
                         isBold = isBold,
-                        backgroundColorHex = bgHex
+                        isItalic = isItalic,
+                        backgroundColorHex = bgHex,
+                        alignment = cellAlign
                     )
                 )
             }
@@ -576,7 +599,9 @@ class DocxPackageReader(private val context: Context?) {
         return TableBlock(
             rowCount = rowCount,
             columnCount = colCount,
-            cells = normalizedRows
+            cells = normalizedRows,
+            hasBorders = hasBorders,
+            alignment = tableAlignment
         )
     }
 

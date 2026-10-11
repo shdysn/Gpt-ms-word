@@ -41,11 +41,15 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FindReplace
+import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
@@ -55,6 +59,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
@@ -65,6 +71,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -98,6 +105,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
@@ -117,6 +125,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.core.layout.MarginPreset
 import com.example.core.layout.PageLayoutConfig
 import com.example.core.layout.PageOrientation
@@ -130,13 +140,19 @@ import com.example.data.model.PageBreakBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
 import com.example.data.model.TableBlock
+import com.example.data.model.TableCell
 import com.example.data.model.TextAlignment
 import com.example.editor.engine.AutosaveStatus
 import com.example.ui.editor.components.FindReplaceBar
 import com.example.ui.editor.components.FormattingToolbar
+import com.example.ui.editor.components.HeaderFooterEditDialog
+import com.example.ui.editor.components.ImagePropertiesDialog
 import com.example.ui.editor.components.InsertHyperlinkDialog
 import com.example.ui.editor.components.InsertTableDialog
 import com.example.ui.editor.components.PageLayoutDialog
+import com.example.ui.editor.components.PageNumberInsertDialog
+import com.example.ui.editor.components.TableCellEditDialog
+import com.example.ui.editor.components.TablePropertiesDialog
 import com.example.ui.theme.WordDeskCanvasLight
 import com.example.ui.theme.WordPrimary
 import java.io.File
@@ -180,6 +196,11 @@ fun EditorScreen(
     var showLinkDialog by remember { mutableStateOf(false) }
     var showLayoutDialog by remember { mutableStateOf(false) }
     var showStatsDialog by remember { mutableStateOf(false) }
+    var showHeaderFooterDialog by remember { mutableStateOf(false) }
+    var showPageNumberDialog by remember { mutableStateOf(false) }
+    var selectedTableForProperties by remember { mutableStateOf<TableBlock?>(null) }
+    var selectedCellForEdit by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
+    var selectedImageForProperties by remember { mutableStateOf<ImageBlock?>(null) }
     var showOptionsMenu by remember { mutableStateOf(false) }
 
     // Flush edits to storage when application is backgrounded or minimized
@@ -202,7 +223,7 @@ fun EditorScreen(
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        uri?.let { viewModel.insertImage(it.toString(), "Inserted Image") }
+        uri?.let { viewModel.insertImageFromUri(context, it, "Inserted Picture") }
     }
 
     // SAF PDF Save Launcher
@@ -489,6 +510,8 @@ fun EditorScreen(
                 onOpenLayoutDialog = { showLayoutDialog = true },
                 onOpenStatsDialog = { showStatsDialog = true },
                 onOpenLinkDialog = { showLinkDialog = true },
+                onOpenHeaderFooterDialog = { showHeaderFooterDialog = true },
+                onOpenPageNumberDialog = { showPageNumberDialog = true },
                 onSaveAsDocx = {
                     val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
                     safDocxSaveLauncher.launch("$safeTitle.docx")
@@ -572,7 +595,14 @@ fun EditorScreen(
                         onUpdateBlockText = { index, text, sel -> viewModel.updateParagraphText(index, text, sel) },
                         onSelectionChanged = viewModel::updateSelection,
                         onInsertParagraph = viewModel::insertParagraph,
-                        onDeleteCurrentBlock = viewModel::deleteCurrentBlock
+                        onDeleteCurrentBlock = viewModel::deleteCurrentBlock,
+                        onEditTableProperties = { table -> selectedTableForProperties = table },
+                        onEditTableCell = { table, r, c -> selectedCellForEdit = Triple(table, r, c) },
+                        onQuickAddTableRow = { id -> viewModel.addTableRow(id) },
+                        onQuickDeleteTableRow = { id -> viewModel.deleteTableRow(id, -1) },
+                        onQuickAddTableCol = { id -> viewModel.addTableColumn(id) },
+                        onQuickDeleteTableCol = { id -> viewModel.deleteTableColumn(id, -1) },
+                        onEditImageProperties = { img -> selectedImageForProperties = img }
                     )
                 }
             }
@@ -702,9 +732,110 @@ fun EditorScreen(
     if (showTableDialog) {
         InsertTableDialog(
             onDismiss = { showTableDialog = false },
-            onConfirm = { r, c ->
-                viewModel.insertTable(r, c)
+            onConfirm = { r, c, hasBorders, widthPercent ->
+                viewModel.insertTable(
+                    rows = r,
+                    cols = c,
+                    hasBorders = hasBorders,
+                    tableWidthPercent = widthPercent
+                )
                 showTableDialog = false
+            }
+        )
+    }
+
+    // Table Properties Dialog
+    selectedTableForProperties?.let { table ->
+        TablePropertiesDialog(
+            table = table,
+            onDismiss = { selectedTableForProperties = null },
+            onAddRow = { viewModel.addTableRow(table.id) },
+            onDeleteRow = { viewModel.deleteTableRow(table.id, table.rowCount - 1) },
+            onAddCol = { viewModel.addTableColumn(table.id) },
+            onDeleteCol = { viewModel.deleteTableColumn(table.id, table.columnCount - 1) },
+            onUpdateProperties = { hasBorders, borderColorHex, widthPercent, alignment ->
+                viewModel.updateTableProperties(
+                    blockId = table.id,
+                    hasBorders = hasBorders,
+                    borderColorHex = borderColorHex,
+                    tableWidthPercent = widthPercent,
+                    alignment = alignment
+                )
+            },
+            onDeleteTable = {
+                viewModel.deleteBlockById(table.id)
+            }
+        )
+    }
+
+    // Table Cell Edit Dialog
+    selectedCellForEdit?.let { (table, row, col) ->
+        val cell = table.cells.getOrNull(row)?.getOrNull(col) ?: TableCell()
+        TableCellEditDialog(
+            cell = cell,
+            row = row,
+            col = col,
+            onDismiss = { selectedCellForEdit = null },
+            onConfirm = { text, isBold, isItalic, bgHex, alignment ->
+                viewModel.updateTableCell(table.id, row, col, text)
+                viewModel.updateTableCellFormat(
+                    blockId = table.id,
+                    row = row,
+                    col = col,
+                    isBold = isBold,
+                    isItalic = isItalic,
+                    backgroundColorHex = bgHex,
+                    alignment = alignment
+                )
+                selectedCellForEdit = null
+            }
+        )
+    }
+
+    // Image Properties Dialog
+    selectedImageForProperties?.let { img ->
+        ImagePropertiesDialog(
+            imageBlock = img,
+            onDismiss = { selectedImageForProperties = null },
+            onConfirm = { widthDp, heightDp, alignment, caption, ratio ->
+                viewModel.updateImageProperties(
+                    blockId = img.id,
+                    widthDp = widthDp,
+                    heightDp = heightDp,
+                    alignment = alignment,
+                    caption = caption,
+                    aspectRatio = ratio
+                )
+            },
+            onDeleteImage = {
+                viewModel.deleteBlockById(img.id)
+            }
+        )
+    }
+
+    // Header & Footer Dialog
+    if (showHeaderFooterDialog && document != null) {
+        val layout = document!!.layoutConfig
+        HeaderFooterEditDialog(
+            currentHeader = layout.headerText,
+            currentFooter = layout.footerText,
+            showHeader = layout.showHeader,
+            showFooter = layout.showFooter,
+            onDismiss = { showHeaderFooterDialog = false },
+            onConfirm = { headerText, footerText, showHeader, showFooter ->
+                viewModel.setHeaderFooter(headerText, footerText, showHeader, showFooter)
+                showHeaderFooterDialog = false
+            }
+        )
+    }
+
+    // Page Number Insert Dialog
+    if (showPageNumberDialog) {
+        PageNumberInsertDialog(
+            onDismiss = { showPageNumberDialog = false },
+            onSelectPreset = { pattern, alignment ->
+                viewModel.setPageNumberPreset(pattern, alignment)
+                showPageNumberDialog = false
             }
         )
     }
@@ -828,6 +959,8 @@ fun WordRibbon(
     onOpenLayoutDialog: () -> Unit,
     onOpenStatsDialog: () -> Unit,
     onOpenLinkDialog: () -> Unit,
+    onOpenHeaderFooterDialog: () -> Unit = {},
+    onOpenPageNumberDialog: () -> Unit = {},
     onSaveAsDocx: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
@@ -909,7 +1042,10 @@ fun WordRibbon(
                             InsertRibbonControls(
                                 viewModel = viewModel,
                                 onOpenTableDialog = onOpenTableDialog,
-                                onOpenPhotoPicker = onOpenPhotoPicker
+                                onOpenPhotoPicker = onOpenPhotoPicker,
+                                onOpenLinkDialog = onOpenLinkDialog,
+                                onOpenHeaderFooterDialog = onOpenHeaderFooterDialog,
+                                onOpenPageNumberDialog = onOpenPageNumberDialog
                             )
                         }
                     }
@@ -970,7 +1106,10 @@ fun WordRibbon(
 fun InsertRibbonControls(
     viewModel: EditorViewModel,
     onOpenTableDialog: () -> Unit,
-    onOpenPhotoPicker: () -> Unit
+    onOpenPhotoPicker: () -> Unit,
+    onOpenLinkDialog: () -> Unit,
+    onOpenHeaderFooterDialog: () -> Unit,
+    onOpenPageNumberDialog: () -> Unit
 ) {
     RibbonActionButton(
         icon = Icons.Default.TableChart,
@@ -985,6 +1124,12 @@ fun InsertRibbonControls(
     )
 
     RibbonActionButton(
+        icon = Icons.Default.Link,
+        label = "Hyperlink",
+        onClick = onOpenLinkDialog
+    )
+
+    RibbonActionButton(
         icon = Icons.Default.HorizontalRule,
         label = "Horizontal Line",
         onClick = { viewModel.insertDivider() }
@@ -994,6 +1139,18 @@ fun InsertRibbonControls(
         icon = Icons.Default.Title,
         label = "Page Break",
         onClick = { viewModel.insertPageBreak() }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.VerticalSplit,
+        label = "Header & Footer",
+        onClick = onOpenHeaderFooterDialog
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.FormatListNumbered,
+        label = "Page Numbers",
+        onClick = onOpenPageNumberDialog
     )
 
     val dateFormat = remember { SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()) }
@@ -1178,7 +1335,14 @@ fun DocumentCanvas(
     onUpdateBlockText: (Int, String, TextRange) -> Unit,
     onSelectionChanged: (TextRange) -> Unit,
     onInsertParagraph: () -> Unit,
-    onDeleteCurrentBlock: () -> Unit
+    onDeleteCurrentBlock: () -> Unit,
+    onEditTableProperties: (TableBlock) -> Unit = {},
+    onEditTableCell: (TableBlock, Int, Int) -> Unit = { _, _, _ -> },
+    onQuickAddTableRow: (String) -> Unit = {},
+    onQuickDeleteTableRow: (String) -> Unit = {},
+    onQuickAddTableCol: (String) -> Unit = {},
+    onQuickDeleteTableCol: (String) -> Unit = {},
+    onEditImageProperties: (ImageBlock) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -1304,10 +1468,14 @@ fun DocumentCanvas(
                                 }
 
                                 is com.example.core.layout.TablePageItem -> {
-                                    TableBlockSliceView(
+                                    TableBlockView(
                                         table = pageItem.originalBlock,
-                                        startRow = pageItem.startRow,
-                                        endRow = pageItem.endRow
+                                        onEditProperties = { onEditTableProperties(pageItem.originalBlock) },
+                                        onEditCell = { r, c -> onEditTableCell(pageItem.originalBlock, r, c) },
+                                        onAddRow = { onQuickAddTableRow(pageItem.originalBlock.id) },
+                                        onDeleteRow = { onQuickDeleteTableRow(pageItem.originalBlock.id) },
+                                        onAddCol = { onQuickAddTableCol(pageItem.originalBlock.id) },
+                                        onDeleteCol = { onQuickDeleteTableCol(pageItem.originalBlock.id) }
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
@@ -1315,7 +1483,8 @@ fun DocumentCanvas(
                                 is com.example.core.layout.ImagePageItem -> {
                                     ImageBlockView(
                                         imageBlock = pageItem.originalBlock,
-                                        onFocus = { onBlockSelected(pageItem.originalBlockIndex) }
+                                        onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                        onEditProperties = { onEditImageProperties(pageItem.originalBlock) }
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
@@ -1390,7 +1559,14 @@ fun DocumentCanvas(
                             onFocus = { onBlockSelected(index) },
                             onSelectionChanged = onSelectionChanged,
                             onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
-                            onEnterPressed = onInsertParagraph
+                            onEnterPressed = onInsertParagraph,
+                            onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
+                            onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
+                            onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
+                            onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
+                            onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
+                            onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
+                            onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -1401,30 +1577,163 @@ fun DocumentCanvas(
 }
 
 @Composable
-fun TableBlockSliceView(table: TableBlock, startRow: Int, endRow: Int) {
+fun TableBlockView(
+    table: TableBlock,
+    onEditProperties: () -> Unit = {},
+    onEditCell: (row: Int, col: Int) -> Unit = { _, _ -> },
+    onAddRow: () -> Unit = {},
+    onDeleteRow: () -> Unit = {},
+    onAddCol: () -> Unit = {},
+    onDeleteCol: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val tableBorderColor = try {
+        Color(android.graphics.Color.parseColor(table.borderColorHex))
+    } catch (e: Exception) {
+        Color(0xFFCBD5E1)
+    }
+
+    val tableAlignment = when (table.alignment) {
+        TextAlignment.START -> Alignment.Start
+        TextAlignment.END -> Alignment.End
+        else -> Alignment.CenterHorizontally
+    }
+
+    val widthFraction = (table.tableWidthPercent.coerceIn(20, 100) / 100f)
+
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
-            .padding(2.dp)
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = tableAlignment
     ) {
-        for (r in startRow until endRow) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                for (c in 0 until table.columnCount) {
-                    val cell = table.cells.getOrNull(r)?.getOrNull(c)
-                    Box(
+        // Table Header Quick Action Toolbar
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+            modifier = Modifier.fillMaxWidth(widthFraction)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TableChart,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = WordPrimary
+                    )
+                    Text(
+                        text = "Table (${table.rowCount}×${table.columnCount})",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = WordPrimary.copy(alpha = 0.12f),
                         modifier = Modifier
-                            .weight(1f)
-                            .border(0.5.dp, Color(0xFFE2E8F0))
-                            .background(if (r == 0) Color(0xFFF1F5F9) else Color.White)
-                            .padding(8.dp)
+                            .clickable(onClick = onAddRow)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .testTag("quick_add_row_${table.id}")
                     ) {
-                        Text(
-                            text = cell?.text?.ifBlank { "Cell ${r + 1},${c + 1}" } ?: "",
-                            fontWeight = if (r == 0) FontWeight.Bold else FontWeight.Normal,
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
+                        Text("+ Row", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = WordPrimary.copy(alpha = 0.12f),
+                        modifier = Modifier
+                            .clickable(onClick = onAddCol)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .testTag("quick_add_col_${table.id}")
+                    ) {
+                        Text("+ Col", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
+                    }
+
+                    IconButton(
+                        onClick = onEditProperties,
+                        modifier = Modifier.size(24.dp).testTag("table_properties_btn_${table.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Table Properties",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+        }
+
+        // Table Body Grid
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(widthFraction)
+                .border(
+                    width = if (table.hasBorders) 1.dp else 0.5.dp,
+                    color = if (table.hasBorders) tableBorderColor else Color(0xFFE2E8F0),
+                    shape = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
+                )
+        ) {
+            for (r in 0 until table.rowCount) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    for (c in 0 until table.columnCount) {
+                        val cell = table.cells.getOrNull(r)?.getOrNull(c) ?: TableCell()
+
+                        val cellBg = when {
+                            cell.backgroundColorHex != null -> try {
+                                Color(android.graphics.Color.parseColor(cell.backgroundColorHex))
+                            } catch (e: Exception) { Color.White }
+                            r == 0 -> Color(0xFFF1F5F9)
+                            else -> Color.White
+                        }
+
+                        val cellTextAlign = when (cell.alignment) {
+                            TextAlignment.CENTER -> TextAlign.Center
+                            TextAlignment.END -> TextAlign.End
+                            TextAlignment.JUSTIFY -> TextAlign.Justify
+                            TextAlignment.START -> TextAlign.Start
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(
+                                    width = 0.5.dp,
+                                    color = if (table.hasBorders) tableBorderColor else Color(0xFFE2E8F0)
+                                )
+                                .background(cellBg)
+                                .clickable { onEditCell(r, c) }
+                                .padding(8.dp)
+                                .testTag("table_cell_${table.id}_${r}_$c"),
+                            contentAlignment = when (cell.alignment) {
+                                TextAlignment.CENTER -> Alignment.Center
+                                TextAlignment.END -> Alignment.CenterEnd
+                                else -> Alignment.CenterStart
+                            }
+                        ) {
+                            Text(
+                                text = cell.text.ifBlank { "—" },
+                                fontWeight = if (cell.isBold || r == 0) FontWeight.Bold else FontWeight.Normal,
+                                fontStyle = if (cell.isItalic) FontStyle.Italic else FontStyle.Normal,
+                                fontSize = 12.sp,
+                                textAlign = cellTextAlign,
+                                color = if (cell.text.isBlank()) Color.LightGray else Color(0xFF1E293B),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
             }
@@ -1433,27 +1742,118 @@ fun TableBlockSliceView(table: TableBlock, startRow: Int, endRow: Int) {
 }
 
 @Composable
-fun ImageBlockView(imageBlock: ImageBlock, onFocus: () -> Unit = {}) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = Color(0xFFF1F5F9),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+fun ImageBlockView(
+    imageBlock: ImageBlock,
+    onFocus: () -> Unit = {},
+    onEditProperties: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val imageAlignment = when (imageBlock.alignment) {
+        TextAlignment.START -> Alignment.Start
+        TextAlignment.END -> Alignment.End
+        else -> Alignment.CenterHorizontally
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
             .clickable(onClick = onFocus)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = imageAlignment
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .width(imageBlock.widthDp.dp)
+                .height(imageBlock.heightDp.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
+                .clickable { onEditProperties() }
+                .testTag("image_block_${imageBlock.id}")
         ) {
-            Icon(Icons.Default.Image, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(36.dp))
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(imageBlock.imageUri)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = imageBlock.caption.ifBlank { "Document image" },
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+                loading = {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            color = WordPrimary,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                },
+                error = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFF8FAFC)),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BrokenImage,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = imageBlock.caption.ifBlank { "Picture Asset" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            )
+
+            // Format Overlay Chip at bottom corner
+            Surface(
+                shape = CircleShape,
+                color = WordPrimary.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .padding(6.dp)
+                    .align(Alignment.BottomEnd)
+                    .clickable { onEditProperties() }
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Format Image",
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    Text(
+                        text = "${imageBlock.widthDp}dp",
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        if (imageBlock.caption.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = imageBlock.caption.ifBlank { "Picture Asset" },
+                text = imageBlock.caption,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color.Gray
+                fontStyle = FontStyle.Italic,
+                color = Color.Gray,
+                textAlign = when (imageBlock.alignment) {
+                    TextAlignment.START -> TextAlign.Start
+                    TextAlignment.END -> TextAlign.End
+                    else -> TextAlign.Center
+                },
+                modifier = Modifier.width(imageBlock.widthDp.dp)
             )
         }
     }
@@ -1467,7 +1867,14 @@ fun BlockItemView(
     onFocus: () -> Unit,
     onSelectionChanged: (TextRange) -> Unit,
     onTextChanged: (String, TextRange) -> Unit,
-    onEnterPressed: () -> Unit
+    onEnterPressed: () -> Unit,
+    onEditTableProperties: () -> Unit = {},
+    onEditTableCell: (Int, Int) -> Unit = { _, _ -> },
+    onAddTableRow: () -> Unit = {},
+    onDeleteTableRow: () -> Unit = {},
+    onAddTableCol: () -> Unit = {},
+    onDeleteTableCol: () -> Unit = {},
+    onEditImageProperties: () -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -1609,60 +2016,23 @@ fun BlockItemView(
         }
 
         is TableBlock -> {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
-                    .padding(2.dp)
-            ) {
-                for (r in 0 until block.rowCount) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        for (c in 0 until block.columnCount) {
-                            val cell = block.cells.getOrNull(r)?.getOrNull(c)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .border(0.5.dp, Color(0xFFE2E8F0))
-                                    .background(if (r == 0) Color(0xFFF1F5F9) else Color.White)
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = cell?.text?.ifBlank { "Cell ${r + 1},${c + 1}" } ?: "",
-                                    fontWeight = if (r == 0) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 12.sp,
-                                    color = Color.DarkGray
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            TableBlockView(
+                table = block,
+                onEditProperties = onEditTableProperties,
+                onEditCell = onEditTableCell,
+                onAddRow = onAddTableRow,
+                onDeleteRow = onDeleteTableRow,
+                onAddCol = onAddTableCol,
+                onDeleteCol = onDeleteTableCol
+            )
         }
 
         is ImageBlock -> {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color(0xFFF1F5F9),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .clickable(onClick = onFocus)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(Icons.Default.Image, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(36.dp))
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = block.caption.ifBlank { "Picture Asset" },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                }
-            }
+            ImageBlockView(
+                imageBlock = block,
+                onFocus = onFocus,
+                onEditProperties = onEditImageProperties
+            )
         }
 
         is DividerBlock -> {

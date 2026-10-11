@@ -82,7 +82,9 @@ data class ParagraphBlock(
 data class TableCell(
     val text: String = "",
     val isBold: Boolean = false,
-    val backgroundColorHex: String? = null
+    val isItalic: Boolean = false,
+    val backgroundColorHex: String? = null,
+    val alignment: TextAlignment = TextAlignment.START
 )
 
 /**
@@ -92,7 +94,11 @@ data class TableBlock(
     override val id: String = UUID.randomUUID().toString(),
     val rowCount: Int = 2,
     val columnCount: Int = 2,
-    val cells: List<List<TableCell>> = List(rowCount) { List(columnCount) { TableCell() } }
+    val cells: List<List<TableCell>> = List(rowCount) { List(columnCount) { TableCell() } },
+    val hasBorders: Boolean = true,
+    val borderColorHex: String = "#CBD5E1",
+    val tableWidthPercent: Int = 100,
+    val alignment: TextAlignment = TextAlignment.CENTER
 ) : BlockElement
 
 /**
@@ -103,7 +109,9 @@ data class ImageBlock(
     val imageUri: String,
     val caption: String = "",
     val widthDp: Int = 240,
-    val heightDp: Int = 180
+    val heightDp: Int = 180,
+    val alignment: TextAlignment = TextAlignment.CENTER,
+    val aspectRatio: Float = 1.333f
 ) : BlockElement
 
 /**

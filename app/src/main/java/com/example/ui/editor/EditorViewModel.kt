@@ -14,13 +14,16 @@ import com.example.data.local.PreferencesManager
 import com.example.data.model.BlockElement
 import com.example.data.model.DividerBlock
 import com.example.data.model.HeadingStyle
+import com.example.data.model.ImageBlock
 import com.example.data.model.InlineSpan
 import com.example.data.model.PageBreakBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
+import com.example.data.model.TableCell
 import com.example.data.model.TableBlock
 import com.example.data.model.TextAlignment
 import com.example.data.repository.DocumentRepository
+import com.example.data.storage.DocumentStorageManager
 import com.example.editor.engine.ApplyInlineSpanCommand
 import com.example.editor.engine.AutosaveController
 import com.example.editor.engine.AutosaveStatus
@@ -31,8 +34,10 @@ import com.example.editor.engine.EditorCommand
 import com.example.editor.engine.InsertBlockCommand
 import com.example.editor.engine.ToggleRtlCommand
 import com.example.editor.engine.UndoRedoManager
+import com.example.editor.engine.UpdateImageBlockCommand
 import com.example.editor.engine.UpdateLayoutCommand
 import com.example.editor.engine.UpdateParagraphTextCommand
+import com.example.editor.engine.UpdateTableBlockCommand
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -660,15 +665,53 @@ class EditorViewModel(
         _activeBlockIndex.value = insertIndex
     }
 
+    fun insertImageFromUri(context: Context, sourceUri: Uri, caption: String = "") {
+        val storageManager = DocumentStorageManager(context)
+        val persistentUri = storageManager.persistImageFromUri(sourceUri)
+        insertImage(persistentUri, caption)
+    }
+
     fun insertImage(uri: String, caption: String = "") {
         val currentDoc = _document.value ?: return
         val insertIndex = _activeBlockIndex.value + 1
-        val imageBlock = com.example.data.model.ImageBlock(imageUri = uri, caption = caption)
+        val imageBlock = ImageBlock(imageUri = uri, caption = caption)
 
         executeCommand(
             InsertBlockCommand(index = insertIndex, block = imageBlock)
         )
         _activeBlockIndex.value = insertIndex
+    }
+
+    fun updateImageProperties(
+        blockId: String,
+        widthDp: Int? = null,
+        heightDp: Int? = null,
+        alignment: TextAlignment? = null,
+        caption: String? = null,
+        aspectRatio: Float? = null
+    ) {
+        val currentDoc = _document.value ?: return
+        val oldBlock = currentDoc.blocks.firstOrNull { it.id == blockId } as? ImageBlock ?: return
+        val newWidth = widthDp ?: oldBlock.widthDp
+        val newRatio = aspectRatio ?: oldBlock.aspectRatio
+        val newHeight = heightDp ?: if (widthDp != null && newRatio > 0) (widthDp / newRatio).toInt() else oldBlock.heightDp
+
+        val newBlock = oldBlock.copy(
+            widthDp = newWidth.coerceIn(60, 600),
+            heightDp = newHeight.coerceIn(60, 600),
+            alignment = alignment ?: oldBlock.alignment,
+            caption = caption ?: oldBlock.caption,
+            aspectRatio = newRatio
+        )
+
+        executeCommand(
+            UpdateImageBlockCommand(
+                blockId = blockId,
+                oldImage = oldBlock,
+                newImage = newBlock,
+                actionDescription = "Resize / Align Image"
+            )
+        )
     }
 
     fun insertDateTimeStamp(formattedDate: String) {
@@ -682,15 +725,246 @@ class EditorViewModel(
         _activeBlockIndex.value = insertIndex
     }
 
-    fun insertTable(rows: Int, cols: Int) {
+    fun insertTable(
+        rows: Int,
+        cols: Int,
+        hasBorders: Boolean = true,
+        borderColorHex: String = "#CBD5E1",
+        tableWidthPercent: Int = 100
+    ) {
         val currentDoc = _document.value ?: return
         val insertIndex = _activeBlockIndex.value + 1
-        val tableBlock = TableBlock(rowCount = rows, columnCount = cols)
+        val safeRows = rows.coerceIn(1, 15)
+        val safeCols = cols.coerceIn(1, 10)
+        val initialCells = List(safeRows) { r ->
+            List(safeCols) { c ->
+                TableCell(
+                    text = "",
+                    isBold = r == 0
+                )
+            }
+        }
+        val tableBlock = TableBlock(
+            rowCount = safeRows,
+            columnCount = safeCols,
+            cells = initialCells,
+            hasBorders = hasBorders,
+            borderColorHex = borderColorHex,
+            tableWidthPercent = tableWidthPercent
+        )
 
         executeCommand(
             InsertBlockCommand(index = insertIndex, block = tableBlock)
         )
         _activeBlockIndex.value = insertIndex
+    }
+
+    fun updateTableCell(blockId: String, row: Int, col: Int, text: String) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        val newCells = oldTable.cells.mapIndexed { rIndex, rowList ->
+            if (rIndex == row) {
+                rowList.mapIndexed { cIndex, cell ->
+                    if (cIndex == col) cell.copy(text = text) else cell
+                }
+            } else rowList
+        }
+        val newTable = oldTable.copy(cells = newCells)
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Edit Cell Text"
+            )
+        )
+    }
+
+    fun updateTableCellFormat(
+        blockId: String,
+        row: Int,
+        col: Int,
+        isBold: Boolean? = null,
+        isItalic: Boolean? = null,
+        backgroundColorHex: String? = null,
+        alignment: TextAlignment? = null
+    ) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        val newCells = oldTable.cells.mapIndexed { rIndex, rowList ->
+            if (rIndex == row) {
+                rowList.mapIndexed { cIndex, cell ->
+                    if (cIndex == col) {
+                        cell.copy(
+                            isBold = isBold ?: cell.isBold,
+                            isItalic = isItalic ?: cell.isItalic,
+                            backgroundColorHex = backgroundColorHex ?: cell.backgroundColorHex,
+                            alignment = alignment ?: cell.alignment
+                        )
+                    } else cell
+                }
+            } else rowList
+        }
+        val newTable = oldTable.copy(cells = newCells)
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Format Cell"
+            )
+        )
+    }
+
+    fun addTableRow(blockId: String, afterRow: Int = -1) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        val newRow = List(oldTable.columnCount) { TableCell() }
+        val mutableRows = oldTable.cells.toMutableList()
+        val insertIndex = if (afterRow in 0 until mutableRows.size) afterRow + 1 else mutableRows.size
+        mutableRows.add(insertIndex, newRow)
+        val newTable = oldTable.copy(
+            rowCount = mutableRows.size,
+            cells = mutableRows
+        )
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Add Table Row"
+            )
+        )
+    }
+
+    fun deleteTableRow(blockId: String, rowIndex: Int) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        if (oldTable.rowCount <= 1) return // Keep at least 1 row
+        val safeIndex = if (rowIndex in 0 until oldTable.rowCount) rowIndex else oldTable.rowCount - 1
+        val mutableRows = oldTable.cells.toMutableList()
+        mutableRows.removeAt(safeIndex)
+        val newTable = oldTable.copy(
+            rowCount = mutableRows.size,
+            cells = mutableRows
+        )
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Delete Table Row"
+            )
+        )
+    }
+
+    fun addTableColumn(blockId: String, afterCol: Int = -1) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        val newColumnCount = oldTable.columnCount + 1
+        val newCells = oldTable.cells.map { row ->
+            val mutableRow = row.toMutableList()
+            val insertIndex = if (afterCol in 0 until mutableRow.size) afterCol + 1 else mutableRow.size
+            mutableRow.add(insertIndex, TableCell())
+            mutableRow.toList()
+        }
+        val newTable = oldTable.copy(
+            columnCount = newColumnCount,
+            cells = newCells
+        )
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Add Table Column"
+            )
+        )
+    }
+
+    fun deleteTableColumn(blockId: String, colIndex: Int) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        if (oldTable.columnCount <= 1) return // Keep at least 1 column
+        val safeCol = if (colIndex in 0 until oldTable.columnCount) colIndex else oldTable.columnCount - 1
+        val newColumnCount = oldTable.columnCount - 1
+        val newCells = oldTable.cells.map { row ->
+            val mutableRow = row.toMutableList()
+            mutableRow.removeAt(safeCol)
+            mutableRow.toList()
+        }
+        val newTable = oldTable.copy(
+            columnCount = newColumnCount,
+            cells = newCells
+        )
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Delete Table Column"
+            )
+        )
+    }
+
+    fun updateTableProperties(
+        blockId: String,
+        hasBorders: Boolean? = null,
+        borderColorHex: String? = null,
+        tableWidthPercent: Int? = null,
+        alignment: TextAlignment? = null
+    ) {
+        val currentDoc = _document.value ?: return
+        val oldTable = currentDoc.blocks.firstOrNull { it.id == blockId } as? TableBlock ?: return
+        val newTable = oldTable.copy(
+            hasBorders = hasBorders ?: oldTable.hasBorders,
+            borderColorHex = borderColorHex ?: oldTable.borderColorHex,
+            tableWidthPercent = tableWidthPercent ?: oldTable.tableWidthPercent,
+            alignment = alignment ?: oldTable.alignment
+        )
+        executeCommand(
+            UpdateTableBlockCommand(
+                blockId = blockId,
+                oldTable = oldTable,
+                newTable = newTable,
+                actionDescription = "Update Table Properties"
+            )
+        )
+    }
+
+    fun setHeaderFooter(
+        headerText: String? = null,
+        footerText: String? = null,
+        showHeader: Boolean? = null,
+        showFooter: Boolean? = null
+    ) {
+        val currentDoc = _document.value ?: return
+        val oldLayout = currentDoc.layoutConfig
+        val newLayout = oldLayout.copy(
+            headerText = headerText ?: oldLayout.headerText,
+            footerText = footerText ?: oldLayout.footerText,
+            showHeader = showHeader ?: oldLayout.showHeader,
+            showFooter = showFooter ?: oldLayout.showFooter
+        )
+        executeCommand(
+            UpdateLayoutCommand(oldLayout = oldLayout, newLayout = newLayout)
+        )
+    }
+
+    fun setPageNumberPreset(
+        formatPattern: String,
+        alignment: TextAlignment = TextAlignment.CENTER
+    ) {
+        val currentDoc = _document.value ?: return
+        val oldLayout = currentDoc.layoutConfig
+        val newLayout = oldLayout.copy(
+            showFooter = true,
+            footerText = formatPattern,
+            footerAlignment = alignment
+        )
+        executeCommand(
+            UpdateLayoutCommand(oldLayout = oldLayout, newLayout = newLayout)
+        )
     }
 
     fun deleteCurrentBlock() {
@@ -700,6 +974,18 @@ class EditorViewModel(
 
         executeCommand(
             DeleteBlockCommand(index = _activeBlockIndex.value, deletedBlock = block)
+        )
+        _activeBlockIndex.value = (_activeBlockIndex.value - 1).coerceAtLeast(0)
+    }
+
+    fun deleteBlockById(blockId: String) {
+        val currentDoc = _document.value ?: return
+        if (currentDoc.blocks.size <= 1) return
+        val index = currentDoc.blocks.indexOfFirst { it.id == blockId }
+        if (index == -1) return
+        val block = currentDoc.blocks[index]
+        executeCommand(
+            DeleteBlockCommand(index = index, deletedBlock = block)
         )
         _activeBlockIndex.value = (_activeBlockIndex.value - 1).coerceAtLeast(0)
     }

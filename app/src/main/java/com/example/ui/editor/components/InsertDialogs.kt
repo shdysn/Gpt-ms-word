@@ -21,14 +21,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.example.data.model.ImageBlock
+import com.example.data.model.TableBlock
+import com.example.data.model.TableCell
+import com.example.data.model.TextAlignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,10 +62,12 @@ import com.example.ui.theme.WordPrimary
 @Composable
 fun InsertTableDialog(
     onDismiss: () -> Unit,
-    onConfirm: (rows: Int, cols: Int) -> Unit
+    onConfirm: (rows: Int, cols: Int, hasBorders: Boolean, widthPercent: Int) -> Unit
 ) {
     var rowsText by remember { mutableStateOf("3") }
     var colsText by remember { mutableStateOf("3") }
+    var hasBorders by remember { mutableStateOf(true) }
+    var selectedWidthPercent by remember { mutableStateOf(100) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -65,7 +75,7 @@ fun InsertTableDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Specify table dimensions:",
+                    text = "Specify table dimensions and styling:",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -83,6 +93,27 @@ fun InsertTableDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("table_cols_input")
                 )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { hasBorders = !hasBorders }
+                ) {
+                    Checkbox(
+                        checked = hasBorders,
+                        onCheckedChange = { hasBorders = it },
+                        modifier = Modifier.testTag("table_borders_checkbox")
+                    )
+                    Text("Include table borders", fontSize = 13.sp)
+                }
+                Text("Table Width:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(50, 75, 100).forEach { w ->
+                        FilterChip(
+                            selected = selectedWidthPercent == w,
+                            onClick = { selectedWidthPercent = w },
+                            label = { Text("$w%", fontSize = 11.sp) }
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -90,7 +121,7 @@ fun InsertTableDialog(
                 onClick = {
                     val r = rowsText.toIntOrNull()?.coerceIn(1, 10) ?: 3
                     val c = colsText.toIntOrNull()?.coerceIn(1, 6) ?: 3
-                    onConfirm(r, c)
+                    onConfirm(r, c, hasBorders, selectedWidthPercent)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
                 modifier = Modifier.testTag("confirm_insert_table")
@@ -566,6 +597,489 @@ fun InsertHyperlinkDialog(
                 }
             }
         },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/**
+ * Dialog for editing cell contents and cell-level formatting (bold, italic, alignment, background).
+ */
+@Composable
+fun TableCellEditDialog(
+    cell: TableCell,
+    row: Int,
+    col: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (text: String, isBold: Boolean, isItalic: Boolean, bgHex: String?, alignment: TextAlignment) -> Unit
+) {
+    var text by remember { mutableStateOf(cell.text) }
+    var isBold by remember { mutableStateOf(cell.isBold) }
+    var isItalic by remember { mutableStateOf(cell.isItalic) }
+    var alignment by remember { mutableStateOf(cell.alignment) }
+    var bgHex by remember { mutableStateOf(cell.backgroundColorHex) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Cell (${row + 1}, ${col + 1})") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Cell Text") },
+                    modifier = Modifier.fillMaxWidth().testTag("cell_text_input")
+                )
+                Text("Formatting & Style:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(
+                        selected = isBold,
+                        onClick = { isBold = !isBold },
+                        label = { Text("Bold", fontWeight = FontWeight.Bold) }
+                    )
+                    FilterChip(
+                        selected = isItalic,
+                        onClick = { isItalic = !isItalic },
+                        label = { Text("Italic", fontStyle = androidx.compose.ui.text.font.FontStyle.Italic) }
+                    )
+                }
+                Text("Cell Alignment:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        TextAlignment.START to "Left",
+                        TextAlignment.CENTER to "Center",
+                        TextAlignment.END to "Right"
+                    ).forEach { (align, name) ->
+                        FilterChip(
+                            selected = alignment == align,
+                            onClick = { alignment = align },
+                            label = { Text(name, fontSize = 11.sp) }
+                        )
+                    }
+                }
+                Text("Cell Shading:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        null to "None",
+                        "#F1F5F9" to "Light Gray",
+                        "#E0F2FE" to "Soft Blue",
+                        "#FEF9C3" to "Soft Yellow",
+                        "#DCFCE7" to "Soft Green"
+                    ).forEach { (hex, name) ->
+                        FilterChip(
+                            selected = bgHex == hex,
+                            onClick = { bgHex = hex },
+                            label = { Text(name, fontSize = 10.sp) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(text, isBold, isItalic, bgHex, alignment)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                modifier = Modifier.testTag("confirm_cell_edit")
+            ) {
+                Text("Done")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/**
+ * Dialog for configuring table properties: row/col addition and deletion, borders, and width.
+ */
+@Composable
+fun TablePropertiesDialog(
+    table: TableBlock,
+    onDismiss: () -> Unit,
+    onAddRow: () -> Unit,
+    onDeleteRow: () -> Unit,
+    onAddCol: () -> Unit,
+    onDeleteCol: () -> Unit,
+    onUpdateProperties: (hasBorders: Boolean, borderColorHex: String, widthPercent: Int, alignment: TextAlignment) -> Unit,
+    onDeleteTable: () -> Unit
+) {
+    var hasBorders by remember { mutableStateOf(table.hasBorders) }
+    var borderColorHex by remember { mutableStateOf(table.borderColorHex) }
+    var widthPercent by remember { mutableStateOf(table.tableWidthPercent) }
+    var alignment by remember { mutableStateOf(table.alignment) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Table Options (${table.rowCount} × ${table.columnCount})") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Rows & Columns:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onAddRow,
+                        modifier = Modifier.weight(1f).testTag("add_table_row_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) { Text("+ Row", fontSize = 12.sp) }
+
+                    Button(
+                        onClick = onDeleteRow,
+                        enabled = table.rowCount > 1,
+                        modifier = Modifier.weight(1f).testTag("delete_table_row_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) { Text("- Row", fontSize = 12.sp) }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onAddCol,
+                        modifier = Modifier.weight(1f).testTag("add_table_col_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) { Text("+ Column", fontSize = 12.sp) }
+
+                    Button(
+                        onClick = onDeleteCol,
+                        enabled = table.columnCount > 1,
+                        modifier = Modifier.weight(1f).testTag("delete_table_col_btn"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                    ) { Text("- Column", fontSize = 12.sp) }
+                }
+
+                HorizontalDivider()
+
+                Text("Table Borders:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { hasBorders = !hasBorders }
+                ) {
+                    Checkbox(checked = hasBorders, onCheckedChange = { hasBorders = it })
+                    Text("Display borders", fontSize = 13.sp)
+                }
+
+                if (hasBorders) {
+                    Text("Border Color:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            "#CBD5E1" to "Classic Gray",
+                            "#185ABD" to "Word Blue",
+                            "#000000" to "Black",
+                            "#EF4444" to "Red"
+                        ).forEach { (hex, name) ->
+                            FilterChip(
+                                selected = borderColorHex.equals(hex, ignoreCase = true),
+                                onClick = { borderColorHex = hex },
+                                label = { Text(name, fontSize = 10.sp) }
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+
+                Text("Table Width & Sizing:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(50, 75, 100).forEach { w ->
+                        FilterChip(
+                            selected = widthPercent == w,
+                            onClick = { widthPercent = w },
+                            label = { Text("$w% Width", fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Text("Table Alignment:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        TextAlignment.START to "Left",
+                        TextAlignment.CENTER to "Center",
+                        TextAlignment.END to "Right"
+                    ).forEach { (align, name) ->
+                        FilterChip(
+                            selected = alignment == align,
+                            onClick = { alignment = align },
+                            label = { Text(name, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                Button(
+                    onClick = {
+                        onDeleteTable()
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                    modifier = Modifier.fillMaxWidth().testTag("delete_table_btn")
+                ) {
+                    Text("Delete Entire Table")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onUpdateProperties(hasBorders, borderColorHex, widthPercent, alignment)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                modifier = Modifier.testTag("apply_table_properties")
+            ) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+/**
+ * Dialog for image sizing, maintaining aspect ratio, alignment, and captions.
+ */
+@Composable
+fun ImagePropertiesDialog(
+    imageBlock: ImageBlock,
+    onDismiss: () -> Unit,
+    onConfirm: (widthDp: Int, heightDp: Int, alignment: TextAlignment, caption: String, aspectRatio: Float) -> Unit,
+    onDeleteImage: () -> Unit
+) {
+    var widthDp by remember { mutableStateOf(imageBlock.widthDp.toFloat()) }
+    var maintainAspectRatio by remember { mutableStateOf(true) }
+    var alignment by remember { mutableStateOf(imageBlock.alignment) }
+    var captionText by remember { mutableStateOf(imageBlock.caption) }
+
+    val baseRatio = if (imageBlock.aspectRatio > 0) imageBlock.aspectRatio else 1.333f
+    val computedHeight = if (maintainAspectRatio) (widthDp / baseRatio).toInt() else imageBlock.heightDp
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Picture Format & Sizing") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Image Width: ${widthDp.toInt()} dp", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Slider(
+                    value = widthDp,
+                    onValueChange = { widthDp = it },
+                    valueRange = 80f..460f,
+                    steps = 19,
+                    modifier = Modifier.testTag("image_width_slider")
+                )
+
+                Text("Size Presets:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(120f to "Small", 220f to "Medium", 320f to "Large", 420f to "Full").forEach { (sz, label) ->
+                        FilterChip(
+                            selected = (widthDp - sz).let { it in -20f..20f },
+                            onClick = { widthDp = sz },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { maintainAspectRatio = !maintainAspectRatio }
+                ) {
+                    Checkbox(
+                        checked = maintainAspectRatio,
+                        onCheckedChange = { maintainAspectRatio = it },
+                        modifier = Modifier.testTag("aspect_ratio_checkbox")
+                    )
+                    Text("Lock aspect ratio (Height: $computedHeight dp)", fontSize = 12.sp)
+                }
+
+                HorizontalDivider()
+
+                Text("Alignment:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        TextAlignment.START to "Left",
+                        TextAlignment.CENTER to "Center",
+                        TextAlignment.END to "Right"
+                    ).forEach { (align, label) ->
+                        FilterChip(
+                            selected = alignment == align,
+                            onClick = { alignment = align },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                OutlinedTextField(
+                    value = captionText,
+                    onValueChange = { captionText = it },
+                    label = { Text("Caption (Optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("image_caption_input")
+                )
+
+                Button(
+                    onClick = {
+                        onDeleteImage()
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                    modifier = Modifier.fillMaxWidth().testTag("delete_image_btn")
+                ) {
+                    Text("Delete Image")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(widthDp.toInt(), computedHeight, alignment, captionText, baseRatio)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                modifier = Modifier.testTag("apply_image_properties")
+            ) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/**
+ * Dialog for inserting header and footer content.
+ */
+@Composable
+fun HeaderFooterEditDialog(
+    currentHeader: String,
+    currentFooter: String,
+    showHeader: Boolean,
+    showFooter: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (headerText: String, footerText: String, showHeader: Boolean, showFooter: Boolean) -> Unit
+) {
+    var header by remember { mutableStateOf(currentHeader) }
+    var footer by remember { mutableStateOf(currentFooter) }
+    var isHeaderVisible by remember { mutableStateOf(showHeader) }
+    var isFooterVisible by remember { mutableStateOf(showFooter) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Header & Footer Content") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Enable Header", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Switch(checked = isHeaderVisible, onCheckedChange = { isHeaderVisible = it })
+                }
+                if (isHeaderVisible) {
+                    OutlinedTextField(
+                        value = header,
+                        onValueChange = { header = it },
+                        label = { Text("Header Text (e.g. Document Title)") },
+                        modifier = Modifier.fillMaxWidth().testTag("header_text_input")
+                    )
+                }
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Enable Footer", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Switch(checked = isFooterVisible, onCheckedChange = { isFooterVisible = it })
+                }
+                if (isFooterVisible) {
+                    OutlinedTextField(
+                        value = footer,
+                        onValueChange = { footer = it },
+                        label = { Text("Footer Text (use {page} & {pages})") },
+                        modifier = Modifier.fillMaxWidth().testTag("footer_text_input")
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(header, footer, isHeaderVisible, isFooterVisible)
+                    onDismiss()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                modifier = Modifier.testTag("apply_header_footer")
+            ) {
+                Text("Apply")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/**
+ * Dialog for choosing page number position and template.
+ */
+@Composable
+fun PageNumberInsertDialog(
+    onDismiss: () -> Unit,
+    onSelectPreset: (pattern: String, alignment: TextAlignment) -> Unit
+) {
+    val presets = listOf(
+        Triple("Page {page} of {pages}", TextAlignment.CENTER, "Page 1 of 5 (Bottom Center)"),
+        Triple("Page {page}", TextAlignment.END, "Page 1 (Bottom Right)"),
+        Triple("{page}", TextAlignment.CENTER, "1 (Bottom Center)"),
+        Triple("Page {page}", TextAlignment.START, "Page 1 (Bottom Left)")
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Insert Page Numbers") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Select page number style and position:")
+                presets.forEach { (pattern, alignment, label) ->
+                    Surface(
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelectPreset(pattern, alignment)
+                                onDismiss()
+                            }
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }

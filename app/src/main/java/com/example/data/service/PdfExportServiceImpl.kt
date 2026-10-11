@@ -447,24 +447,71 @@ class PdfExportServiceImpl : DocumentExportService {
 
                     is com.example.core.layout.TablePageItem -> {
                         val block = item.originalBlock
-                        val rowHeight = 20f
-                        val colWidth = contentWidth / block.columnCount.coerceAtLeast(1)
+                        val rowHeight = 22f
+                        val effectiveTableWidth = contentWidth * (block.tableWidthPercent.coerceIn(20, 100) / 100f)
+                        val tableStartX = when (block.alignment) {
+                            TextAlignment.START -> leftMargin
+                            TextAlignment.END -> pageWidth - rightMargin - effectiveTableWidth
+                            else -> leftMargin + (contentWidth - effectiveTableWidth) / 2f
+                        }
+                        val colWidth = effectiveTableWidth / block.columnCount.coerceAtLeast(1)
+
+                        val tableBorderColor = try {
+                            Color.parseColor(block.borderColorHex)
+                        } catch (e: Exception) { Color.rgb(203, 213, 225) }
+
                         val tablePaint = Paint().apply {
-                            color = Color.rgb(220, 225, 230)
+                            color = tableBorderColor
                             style = Paint.Style.STROKE
                             strokeWidth = 1f
                         }
 
+                        val cellFillPaint = Paint().apply {
+                            style = Paint.Style.FILL
+                        }
+
                         for (r in item.startRow until item.endRow) {
                             for (c in 0 until block.columnCount) {
-                                val cellX = leftMargin + c * colWidth
-                                canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, tablePaint)
-                                val cellText = block.cells.getOrNull(r)?.getOrNull(c)?.text ?: ""
+                                val cellX = tableStartX + c * colWidth
+                                val cell = block.cells.getOrNull(r)?.getOrNull(c)
+
+                                // Cell background color
+                                if (cell?.backgroundColorHex != null) {
+                                    try {
+                                        cellFillPaint.color = Color.parseColor(cell.backgroundColorHex)
+                                        canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, cellFillPaint)
+                                    } catch (e: Exception) {}
+                                } else if (r == 0) {
+                                    cellFillPaint.color = Color.rgb(241, 245, 249)
+                                    canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, cellFillPaint)
+                                }
+
+                                // Cell border if enabled
+                                if (block.hasBorders) {
+                                    canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, tablePaint)
+                                }
+
+                                val cellText = cell?.text ?: ""
                                 if (cellText.isNotBlank()) {
                                     textPaint.textSize = 9.5f
-                                    textPaint.typeface = if (r == 0) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                                    textPaint.color = Color.BLACK
-                                    canvas.drawText(cellText, cellX + 4f, cursorY + 14f, textPaint)
+                                    val isBold = cell?.isBold ?: (r == 0)
+                                    val isItalic = cell?.isItalic ?: false
+                                    textPaint.typeface = when {
+                                        isBold && isItalic -> Typeface.create(Typeface.DEFAULT, Typeface.BOLD_ITALIC)
+                                        isBold -> Typeface.DEFAULT_BOLD
+                                        isItalic -> Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+                                        else -> Typeface.DEFAULT
+                                    }
+                                    textPaint.color = Color.rgb(30, 30, 30)
+
+                                    val cellMeasure = textPaint.measureText(cellText)
+                                    val cellAlign = cell?.alignment ?: TextAlignment.START
+                                    val textX = when (cellAlign) {
+                                        TextAlignment.CENTER -> cellX + (colWidth - cellMeasure) / 2f
+                                        TextAlignment.END -> cellX + colWidth - cellMeasure - 4f
+                                        else -> cellX + 4f
+                                    }
+                                    canvas.drawText(cellText, textX.coerceAtLeast(cellX + 2f), cursorY + 15f, textPaint)
                                 }
                             }
                             cursorY += rowHeight
@@ -473,23 +520,37 @@ class PdfExportServiceImpl : DocumentExportService {
                     }
 
                     is com.example.core.layout.ImagePageItem -> {
-                        val imgWidth = contentWidth * 0.7f
-                        val imgHeight = (item.heightPt - 16f).coerceAtLeast(40f)
-                        val imgX = leftMargin + (contentWidth - imgWidth) / 2f
+                        val block = item.originalBlock
+                        val imgWidth = (block.widthDp * 72f / 160f).coerceIn(40f, contentWidth)
+                        val imgHeight = (block.heightDp * 72f / 160f).coerceIn(40f, contentWidth)
 
-                        // Draw placeholder rect for image block
-                        val imgBoxPaint = Paint().apply {
-                            color = Color.rgb(240, 244, 248)
-                            style = Paint.Style.FILL
+                        val imgX = when (block.alignment) {
+                            TextAlignment.START -> leftMargin
+                            TextAlignment.END -> pageWidth - rightMargin - imgWidth
+                            else -> leftMargin + (contentWidth - imgWidth) / 2f
                         }
-                        canvas.drawRect(imgX, cursorY, imgX + imgWidth, cursorY + imgHeight, imgBoxPaint)
-                        canvas.drawRect(imgX, cursorY, imgX + imgWidth, cursorY + imgHeight, dividerPaint)
 
-                        if (item.originalBlock.caption.isNotBlank()) {
+                        val bitmap = tryLoadBitmapForPdf(context, block.imageUri)
+                        if (bitmap != null) {
+                            val srcRect = android.graphics.Rect(0, 0, bitmap.width, bitmap.height)
+                            val dstRect = android.graphics.RectF(imgX, cursorY, imgX + imgWidth, cursorY + imgHeight)
+                            canvas.drawBitmap(bitmap, srcRect, dstRect, null)
+                        } else {
+                            val imgBoxPaint = Paint().apply {
+                                color = Color.rgb(240, 244, 248)
+                                style = Paint.Style.FILL
+                            }
+                            canvas.drawRect(imgX, cursorY, imgX + imgWidth, cursorY + imgHeight, imgBoxPaint)
+                            canvas.drawRect(imgX, cursorY, imgX + imgWidth, cursorY + imgHeight, dividerPaint)
                             headerFooterPaint.textSize = 8.5f
-                            canvas.drawText(item.originalBlock.caption, imgX + 4f, cursorY + imgHeight + 11f, headerFooterPaint)
+                            canvas.drawText(block.caption.ifBlank { "Picture Asset" }, imgX + 8f, cursorY + imgHeight / 2f, headerFooterPaint)
                         }
-                        cursorY += item.heightPt
+
+                        if (block.caption.isNotBlank()) {
+                            headerFooterPaint.textSize = 8.5f
+                            canvas.drawText(block.caption, imgX + 4f, cursorY + imgHeight + 11f, headerFooterPaint)
+                        }
+                        cursorY += imgHeight + 16f
                     }
 
                     is com.example.core.layout.PageBreakPageItem -> {
@@ -502,5 +563,23 @@ class PdfExportServiceImpl : DocumentExportService {
         }
 
         return pdfDocument
+    }
+
+    private fun tryLoadBitmapForPdf(context: Context?, uriStr: String): android.graphics.Bitmap? {
+        if (uriStr.isBlank()) return null
+        return try {
+            if (context != null && uriStr.startsWith("content://")) {
+                context.contentResolver.openInputStream(Uri.parse(uriStr))?.use {
+                    android.graphics.BitmapFactory.decodeStream(it)
+                }
+            } else if (uriStr.startsWith("file://")) {
+                val path = Uri.parse(uriStr).path ?: ""
+                android.graphics.BitmapFactory.decodeFile(path)
+            } else {
+                android.graphics.BitmapFactory.decodeFile(uriStr)
+            }
+        } catch (e: Throwable) {
+            null
+        }
     }
 }

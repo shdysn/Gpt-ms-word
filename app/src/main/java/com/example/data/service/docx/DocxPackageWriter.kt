@@ -633,16 +633,38 @@ class DocxPackageWriter(private val context: Context?) {
     private fun buildTableXml(block: TableBlock): String {
         val sb = StringBuilder()
         sb.append("<w:tbl>")
-        sb.append("""<w:tblPr>
-  <w:tblW w:w="5000" w:type="pct"/>
-  <w:tblBorders>
-    <w:top w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
-    <w:left w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
-    <w:bottom w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
-    <w:right w:val="single" w:sz="4" w:space="0" w:color="CBD5E1"/>
+
+        val pctVal = (block.tableWidthPercent.coerceIn(20, 100) * 50)
+        val tableAlign = when (block.alignment) {
+            TextAlignment.START -> "left"
+            TextAlignment.END -> "right"
+            else -> "center"
+        }
+        val borderHex = block.borderColorHex.removePrefix("#")
+        val bordersXml = if (block.hasBorders) {
+            """  <w:tblBorders>
+    <w:top w:val="single" w:sz="4" w:space="0" w:color="$borderHex"/>
+    <w:left w:val="single" w:sz="4" w:space="0" w:color="$borderHex"/>
+    <w:bottom w:val="single" w:sz="4" w:space="0" w:color="$borderHex"/>
+    <w:right w:val="single" w:sz="4" w:space="0" w:color="$borderHex"/>
     <w:insideH w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
     <w:insideV w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/>
-  </w:tblBorders>
+  </w:tblBorders>"""
+        } else {
+            """  <w:tblBorders>
+    <w:top w:val="none"/>
+    <w:left w:val="none"/>
+    <w:bottom w:val="none"/>
+    <w:right w:val="none"/>
+    <w:insideH w:val="none"/>
+    <w:insideV w:val="none"/>
+  </w:tblBorders>"""
+        }
+
+        sb.append("""<w:tblPr>
+  <w:tblW w:w="$pctVal" w:type="pct"/>
+  <w:jc w:val="$tableAlign"/>
+$bordersXml
 </w:tblPr>""")
 
         for (r in 0 until block.rowCount) {
@@ -661,13 +683,22 @@ class DocxPackageWriter(private val context: Context?) {
                 val cellText = cell?.text ?: ""
                 val isCellBold = cell?.isBold ?: (r == 0)
                 val isRtl = BidiUtils.detectParagraphIsRtl(cellText)
+                val cellAlign = when (cell?.alignment ?: TextAlignment.START) {
+                    TextAlignment.CENTER -> "center"
+                    TextAlignment.END -> if (isRtl) "left" else "right"
+                    TextAlignment.JUSTIFY -> "both"
+                    TextAlignment.START -> if (isRtl) "right" else "left"
+                }
+
                 sb.append("<w:p>")
                 sb.append("<w:pPr>")
+                sb.append("""<w:jc w:val="$cellAlign"/>""")
                 if (isRtl) sb.append("<w:bidi/>")
                 sb.append("</w:pPr>")
                 sb.append("<w:r>")
                 sb.append("<w:rPr>")
                 if (isCellBold) sb.append("<w:b/>")
+                if (cell?.isItalic == true) sb.append("<w:i/>")
                 if (isRtl) sb.append("<w:rtl/>")
                 sb.append("</w:rPr>")
                 sb.append("""<w:t xml:space="preserve">${escapeXml(cellText)}</w:t>""")
@@ -686,8 +717,13 @@ class DocxPackageWriter(private val context: Context?) {
     private fun buildImageXml(block: ImageBlock, img: EmbeddedImage): String {
         val cx = img.widthEmu
         val cy = img.heightEmu
+        val imgAlign = when (block.alignment) {
+            TextAlignment.START -> "left"
+            TextAlignment.END -> "right"
+            else -> "center"
+        }
         return """<w:p>
-  <w:pPr><w:jc w:val="center"/></w:pPr>
+  <w:pPr><w:jc w:val="$imgAlign"/></w:pPr>
   <w:r>
     <w:drawing>
       <wp:inline distT="0" distB="0" distL="0" distR="0">
@@ -714,7 +750,7 @@ class DocxPackageWriter(private val context: Context?) {
       </wp:inline>
     </w:drawing>
   </w:r>
-  ${if (block.caption.isNotBlank()) "<w:p><w:pPr><w:jc w:val=\"center\"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val=\"18\"/><w:color w:val=\"666666\"/></w:rPr><w:t xml:space=\"preserve\">${escapeXml(block.caption)}</w:t></w:r></w:p>" else ""}
+  ${if (block.caption.isNotBlank()) "<w:p><w:pPr><w:jc w:val=\"$imgAlign\"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val=\"18\"/><w:color w:val=\"666666\"/></w:rPr><w:t xml:space=\"preserve\">${escapeXml(block.caption)}</w:t></w:r></w:p>" else ""}
 </w:p>"""
     }
 

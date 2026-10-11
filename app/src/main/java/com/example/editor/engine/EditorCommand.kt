@@ -3,9 +3,11 @@ package com.example.editor.engine
 import com.example.core.layout.PageLayoutConfig
 import com.example.data.model.BlockElement
 import com.example.data.model.HeadingStyle
+import com.example.data.model.ImageBlock
 import com.example.data.model.InlineSpan
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
+import com.example.data.model.TableBlock
 import com.example.data.model.TextAlignment
 
 /**
@@ -339,6 +341,66 @@ data class SetIndentationCommand(
         val updated = document.blocks.map { block ->
             if (block.id == blockId && block is ParagraphBlock) {
                 block.copy(indentationLevel = oldLevel.coerceIn(0, 6))
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+}
+
+/**
+ * Command for table structure, sizing, border, and cell edits.
+ */
+data class UpdateTableBlockCommand(
+    val blockId: String,
+    val oldTable: TableBlock,
+    val newTable: TableBlock,
+    val actionDescription: String = "Edit Table"
+) : EditorCommand {
+    override val description: String = actionDescription
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is TableBlock) {
+                newTable.copy(id = blockId)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if ((block.id == blockId || block.id == newTable.id) && block is TableBlock) {
+                oldTable.copy(id = blockId)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+}
+
+/**
+ * Command for image dimensions, alignment, and caption modifications.
+ */
+data class UpdateImageBlockCommand(
+    val blockId: String,
+    val oldImage: ImageBlock,
+    val newImage: ImageBlock,
+    val actionDescription: String = "Edit Image"
+) : EditorCommand {
+    override val description: String = actionDescription
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ImageBlock) {
+                newImage.copy(id = blockId)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if ((block.id == blockId || block.id == newImage.id) && block is ImageBlock) {
+                oldImage.copy(id = blockId)
             } else block
         }
         return document.copy(blocks = updated)
