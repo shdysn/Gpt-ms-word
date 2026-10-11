@@ -231,3 +231,47 @@ data class UpdateLayoutCommand(
         return document.copy(layoutConfig = oldLayout)
     }
 }
+
+/**
+ * Command for changing bullet / numbered list style.
+ */
+data class ChangeListTypeCommand(
+    val blockId: String,
+    val oldListType: com.example.data.model.ListType,
+    val newListType: com.example.data.model.ListType
+) : EditorCommand {
+    override val description: String = "Change list style"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(listType = newListType)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId && block is ParagraphBlock) {
+                block.copy(listType = oldListType)
+            } else block
+        }
+        return document.copy(blocks = updated)
+    }
+}
+
+/**
+ * Command for in-document Find and Replace operations across paragraphs.
+ */
+data class BatchReplaceTextCommand(
+    val oldDocument: RichDocument,
+    val newDocument: RichDocument,
+    val replacementsCount: Int
+) : EditorCommand {
+    override val description: String = "Replace $replacementsCount occurrences"
+
+    override fun apply(document: RichDocument): RichDocument = newDocument
+    override fun revert(document: RichDocument): RichDocument = oldDocument
+}
+

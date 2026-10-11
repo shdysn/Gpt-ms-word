@@ -92,6 +92,19 @@ class EditorViewModel(
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
+    // Find and Replace in Document
+    private val _isFindReplaceVisible = MutableStateFlow(false)
+    val isFindReplaceVisible: StateFlow<Boolean> = _isFindReplaceVisible.asStateFlow()
+
+    private val _findQuery = MutableStateFlow("")
+    val findQuery: StateFlow<String> = _findQuery.asStateFlow()
+
+    private val _replaceQuery = MutableStateFlow("")
+    val replaceQuery: StateFlow<String> = _replaceQuery.asStateFlow()
+
+    private val _matchCount = MutableStateFlow(0)
+    val matchCount: StateFlow<Int> = _matchCount.asStateFlow()
+
     // Autosave Controller
     private val autosaveController = AutosaveController(
         scope = viewModelScope,
@@ -303,10 +316,28 @@ class EditorViewModel(
         )
     }
 
-    fun setHighlightColor(colorHex: String) {
+    fun setHighlightColor(colorHex: String?) {
         val currentDoc = _document.value ?: return
         val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
-        val span = InlineSpan(start = 0, end = block.text.length, highlightColorHex = colorHex)
+        val updatedSpans = if (colorHex == null) {
+            block.spans.map { it.copy(highlightColorHex = null) }
+        } else {
+            block.spans + InlineSpan(start = 0, end = block.text.length, highlightColorHex = colorHex)
+        }
+
+        executeCommand(
+            ApplyInlineSpanCommand(
+                blockId = block.id,
+                oldSpans = block.spans,
+                newSpans = updatedSpans
+            )
+        )
+    }
+
+    fun setFontFamily(fontName: String) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val span = InlineSpan(start = 0, end = block.text.length, fontFamilyName = fontName)
         val newSpans = block.spans + span
 
         executeCommand(
@@ -316,6 +347,107 @@ class EditorViewModel(
                 newSpans = newSpans
             )
         )
+    }
+
+    fun setFontSize(sizeSp: Float) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val span = InlineSpan(start = 0, end = block.text.length, fontSizeSp = sizeSp)
+        val newSpans = block.spans + span
+
+        executeCommand(
+            ApplyInlineSpanCommand(
+                blockId = block.id,
+                oldSpans = block.spans,
+                newSpans = newSpans
+            )
+        )
+    }
+
+    fun toggleListType(targetType: com.example.data.model.ListType) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val newType = if (block.listType == targetType) com.example.data.model.ListType.NONE else targetType
+
+        executeCommand(
+            com.example.editor.engine.ChangeListTypeCommand(
+                blockId = block.id,
+                oldListType = block.listType,
+                newListType = newType
+            )
+        )
+    }
+
+    // ----------------------------------------------------
+    // Find & Replace Operations
+    // ----------------------------------------------------
+
+    fun toggleFindReplace() {
+        _isFindReplaceVisible.value = !_isFindReplaceVisible.value
+        if (!_isFindReplaceVisible.value) {
+            _findQuery.value = ""
+            _replaceQuery.value = ""
+            _matchCount.value = 0
+        }
+    }
+
+    fun updateFindQuery(query: String) {
+        _findQuery.value = query
+        recomputeMatches(query)
+    }
+
+    fun updateReplaceQuery(query: String) {
+        _replaceQuery.value = query
+    }
+
+    private fun recomputeMatches(query: String) {
+        val doc = _document.value ?: return
+        if (query.isBlank()) {
+            _matchCount.value = 0
+            return
+        }
+        var total = 0
+        for (block in doc.blocks) {
+            if (block is ParagraphBlock) {
+                var idx = 0
+                while (true) {
+                    val found = block.text.indexOf(query, idx, ignoreCase = true)
+                    if (found == -1) break
+                    total++
+                    idx = found + query.length
+                }
+            }
+        }
+        _matchCount.value = total
+    }
+
+    fun replaceAll() {
+        val doc = _document.value ?: return
+        val find = _findQuery.value
+        val replace = _replaceQuery.value
+        if (find.isBlank()) return
+
+        var count = 0
+        val newBlocks = doc.blocks.map { block ->
+            if (block is ParagraphBlock && block.text.contains(find, ignoreCase = true)) {
+                val replacedText = block.text.replace(find, replace, ignoreCase = true)
+                count += (block.text.length - replacedText.length).coerceAtLeast(1)
+                block.copy(text = replacedText)
+            } else block
+        }
+
+        if (count > 0 || newBlocks != doc.blocks) {
+            val newDoc = doc.copy(blocks = newBlocks)
+            executeCommand(
+                com.example.editor.engine.BatchReplaceTextCommand(
+                    oldDocument = doc,
+                    newDocument = newDoc,
+                    replacementsCount = _matchCount.value
+                )
+            )
+            _statusMessage.value = "Replaced occurrences"
+            recomputeMatches(find)
+        }
     }
 
     // ----------------------------------------------------
@@ -351,6 +483,28 @@ class EditorViewModel(
 
         executeCommand(
             InsertBlockCommand(index = insertIndex, block = newBlock)
+        )
+        _activeBlockIndex.value = insertIndex
+    }
+
+    fun insertImage(uri: String, caption: String = "") {
+        val currentDoc = _document.value ?: return
+        val insertIndex = _activeBlockIndex.value + 1
+        val imageBlock = com.example.data.model.ImageBlock(imageUri = uri, caption = caption)
+
+        executeCommand(
+            InsertBlockCommand(index = insertIndex, block = imageBlock)
+        )
+        _activeBlockIndex.value = insertIndex
+    }
+
+    fun insertDateTimeStamp(formattedDate: String) {
+        val currentDoc = _document.value ?: return
+        val insertIndex = _activeBlockIndex.value + 1
+        val dateBlock = ParagraphBlock(text = formattedDate, headingStyle = HeadingStyle.SUBTITLE)
+
+        executeCommand(
+            InsertBlockCommand(index = insertIndex, block = dateBlock)
         )
         _activeBlockIndex.value = insertIndex
     }
@@ -420,6 +574,25 @@ class EditorViewModel(
                 }
                 is DocumentResult.Failure -> {
                     _statusMessage.value = "PDF Error: ${res.error.message}"
+                    onComplete(null)
+                }
+            }
+        }
+    }
+
+    fun exportToPlainText(context: Context, onComplete: (File?) -> Unit) {
+        val doc = _document.value ?: return
+        viewModelScope.launch {
+            val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+            val outFile = File(exportDir, "$sanitized.txt")
+            when (val res = repository.exportToPlainText(context, doc, outFile)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "Text Exported: ${outFile.name}"
+                    onComplete(outFile)
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "Text Export Error: ${res.error.message}"
                     onComplete(null)
                 }
             }

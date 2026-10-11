@@ -1,5 +1,6 @@
 package com.example.ui.home
 
+import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,11 +33,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
@@ -43,6 +48,7 @@ import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -51,6 +57,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +67,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -69,12 +77,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -87,7 +93,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.DocumentEntity
 import com.example.data.repository.TemplateType
 import com.example.ui.theme.WordPrimary
-import com.example.ui.theme.WordPrimaryDark
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -100,7 +105,6 @@ fun HomeScreen(
     onNavigateToEditor: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     val documents by viewModel.documents.collectAsStateWithLifecycle()
@@ -109,7 +113,13 @@ fun HomeScreen(
     val isGridView by viewModel.isGridView.collectAsStateWithLifecycle()
     val infoMessage by viewModel.infoMessage.collectAsStateWithLifecycle()
 
+    val isAutosaveEnabled by viewModel.isAutosaveEnabled.collectAsStateWithLifecycle()
+    val defaultRtl by viewModel.defaultRtl.collectAsStateWithLifecycle()
+    val showWordCount by viewModel.showWordCount.collectAsStateWithLifecycle()
+    val showRuler by viewModel.showRuler.collectAsStateWithLifecycle()
+
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
     var selectedTemplateForCreation by remember { mutableStateOf(TemplateType.BLANK) }
     var renameTargetDoc by remember { mutableStateOf<DocumentEntity?>(null) }
     var deleteTargetDoc by remember { mutableStateOf<DocumentEntity?>(null) }
@@ -141,7 +151,7 @@ fun HomeScreen(
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = WordPrimary,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
@@ -170,11 +180,11 @@ fun HomeScreen(
                 actions = {
                     IconButton(
                         onClick = { safImportLauncher.launch(arrayOf("*/*")) },
-                        modifier = Modifier.testTag("import_button")
+                        modifier = Modifier.testTag("action_open_document")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.FileDownload,
-                            contentDescription = "Import Document"
+                            imageVector = Icons.Default.FolderOpen,
+                            contentDescription = "Open Document"
                         )
                     }
                     IconButton(
@@ -184,6 +194,15 @@ fun HomeScreen(
                         Icon(
                             imageVector = if (isGridView) Icons.Default.ViewList else Icons.Default.GridView,
                             contentDescription = "Toggle Grid or List View"
+                        )
+                    }
+                    IconButton(
+                        onClick = { showSettingsDialog = true },
+                        modifier = Modifier.testTag("action_settings")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings"
                         )
                     }
                 },
@@ -212,15 +231,15 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(bottom = 80.dp)
+            contentPadding = PaddingValues(bottom = 88.dp)
         ) {
-            // Search Bar
+            // Document Search Bar
             item {
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = viewModel::onSearchQueryChanged,
-                        placeholder = { Text("Search documents, keywords...") },
+                        placeholder = { Text("Search documents by title or keywords...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
@@ -238,9 +257,50 @@ fun HomeScreen(
                 }
             }
 
-            // Templates Carousel
+            // Quick Primary Action Buttons (New Document + Open Document)
             item {
-                Column(modifier = Modifier.padding(top = 8.dp, bottom = 12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.createDocument("Untitled Document", TemplateType.BLANK) { docId ->
+                                onNavigateToEditor(docId)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("btn_new_document")
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("New Document", fontWeight = FontWeight.SemiBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = { safImportLauncher.launch(arrayOf("*/*")) },
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("btn_open_document")
+                    ) {
+                        Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp), tint = WordPrimary)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Open Document", color = WordPrimary, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
+            // Templates Carousel Section
+            item {
+                Column(modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -249,7 +309,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Start a new document",
+                            text = "Start from a template",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -276,7 +336,7 @@ fun HomeScreen(
                 }
             }
 
-            // Filters Row
+            // Filter Tabs (All / Recent / Pinned)
             item {
                 Row(
                     modifier = Modifier
@@ -306,7 +366,7 @@ fun HomeScreen(
                 }
             }
 
-            // Document List Header
+            // Section Header
             item {
                 Row(
                     modifier = Modifier
@@ -336,25 +396,151 @@ fun HomeScreen(
                     )
                 }
             } else {
-                // Documents Items
-                items(documents, key = { it.id }) { doc ->
-                    DocumentItemRow(
-                        doc = doc,
-                        onClick = { onNavigateToEditor(doc.id) },
-                        onTogglePin = { viewModel.togglePinned(doc.id, doc.isPinned) },
-                        onRename = { renameTargetDoc = doc },
-                        onDuplicate = { viewModel.duplicateDocument(doc.id) },
-                        onExportPdf = {
-                            viewModel.exportDocumentToPdf(context, doc.id) { file ->
-                                file?.let { shareFile(context, it) }
+                // Documents Items (List or Grid)
+                if (isGridView) {
+                    // Chunked 2-column grid inside LazyColumn for responsive flow
+                    val chunkedDocs = documents.chunked(2)
+                    items(chunkedDocs) { rowDocs ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            for (doc in rowDocs) {
+                                Box(modifier = Modifier.weight(1f)) {
+                                    DocumentGridCard(
+                                        doc = doc,
+                                        onClick = { onNavigateToEditor(doc.id) },
+                                        onTogglePin = { viewModel.togglePinned(doc.id, doc.isPinned) },
+                                        onRename = { renameTargetDoc = doc },
+                                        onDuplicate = { viewModel.duplicateDocument(doc.id) },
+                                        onExportPdf = {
+                                            viewModel.exportDocumentToPdf(context, doc.id) { file ->
+                                                file?.let { shareFile(context, it) }
+                                            }
+                                        },
+                                        onPrint = { viewModel.printDocument(context, doc.id) },
+                                        onDelete = { deleteTargetDoc = doc }
+                                    )
+                                }
                             }
-                        },
-                        onPrint = { viewModel.printDocument(context, doc.id) },
-                        onDelete = { deleteTargetDoc = doc }
-                    )
+                            if (rowDocs.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                } else {
+                    items(documents, key = { it.id }) { doc ->
+                        DocumentItemRow(
+                            doc = doc,
+                            onClick = { onNavigateToEditor(doc.id) },
+                            onTogglePin = { viewModel.togglePinned(doc.id, doc.isPinned) },
+                            onRename = { renameTargetDoc = doc },
+                            onDuplicate = { viewModel.duplicateDocument(doc.id) },
+                            onExportPdf = {
+                                viewModel.exportDocumentToPdf(context, doc.id) { file ->
+                                    file?.let { shareFile(context, it) }
+                                }
+                            },
+                            onPrint = { viewModel.printDocument(context, doc.id) },
+                            onDelete = { deleteTargetDoc = doc }
+                        )
+                    }
                 }
             }
         }
+    }
+
+    // Settings Dialog
+    if (showSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSettingsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Settings, contentDescription = null, tint = WordPrimary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Editor Settings")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Automatic Saving", fontWeight = FontWeight.SemiBold)
+                            Text("Save edits automatically to device storage", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isAutosaveEnabled,
+                            onCheckedChange = viewModel::setAutosaveEnabled
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Urdu / RTL Support", fontWeight = FontWeight.SemiBold)
+                            Text("Default to Right-to-Left bidirectional typing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = defaultRtl,
+                            onCheckedChange = viewModel::setDefaultRtl
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Word Count Status Bar", fontWeight = FontWeight.SemiBold)
+                            Text("Display live word and character counters", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = showWordCount,
+                            onCheckedChange = viewModel::setShowWordCount
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Document Ruler", fontWeight = FontWeight.SemiBold)
+                            Text("Display page dimensions and margins guide", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = showRuler,
+                            onCheckedChange = viewModel::setShowRuler
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showSettingsDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                ) {
+                    Text("Done")
+                }
+            }
+        )
     }
 
     // New Document Dialog
@@ -403,7 +589,7 @@ fun HomeScreen(
                             onNavigateToEditor(it)
                         }
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
                 ) {
                     Text("Create")
                 }
@@ -437,7 +623,7 @@ fun HomeScreen(
                         }
                         renameTargetDoc = null
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
                 ) {
                     Text("Rename")
                 }
@@ -460,9 +646,7 @@ fun HomeScreen(
                         viewModel.deleteDocument(target.id)
                         deleteTargetDoc = null
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Delete")
                 }
@@ -506,14 +690,12 @@ fun TemplateCard(
                     .padding(8.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    // Header line
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
                             .height(6.dp)
                             .background(WordPrimary, RoundedCornerShape(3.dp))
                     )
-                    // Content lines
                     Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(Color(0xFFCBD5E1), RoundedCornerShape(2.dp)))
                     Box(modifier = Modifier.fillMaxWidth(0.85f).height(4.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(2.dp)))
                     Box(modifier = Modifier.fillMaxWidth(0.7f).height(4.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(2.dp)))
@@ -564,7 +746,6 @@ fun DocumentItemRow(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Paper Icon Preview
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
@@ -582,7 +763,6 @@ fun DocumentItemRow(
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Details
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -640,7 +820,6 @@ fun DocumentItemRow(
                 }
             }
 
-            // Options Overflow Menu
             Box {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "More Options")
@@ -716,6 +895,129 @@ fun DocumentItemRow(
 }
 
 @Composable
+fun DocumentGridCard(
+    doc: DocumentEntity,
+    onClick: () -> Unit,
+    onTogglePin: () -> Unit,
+    onRename: () -> Unit,
+    onDuplicate: () -> Unit,
+    onExportPdf: () -> Unit,
+    onPrint: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .clickable(onClick = onClick)
+            .testTag("doc_grid_${doc.id}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Description,
+                            contentDescription = null,
+                            tint = WordPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Options", modifier = Modifier.size(18.dp))
+                    }
+
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(if (doc.isPinned) "Unpin" else "Pin") },
+                            onClick = { menuExpanded = false; onTogglePin() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Rename") },
+                            onClick = { menuExpanded = false; onRename() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Duplicate") },
+                            onClick = { menuExpanded = false; onDuplicate() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Export PDF") },
+                            onClick = { menuExpanded = false; onExportPdf() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = { menuExpanded = false; onDelete() }
+                        )
+                    }
+                }
+            }
+
+            Column {
+                Text(
+                    text = doc.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = doc.snippet,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${doc.wordCount} words",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Text(
+                    text = doc.pageSize,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun EmptyDocumentsView(
     isSearching: Boolean,
     onCreateClick: () -> Unit
@@ -763,7 +1065,7 @@ fun EmptyDocumentsView(
             Spacer(modifier = Modifier.height(18.dp))
             Button(
                 onClick = onCreateClick,
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
@@ -773,7 +1075,7 @@ fun EmptyDocumentsView(
     }
 }
 
-fun shareFile(context: android.content.Context, file: File) {
+fun shareFile(context: Context, file: File) {
     try {
         val uri = FileProvider.getUriForFile(
             context,

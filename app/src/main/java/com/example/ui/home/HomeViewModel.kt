@@ -69,6 +69,52 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
+    val isAutosaveEnabled: StateFlow<Boolean> = preferencesManager.isAutosaveEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val defaultPageSize: StateFlow<String> = preferencesManager.defaultPageSize.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = "A4"
+    )
+
+    val defaultRtl: StateFlow<Boolean> = preferencesManager.defaultRtl.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
+
+    val showWordCount: StateFlow<Boolean> = preferencesManager.showWordCount.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    val showRuler: StateFlow<Boolean> = preferencesManager.showRuler.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = true
+    )
+
+    fun setAutosaveEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesManager.setAutosaveEnabled(enabled) }
+    }
+
+    fun setDefaultRtl(isRtl: Boolean) {
+        viewModelScope.launch { preferencesManager.setDefaultRtl(isRtl) }
+    }
+
+    fun setShowWordCount(show: Boolean) {
+        viewModelScope.launch { preferencesManager.setShowWordCount(show) }
+    }
+
+    fun setShowRuler(show: Boolean) {
+        viewModelScope.launch { preferencesManager.setShowRuler(show) }
+    }
+
     init {
         viewModelScope.launch {
             repository.initializeDefaultDocumentsIfEmpty()

@@ -55,4 +55,45 @@ class ExampleRobolectricTest {
         val (redoneDoc, _) = undoManager.redo(undoneDoc)
         assertEquals("Modified Text", (redoneDoc.blocks[0] as ParagraphBlock).text)
     }
+
+    @Test
+    fun `test change list type command`() {
+        val undoManager = UndoRedoManager()
+        val initialDoc = RichDocument(
+            blocks = listOf(ParagraphBlock(id = "p1", text = "Item 1", listType = com.example.data.model.ListType.NONE))
+        )
+
+        val command = com.example.editor.engine.ChangeListTypeCommand(
+            blockId = "p1",
+            oldListType = com.example.data.model.ListType.NONE,
+            newListType = com.example.data.model.ListType.BULLET
+        )
+        val bulletDoc = undoManager.execute(command, initialDoc)
+        assertEquals(com.example.data.model.ListType.BULLET, (bulletDoc.blocks[0] as ParagraphBlock).listType)
+
+        val (revertedDoc, _) = undoManager.undo(bulletDoc)
+        assertEquals(com.example.data.model.ListType.NONE, (revertedDoc.blocks[0] as ParagraphBlock).listType)
+    }
+
+    @Test
+    fun `test batch replace command`() {
+        val initialDoc = RichDocument(
+            blocks = listOf(ParagraphBlock(id = "p1", text = "Hello World"))
+        )
+        val replacedDoc = RichDocument(
+            blocks = listOf(ParagraphBlock(id = "p1", text = "Hello Android"))
+        )
+
+        val command = com.example.editor.engine.BatchReplaceTextCommand(
+            oldDocument = initialDoc,
+            newDocument = replacedDoc,
+            replacementsCount = 1
+        )
+        val undoManager = UndoRedoManager()
+        val resultDoc = undoManager.execute(command, initialDoc)
+        assertEquals("Hello Android", (resultDoc.blocks[0] as ParagraphBlock).text)
+
+        val (undone, _) = undoManager.undo(resultDoc)
+        assertEquals("Hello World", (undone.blocks[0] as ParagraphBlock).text)
+    }
 }

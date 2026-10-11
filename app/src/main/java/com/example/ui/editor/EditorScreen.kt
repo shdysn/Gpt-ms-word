@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -17,10 +18,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,33 +32,26 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
-import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FormatAlignCenter
-import androidx.compose.material.icons.filled.FormatAlignJustify
-import androidx.compose.material.icons.filled.FormatBold
-import androidx.compose.material.icons.filled.FormatColorText
-import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.FormatStrikethrough
-import androidx.compose.material.icons.filled.FormatUnderlined
+import androidx.compose.material.icons.filled.FindReplace
 import androidx.compose.material.icons.filled.HorizontalRule
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
@@ -63,6 +59,7 @@ import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -72,7 +69,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -102,6 +98,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -117,15 +114,20 @@ import com.example.core.layout.PageSize
 import com.example.data.model.BlockElement
 import com.example.data.model.DividerBlock
 import com.example.data.model.HeadingStyle
+import com.example.data.model.ImageBlock
+import com.example.data.model.ListType
 import com.example.data.model.PageBreakBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
 import com.example.data.model.TableBlock
 import com.example.data.model.TextAlignment
 import com.example.editor.engine.AutosaveStatus
+import com.example.ui.editor.components.FindReplaceBar
+import com.example.ui.editor.components.FormattingToolbar
+import com.example.ui.editor.components.InsertTableDialog
+import com.example.ui.editor.components.PageLayoutDialog
 import com.example.ui.theme.WordDeskCanvasLight
 import com.example.ui.theme.WordPrimary
-import com.example.ui.theme.WordPrimaryDark
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -151,10 +153,23 @@ fun EditorScreen(
     val autosaveStatus by viewModel.autosaveStatus.collectAsStateWithLifecycle()
     val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
 
+    val isFindReplaceVisible by viewModel.isFindReplaceVisible.collectAsStateWithLifecycle()
+    val findQuery by viewModel.findQuery.collectAsStateWithLifecycle()
+    val replaceQuery by viewModel.replaceQuery.collectAsStateWithLifecycle()
+    val matchCount by viewModel.matchCount.collectAsStateWithLifecycle()
+
     var showTitleEditDialog by remember { mutableStateOf(false) }
     var showTableDialog by remember { mutableStateOf(false) }
+    var showLayoutDialog by remember { mutableStateOf(false) }
     var showStatsDialog by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+
+    // Android Zero-Permission Photo Picker for Image Insertion
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let { viewModel.insertImage(it.toString(), "Inserted Image") }
+    }
 
     // SAF PDF Save Launcher
     val safPdfSaveLauncher = rememberLauncherForActivityResult(
@@ -176,139 +191,187 @@ fun EditorScreen(
         }
     }
 
+    val activeParagraph = document?.blocks?.getOrNull(activeBlockIndex) as? ParagraphBlock
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            viewModel.saveNow()
-                            onNavigateBack()
-                        },
-                        modifier = Modifier.testTag("editor_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Home"
-                        )
-                    }
-                },
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clickable { showTitleEditDialog = true }
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = document?.title ?: "Document",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Title",
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                },
-                actions = {
-                    // Autosave Status Indicator
-                    AutosaveChip(status = autosaveStatus)
-
-                    // Undo Button
-                    IconButton(
-                        onClick = { viewModel.undo() },
-                        enabled = canUndo,
-                        modifier = Modifier.testTag("action_undo")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Undo,
-                            contentDescription = "Undo",
-                            tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                        )
-                    }
-
-                    // Redo Button
-                    IconButton(
-                        onClick = { viewModel.redo() },
-                        enabled = canRedo,
-                        modifier = Modifier.testTag("action_redo")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Redo,
-                            contentDescription = "Redo",
-                            tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                        )
-                    }
-
-                    // Share / Export PDF Quick Action
-                    IconButton(
-                        onClick = {
-                            viewModel.exportToPdf(context) { file ->
-                                file?.let { sharePdfFile(context, it) }
-                            }
-                        },
-                        modifier = Modifier.testTag("action_share_pdf")
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Share PDF")
-                    }
-
-                    // Overflow Menu
-                    Box {
-                        IconButton(onClick = { showOptionsMenu = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More Actions")
-                        }
-
-                        DropdownMenu(
-                            expanded = showOptionsMenu,
-                            onDismissRequest = { showOptionsMenu = false }
+            Column {
+                TopAppBar(
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
+                                viewModel.saveNow()
+                                onNavigateBack()
+                            },
+                            modifier = Modifier.testTag("editor_back_button")
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Save Document") },
-                                leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    viewModel.saveNow()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Save as PDF (SAF)...") },
-                                leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                                    safPdfSaveLauncher.launch("$safeTitle.pdf")
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Print") },
-                                leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    viewModel.printDocument(context)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Document Statistics") },
-                                leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showStatsDialog = true
-                                }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back to Home"
                             )
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    },
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable { showTitleEditDialog = true }
+                                .padding(vertical = 4.dp)
+                                .testTag("title_edit_container")
+                        ) {
+                            Text(
+                                text = document?.title ?: "Document",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Title",
+                                tint = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    },
+                    actions = {
+                        // Autosave Status Chip
+                        AutosaveChip(status = autosaveStatus)
+
+                        // Undo Button
+                        IconButton(
+                            onClick = { viewModel.undo() },
+                            enabled = canUndo,
+                            modifier = Modifier.testTag("action_undo")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Undo,
+                                contentDescription = "Undo",
+                                tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                            )
+                        }
+
+                        // Redo Button
+                        IconButton(
+                            onClick = { viewModel.redo() },
+                            enabled = canRedo,
+                            modifier = Modifier.testTag("action_redo")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Redo,
+                                contentDescription = "Redo",
+                                tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                            )
+                        }
+
+                        // Search & Replace Toggle
+                        IconButton(
+                            onClick = { viewModel.toggleFindReplace() },
+                            modifier = Modifier.testTag("action_find_replace")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search and Replace",
+                                tint = if (isFindReplaceVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        // Share / Export PDF Quick Action
+                        IconButton(
+                            onClick = {
+                                viewModel.exportToPdf(context) { file ->
+                                    file?.let { sharePdfFile(context, it) }
+                                }
+                            },
+                            modifier = Modifier.testTag("action_share_pdf")
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = "Share PDF")
+                        }
+
+                        // Overflow Options Menu
+                        Box {
+                            IconButton(onClick = { showOptionsMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "More Actions")
+                            }
+
+                            DropdownMenu(
+                                expanded = showOptionsMenu,
+                                onDismissRequest = { showOptionsMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Save Document") },
+                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        viewModel.saveNow()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Save as PDF (SAF)...") },
+                                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+                                        safPdfSaveLauncher.launch("$safeTitle.pdf")
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Export as Plain Text (.txt)") },
+                                    leadingIcon = { Icon(Icons.Default.TextFields, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        viewModel.exportToPlainText(context) { file ->
+                                            file?.let { shareTextFile(context, it) }
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Print") },
+                                    leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        viewModel.printDocument(context)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Page Setup...") },
+                                    leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showLayoutDialog = true
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Document Statistics") },
+                                    leadingIcon = { Icon(Icons.Default.Title, contentDescription = null) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showStatsDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-            )
+
+                // Docked In-Document Find and Replace Bar
+                FindReplaceBar(
+                    isVisible = isFindReplaceVisible,
+                    findQuery = findQuery,
+                    replaceQuery = replaceQuery,
+                    matchCount = matchCount,
+                    onFindQueryChanged = viewModel::updateFindQuery,
+                    onReplaceQueryChanged = viewModel::updateReplaceQuery,
+                    onReplaceAll = viewModel::replaceAll,
+                    onClose = { viewModel.toggleFindReplace() }
+                )
+            }
         },
         bottomBar = {
             // Word Status Bar
@@ -316,7 +379,7 @@ fun EditorScreen(
                 document = document,
                 autosaveStatus = autosaveStatus,
                 zoomPercent = zoomPercent,
-                activeBlock = document?.blocks?.getOrNull(activeBlockIndex) as? ParagraphBlock
+                activeBlock = activeParagraph
             )
         }
     ) { innerPadding ->
@@ -325,6 +388,7 @@ fun EditorScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .background(WordDeskCanvasLight)
+                .imePadding() // Keyboard-aware layout: ensures soft keyboard does not obscure active content
         ) {
             // Microsoft Word Ribbon Component
             WordRibbon(
@@ -332,24 +396,34 @@ fun EditorScreen(
                 onTabSelected = viewModel::selectRibbonTab,
                 isRibbonVisible = isRibbonVisible,
                 onToggleRibbon = viewModel::toggleRibbonVisibility,
+                activeParagraph = activeParagraph,
                 viewModel = viewModel,
                 context = context,
                 onOpenTableDialog = { showTableDialog = true },
+                onOpenPhotoPicker = {
+                    photoPickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                onOpenLayoutDialog = { showLayoutDialog = true },
                 onOpenStatsDialog = { showStatsDialog = true }
             )
 
-            // Document Canvas Surface
-            Box(
+            // Document Canvas Surface with Responsive Phone / Tablet Layout
+            BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.TopCenter
             ) {
+                val isTabletOrExpanded = maxWidth > 600.dp
+
                 if (document != null) {
                     DocumentCanvas(
                         document = document!!,
                         viewMode = viewMode,
                         zoomPercent = zoomPercent,
+                        isTabletOrExpanded = isTabletOrExpanded,
                         activeBlockIndex = activeBlockIndex,
                         onBlockSelected = viewModel::setActiveBlock,
                         onUpdateBlockText = viewModel::updateParagraphText,
@@ -373,7 +447,7 @@ fun EditorScreen(
                     onValueChange = { editedTitle = it },
                     label = { Text("Title") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().testTag("edit_title_input")
                 )
             },
             confirmButton = {
@@ -384,7 +458,7 @@ fun EditorScreen(
                         }
                         showTitleEditDialog = false
                     },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
                 ) {
                     Text("Done")
                 }
@@ -397,45 +471,23 @@ fun EditorScreen(
 
     // Insert Table Dialog
     if (showTableDialog) {
-        var rowsText by remember { mutableStateOf("3") }
-        var colsText by remember { mutableStateOf("3") }
-        AlertDialog(
-            onDismissRequest = { showTableDialog = false },
-            title = { Text("Insert Table") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = rowsText,
-                        onValueChange = { rowsText = it },
-                        label = { Text("Number of Rows (1-10)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = colsText,
-                        onValueChange = { colsText = it },
-                        label = { Text("Number of Columns (1-6)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val r = rowsText.toIntOrNull()?.coerceIn(1, 10) ?: 3
-                        val c = colsText.toIntOrNull()?.coerceIn(1, 6) ?: 3
-                        viewModel.insertTable(r, c)
-                        showTableDialog = false
-                    },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary)
-                ) {
-                    Text("Insert")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTableDialog = false }) { Text("Cancel") }
+        InsertTableDialog(
+            onDismiss = { showTableDialog = false },
+            onConfirm = { r, c ->
+                viewModel.insertTable(r, c)
+                showTableDialog = false
+            }
+        )
+    }
+
+    // Page Layout Dialog
+    if (showLayoutDialog && document != null) {
+        PageLayoutDialog(
+            currentLayout = document!!.layoutConfig,
+            onDismiss = { showLayoutDialog = false },
+            onSave = { ps, po, mp, header, footer ->
+                viewModel.updatePageLayout(ps, po, mp)
+                showLayoutDialog = false
             }
         )
     }
@@ -454,12 +506,13 @@ fun EditorScreen(
                     StatRow("Estimated Pages", "${doc?.estimatedPageCount ?: 1}")
                     StatRow("Paper Size", doc?.layoutConfig?.pageSize?.displayName ?: "A4")
                     StatRow("Orientation", doc?.layoutConfig?.orientation?.name ?: "PORTRAIT")
+                    StatRow("Active Language", if (activeParagraph?.isRtl == true) "Urdu (RTL Nastaliq)" else "English (LTR)")
                 }
             },
             confirmButton = {
                 Button(
                     onClick = { showStatsDialog = false },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
                 ) {
                     Text("Close")
                 }
@@ -521,9 +574,12 @@ fun WordRibbon(
     onTabSelected: (RibbonTab) -> Unit,
     isRibbonVisible: Boolean,
     onToggleRibbon: () -> Unit,
+    activeParagraph: ParagraphBlock?,
     viewModel: EditorViewModel,
     context: Context,
     onOpenTableDialog: () -> Unit,
+    onOpenPhotoPicker: () -> Unit,
+    onOpenLayoutDialog: () -> Unit,
     onOpenStatsDialog: () -> Unit
 ) {
     Surface(
@@ -532,7 +588,7 @@ fun WordRibbon(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
-            // Tab Strip
+            // Tab Header Strip
             val tabs = RibbonTab.entries
             val selectedIndex = tabs.indexOf(activeTab)
 
@@ -563,22 +619,89 @@ fun WordRibbon(
                 }
             }
 
-            // Toolbar Contents based on Active Tab
+            // Toolbar Contents based on Selected Tab
             AnimatedVisibility(visible = isRibbonVisible) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    when (activeTab) {
-                        RibbonTab.HOME -> HomeRibbonControls(viewModel)
-                        RibbonTab.INSERT -> InsertRibbonControls(viewModel, onOpenTableDialog)
-                        RibbonTab.LAYOUT -> LayoutRibbonControls(viewModel)
-                        RibbonTab.VIEW -> ViewRibbonControls(viewModel)
-                        RibbonTab.FILE -> FileRibbonControls(viewModel, context, onOpenStatsDialog)
+                when (activeTab) {
+                    RibbonTab.HOME -> {
+                        // Reusable full-featured Formatting Toolbar
+                        FormattingToolbar(
+                            activeParagraph = activeParagraph,
+                            onSetHeadingStyle = viewModel::setHeadingStyle,
+                            onToggleBold = viewModel::toggleBold,
+                            onToggleItalic = viewModel::toggleItalic,
+                            onToggleUnderline = viewModel::toggleUnderline,
+                            onToggleStrikethrough = viewModel::toggleStrikethrough,
+                            onSetFontFamily = viewModel::setFontFamily,
+                            onSetFontSize = viewModel::setFontSize,
+                            onSetTextColor = viewModel::setTextColor,
+                            onSetHighlightColor = viewModel::setHighlightColor,
+                            onSetAlignment = viewModel::setAlignment,
+                            onToggleListType = viewModel::toggleListType,
+                            onToggleRtl = viewModel::toggleRtl
+                        )
+                    }
+
+                    RibbonTab.INSERT -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            InsertRibbonControls(
+                                viewModel = viewModel,
+                                onOpenTableDialog = onOpenTableDialog,
+                                onOpenPhotoPicker = onOpenPhotoPicker
+                            )
+                        }
+                    }
+
+                    RibbonTab.LAYOUT -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            LayoutRibbonControls(
+                                viewModel = viewModel,
+                                onOpenLayoutDialog = onOpenLayoutDialog
+                            )
+                        }
+                    }
+
+                    RibbonTab.VIEW -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ViewRibbonControls(viewModel)
+                        }
+                    }
+
+                    RibbonTab.FILE -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FileRibbonControls(
+                                viewModel = viewModel,
+                                context = context,
+                                onOpenStatsDialog = onOpenStatsDialog
+                            )
+                        }
                     }
                 }
             }
@@ -587,156 +710,78 @@ fun WordRibbon(
 }
 
 @Composable
-fun HomeRibbonControls(viewModel: EditorViewModel) {
-    // Style Chips (Normal, Title, Heading 1, 2)
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        HeadingStyle.entries.take(4).forEach { style ->
-            FilterChip(
-                selected = false,
-                onClick = { viewModel.setHeadingStyle(style) },
-                label = { Text(style.displayName, fontSize = 11.sp) }
-            )
-        }
-    }
-
-    RibbonDivider()
-
-    // B / I / U / S Formatting
-    IconButton(onClick = { viewModel.toggleBold() }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.Default.FormatBold, contentDescription = "Bold", tint = WordPrimary)
-    }
-    IconButton(onClick = { viewModel.toggleItalic() }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.Default.FormatItalic, contentDescription = "Italic")
-    }
-    IconButton(onClick = { viewModel.toggleUnderline() }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.Default.FormatUnderlined, contentDescription = "Underline")
-    }
-    IconButton(onClick = { viewModel.toggleStrikethrough() }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.Default.FormatStrikethrough, contentDescription = "Strikethrough")
-    }
-
-    RibbonDivider()
-
-    // Alignments
-    IconButton(onClick = { viewModel.setAlignment(TextAlignment.START) }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.AutoMirrored.Filled.FormatAlignLeft, contentDescription = "Align Left")
-    }
-    IconButton(onClick = { viewModel.setAlignment(TextAlignment.CENTER) }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.Default.FormatAlignCenter, contentDescription = "Align Center")
-    }
-    IconButton(onClick = { viewModel.setAlignment(TextAlignment.END) }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.AutoMirrored.Filled.FormatAlignRight, contentDescription = "Align Right")
-    }
-    IconButton(onClick = { viewModel.setAlignment(TextAlignment.JUSTIFY) }, modifier = Modifier.size(34.dp)) {
-        Icon(Icons.Default.FormatAlignJustify, contentDescription = "Justify")
-    }
-
-    RibbonDivider()
-
-    // Urdu / RTL Direction Toggle
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = WordPrimary.copy(alpha = 0.1f),
-        modifier = Modifier.clickable { viewModel.toggleRtl() }
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-        ) {
-            Text("Urdu / RTL", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = WordPrimary)
-        }
-    }
-
-    RibbonDivider()
-
-    // Colors
-    ColorChip(color = Color(0xFF185ABD), label = "Blue", onClick = { viewModel.setTextColor("#185ABD") })
-    ColorChip(color = Color(0xFFC00000), label = "Red", onClick = { viewModel.setTextColor("#C00000") })
-    ColorChip(color = Color(0xFF107C41), label = "Green", onClick = { viewModel.setTextColor("#107C41") })
-    ColorChip(color = Color(0xFFFFF275), label = "Highlight", onClick = { viewModel.setHighlightColor("#FFF275") })
-
-    RibbonDivider()
-
-    // Add Paragraph
-    Button(
-        onClick = { viewModel.insertParagraph() },
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = WordPrimary),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-        modifier = Modifier.height(32.dp)
-    ) {
-        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-        Spacer(modifier = Modifier.width(4.dp))
-        Text("Paragraph", fontSize = 12.sp)
-    }
-}
-
-@Composable
 fun InsertRibbonControls(
     viewModel: EditorViewModel,
-    onOpenTableDialog: () -> Unit
+    onOpenTableDialog: () -> Unit,
+    onOpenPhotoPicker: () -> Unit
 ) {
-    // Table
     RibbonActionButton(
         icon = Icons.Default.TableChart,
         label = "Table",
         onClick = onOpenTableDialog
     )
 
-    // Divider
+    RibbonActionButton(
+        icon = Icons.Default.Image,
+        label = "Picture",
+        onClick = onOpenPhotoPicker
+    )
+
     RibbonActionButton(
         icon = Icons.Default.HorizontalRule,
         label = "Horizontal Line",
         onClick = { viewModel.insertDivider() }
     )
 
-    // Page Break
     RibbonActionButton(
         icon = Icons.Default.Title,
         label = "Page Break",
         onClick = { viewModel.insertPageBreak() }
     )
 
-    // Date & Time Stamp
     val dateFormat = remember { SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()) }
     RibbonActionButton(
-        icon = Icons.Default.Edit,
-        label = "Insert Date",
+        icon = Icons.Default.CalendarMonth,
+        label = "Date & Time",
         onClick = {
             val dateStr = dateFormat.format(Date())
-            viewModel.insertParagraph()
+            viewModel.insertDateTimeStamp(dateStr)
         }
     )
 }
 
 @Composable
-fun LayoutRibbonControls(viewModel: EditorViewModel) {
-    Text("Page Size:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun LayoutRibbonControls(
+    viewModel: EditorViewModel,
+    onOpenLayoutDialog: () -> Unit
+) {
+    Text("Paper:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     FilterChip(
         selected = true,
         onClick = { viewModel.updatePageLayout(pageSize = PageSize.A4) },
-        label = { Text("A4 (210×297 mm)", fontSize = 11.sp) }
+        label = { Text("A4", fontSize = 11.sp) }
     )
     FilterChip(
         selected = false,
         onClick = { viewModel.updatePageLayout(pageSize = PageSize.LETTER) },
-        label = { Text("US Letter", fontSize = 11.sp) }
+        label = { Text("Letter", fontSize = 11.sp) }
     )
 
-    RibbonDivider()
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
 
     Text("Margins:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     FilterChip(
         selected = true,
         onClick = { viewModel.updatePageLayout(marginPreset = MarginPreset.NORMAL) },
-        label = { Text("Normal (25.4mm)", fontSize = 11.sp) }
+        label = { Text("Normal", fontSize = 11.sp) }
     )
     FilterChip(
         selected = false,
         onClick = { viewModel.updatePageLayout(marginPreset = MarginPreset.NARROW) },
-        label = { Text("Narrow (12.7mm)", fontSize = 11.sp) }
+        label = { Text("Narrow", fontSize = 11.sp) }
     )
 
-    RibbonDivider()
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
 
     Text("Orientation:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     FilterChip(
@@ -748,6 +793,14 @@ fun LayoutRibbonControls(viewModel: EditorViewModel) {
         selected = false,
         onClick = { viewModel.updatePageLayout(orientation = PageOrientation.LANDSCAPE) },
         label = { Text("Landscape", fontSize = 11.sp) }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
+
+    RibbonActionButton(
+        icon = Icons.Default.Edit,
+        label = "Page Setup...",
+        onClick = onOpenLayoutDialog
     )
 }
 
@@ -764,7 +817,7 @@ fun ViewRibbonControls(viewModel: EditorViewModel) {
         label = { Text("Mobile Continuous", fontSize = 11.sp) }
     )
 
-    RibbonDivider()
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
 
     IconButton(onClick = { viewModel.setZoomPercent(75) }, modifier = Modifier.size(32.dp)) {
         Icon(Icons.Default.ZoomOut, contentDescription = "Zoom 75%")
@@ -798,6 +851,16 @@ fun FileRibbonControls(
     )
 
     RibbonActionButton(
+        icon = Icons.Default.TextFields,
+        label = "Plain Text",
+        onClick = {
+            viewModel.exportToPlainText(context) { file ->
+                file?.let { shareTextFile(context, it) }
+            }
+        }
+    )
+
+    RibbonActionButton(
         icon = Icons.Default.Print,
         label = "Print",
         onClick = { viewModel.printDocument(context) }
@@ -823,35 +886,13 @@ fun RibbonActionButton(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
         ) {
             Icon(imageVector = icon, contentDescription = label, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
     }
-}
-
-@Composable
-fun ColorChip(color: Color, label: String, onClick: () -> Unit) {
-    Surface(
-        shape = CircleShape,
-        color = color,
-        modifier = Modifier
-            .size(24.dp)
-            .clickable(onClick = onClick)
-            .border(1.dp, Color.LightGray, CircleShape)
-    ) {}
-}
-
-@Composable
-fun RibbonDivider() {
-    Box(
-        modifier = Modifier
-            .height(24.dp)
-            .width(1.dp)
-            .background(Color(0xFFE2E8F0))
-    )
 }
 
 @Composable
@@ -859,6 +900,7 @@ fun DocumentCanvas(
     document: RichDocument,
     viewMode: EditorViewMode,
     zoomPercent: Int,
+    isTabletOrExpanded: Boolean,
     activeBlockIndex: Int,
     onBlockSelected: (Int) -> Unit,
     onUpdateBlockText: (Int, String) -> Unit,
@@ -871,15 +913,15 @@ fun DocumentCanvas(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(16.dp),
+            .padding(if (isTabletOrExpanded) 28.dp else 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (viewMode == EditorViewMode.PAGINATED_A4) {
-            // A4 Physical Sheet with realistic elevation and margins
+            // A4 Physical Sheet
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 680.dp)
+                    .widthIn(max = if (isTabletOrExpanded) 760.dp else 640.dp)
                     .shadow(6.dp, RoundedCornerShape(4.dp)),
                 shape = RoundedCornerShape(4.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
@@ -887,7 +929,7 @@ fun DocumentCanvas(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 28.dp, vertical = 32.dp)
+                        .padding(horizontal = if (isTabletOrExpanded) 40.dp else 24.dp, vertical = 32.dp)
                 ) {
                     // Page Header Area
                     if (document.layoutConfig.headerText.isNotBlank()) {
@@ -907,9 +949,18 @@ fun DocumentCanvas(
                     }
 
                     // Blocks List
+                    var listNumberCounter = 1
                     document.blocks.forEachIndexed { index, block ->
+                        val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
+                            listNumberCounter++
+                        } else {
+                            listNumberCounter = 1
+                            null
+                        }
+
                         BlockItemView(
                             block = block,
+                            itemNumber = itemNumber,
                             isActive = index == activeBlockIndex,
                             onFocus = { onBlockSelected(index) },
                             onTextChanged = { newText -> onUpdateBlockText(index, newText) },
@@ -950,9 +1001,18 @@ fun DocumentCanvas(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
+                    var listNumberCounter = 1
                     document.blocks.forEachIndexed { index, block ->
+                        val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
+                            listNumberCounter++
+                        } else {
+                            listNumberCounter = 1
+                            null
+                        }
+
                         BlockItemView(
                             block = block,
+                            itemNumber = itemNumber,
                             isActive = index == activeBlockIndex,
                             onFocus = { onBlockSelected(index) },
                             onTextChanged = { newText -> onUpdateBlockText(index, newText) },
@@ -969,6 +1029,7 @@ fun DocumentCanvas(
 @Composable
 fun BlockItemView(
     block: BlockElement,
+    itemNumber: Int?,
     isActive: Boolean,
     onFocus: () -> Unit,
     onTextChanged: (String) -> Unit,
@@ -985,7 +1046,8 @@ fun BlockItemView(
 
             val textDirection = if (block.isRtl) TextDirection.Rtl else TextDirection.Ltr
 
-            val fontSize = when (block.headingStyle) {
+            val customSizeSp = block.spans.lastOrNull { it.fontSizeSp != null }?.fontSizeSp
+            val fontSize = customSizeSp?.sp ?: when (block.headingStyle) {
                 HeadingStyle.TITLE -> 26.sp
                 HeadingStyle.SUBTITLE -> 18.sp
                 HeadingStyle.HEADING_1 -> 22.sp
@@ -1004,13 +1066,32 @@ fun BlockItemView(
                 FontStyle.Italic
             } else FontStyle.Normal
 
+            val fontFamilyName = block.spans.lastOrNull { it.fontFamilyName != null }?.fontFamilyName
+            val fontFamily = when (fontFamilyName) {
+                "Arial" -> FontFamily.SansSerif
+                "Times New Roman", "Georgia" -> FontFamily.Serif
+                "Courier New" -> FontFamily.Monospace
+                "Nastaliq" -> FontFamily.Cursive
+                else -> FontFamily.Default
+            }
+
+            val textColorHex = block.spans.lastOrNull { it.textColorHex != null }?.textColorHex
             val textColor = when {
+                textColorHex != null -> try {
+                    Color(android.graphics.Color.parseColor(textColorHex))
+                } catch (e: Exception) { Color(0xFF1E293B) }
                 block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 -> WordPrimary
-                block.spans.any { it.textColorHex != null } -> Color.DarkGray
                 else -> Color(0xFF1E293B)
             }
 
-            Box(
+            val highlightHex = block.spans.lastOrNull { it.highlightColorHex != null }?.highlightColorHex
+            val highlightColor = if (highlightHex != null) {
+                try {
+                    Color(android.graphics.Color.parseColor(highlightHex))
+                } catch (e: Exception) { Color.Transparent }
+            } else Color.Transparent
+
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onFocus)
@@ -1018,25 +1099,57 @@ fun BlockItemView(
                         if (isActive) WordPrimary.copy(alpha = 0.04f) else Color.Transparent,
                         RoundedCornerShape(4.dp)
                     )
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.Top
             ) {
-                BasicTextField(
-                    value = block.text,
-                    onValueChange = onTextChanged,
-                    textStyle = TextStyle(
-                        fontSize = fontSize,
-                        fontWeight = fontWeight,
-                        fontStyle = fontStyle,
-                        color = textColor,
-                        textAlign = align,
-                        textDirection = textDirection,
-                        lineHeight = fontSize * block.lineSpacingMultiplier
-                    ),
-                    cursorBrush = SolidColor(WordPrimary),
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // List prefix
+                when (block.listType) {
+                    ListType.BULLET -> {
+                        Text(
+                            text = "• ",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = fontSize,
+                            color = WordPrimary,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                    ListType.NUMBERED -> {
+                        Text(
+                            text = "${itemNumber ?: 1}. ",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = fontSize,
+                            color = WordPrimary,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                    ListType.NONE -> Unit
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(highlightColor, RoundedCornerShape(2.dp))
+                ) {
+                    BasicTextField(
+                        value = block.text,
+                        onValueChange = onTextChanged,
+                        textStyle = TextStyle(
+                            fontSize = fontSize,
+                            fontWeight = fontWeight,
+                            fontStyle = fontStyle,
+                            fontFamily = fontFamily,
+                            color = textColor,
+                            textAlign = align,
+                            textDirection = textDirection,
+                            lineHeight = fontSize * block.lineSpacingMultiplier
+                        ),
+                        cursorBrush = SolidColor(WordPrimary),
+                        modifier = Modifier.fillMaxWidth().testTag("paragraph_input_${block.id}")
+                    )
+                }
             }
         }
+
         is TableBlock -> {
             Column(
                 modifier = Modifier
@@ -1052,9 +1165,7 @@ fun BlockItemView(
                                 modifier = Modifier
                                     .weight(1f)
                                     .border(0.5.dp, Color(0xFFE2E8F0))
-                                    .background(
-                                        if (r == 0) Color(0xFFF1F5F9) else Color.White
-                                    )
+                                    .background(if (r == 0) Color(0xFFF1F5F9) else Color.White)
                                     .padding(8.dp)
                             ) {
                                 Text(
@@ -1069,6 +1180,33 @@ fun BlockItemView(
                 }
             }
         }
+
+        is ImageBlock -> {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFF1F5F9),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clickable(onClick = onFocus)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(Icons.Default.Image, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(36.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = block.caption.ifBlank { "Picture Asset" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+
         is DividerBlock -> {
             HorizontalDivider(
                 color = Color(0xFFCBD5E1),
@@ -1076,6 +1214,7 @@ fun BlockItemView(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         }
+
         is PageBreakBlock -> {
             Row(
                 modifier = Modifier
@@ -1093,7 +1232,6 @@ fun BlockItemView(
                 HorizontalDivider(modifier = Modifier.weight(1f), color = WordPrimary.copy(alpha = 0.4f))
             }
         }
-        else -> Unit
     }
 }
 
@@ -1116,7 +1254,6 @@ fun EditorStatusBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Page and Word stats
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1134,6 +1271,12 @@ fun EditorStatusBar(
                 )
                 Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 Text(
+                    text = "${document?.characterCount ?: 0} chars",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                Text(
                     text = if (activeBlock?.isRtl == true) "Urdu (RTL)" else "English (LTR)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
@@ -1141,7 +1284,6 @@ fun EditorStatusBar(
                 )
             }
 
-            // Zoom indicator
             Text(
                 text = "$zoomPercent%",
                 fontSize = 11.sp,
@@ -1165,6 +1307,26 @@ fun sharePdfFile(context: Context, file: File) {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         val chooser = Intent.createChooser(sendIntent, "Share Document PDF")
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        // Fallback
+    }
+}
+
+fun shareTextFile(context: Context, file: File) {
+    try {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(sendIntent, "Share Plain Text Document")
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(chooser)
     } catch (e: Exception) {
