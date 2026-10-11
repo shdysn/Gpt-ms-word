@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.core.error.DocumentResult
 import com.example.core.layout.MarginPreset
+import com.example.core.layout.PageLayoutConfig
 import com.example.core.layout.PageOrientation
 import com.example.core.layout.PageSize
 import com.example.data.local.PreferencesManager
@@ -80,6 +81,14 @@ class EditorViewModel(
 
     private val _viewMode = MutableStateFlow(EditorViewMode.PAGINATED_A4)
     val viewMode: StateFlow<EditorViewMode> = _viewMode.asStateFlow()
+
+    val paginatedPages: StateFlow<List<com.example.core.layout.DocumentPage>> = _document.map { doc ->
+        if (doc == null) emptyList() else com.example.core.layout.PaginationEngine.paginate(doc)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     private val _zoomPercent = MutableStateFlow(100)
     val zoomPercent: StateFlow<Int> = _zoomPercent.asStateFlow()
@@ -689,17 +698,37 @@ class EditorViewModel(
     // Layout Operations
     // ----------------------------------------------------
 
+    fun updatePageLayoutConfig(newLayout: PageLayoutConfig) {
+        val currentDoc = _document.value ?: return
+        val oldLayout = currentDoc.layoutConfig
+        executeCommand(
+            UpdateLayoutCommand(oldLayout = oldLayout, newLayout = newLayout)
+        )
+    }
+
     fun updatePageLayout(
         pageSize: PageSize? = null,
         orientation: PageOrientation? = null,
-        marginPreset: MarginPreset? = null
+        marginPreset: MarginPreset? = null,
+        headerText: String? = null,
+        footerText: String? = null,
+        pageBackgroundHex: String? = null,
+        borderStyle: com.example.core.layout.PageBorderStyle? = null,
+        borderColorHex: String? = null,
+        pageNumberFormat: com.example.core.layout.PageNumberFormat? = null
     ) {
         val currentDoc = _document.value ?: return
         val oldLayout = currentDoc.layoutConfig
         val newLayout = oldLayout.copy(
             pageSize = pageSize ?: oldLayout.pageSize,
             orientation = orientation ?: oldLayout.orientation,
-            marginPreset = marginPreset ?: oldLayout.marginPreset
+            marginPreset = marginPreset ?: oldLayout.marginPreset,
+            headerText = headerText ?: oldLayout.headerText,
+            footerText = footerText ?: oldLayout.footerText,
+            pageBackgroundHex = pageBackgroundHex ?: oldLayout.pageBackgroundHex,
+            borderStyle = borderStyle ?: oldLayout.borderStyle,
+            borderColorHex = borderColorHex ?: oldLayout.borderColorHex,
+            pageNumberFormat = pageNumberFormat ?: oldLayout.pageNumberFormat
         )
 
         executeCommand(

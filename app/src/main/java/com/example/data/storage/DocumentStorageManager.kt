@@ -291,8 +291,23 @@ class DocumentStorageManager(private val context: Context) {
                 put("pageSize", doc.layoutConfig.pageSize.name)
                 put("orientation", doc.layoutConfig.orientation.name)
                 put("marginPreset", doc.layoutConfig.marginPreset.name)
+                doc.layoutConfig.customTopMarginMm?.let { put("customTopMarginMm", it.toDouble()) }
+                doc.layoutConfig.customBottomMarginMm?.let { put("customBottomMarginMm", it.toDouble()) }
+                doc.layoutConfig.customLeftMarginMm?.let { put("customLeftMarginMm", it.toDouble()) }
+                doc.layoutConfig.customRightMarginMm?.let { put("customRightMarginMm", it.toDouble()) }
+                put("showHeader", doc.layoutConfig.showHeader)
+                put("showFooter", doc.layoutConfig.showFooter)
                 put("headerText", doc.layoutConfig.headerText)
                 put("footerText", doc.layoutConfig.footerText)
+                put("headerAlignment", doc.layoutConfig.headerAlignment.name)
+                put("footerAlignment", doc.layoutConfig.footerAlignment.name)
+                put("pageBackgroundHex", doc.layoutConfig.pageBackgroundHex)
+                put("borderStyle", doc.layoutConfig.borderStyle.name)
+                put("borderColorHex", doc.layoutConfig.borderColorHex)
+                put("borderWidthPt", doc.layoutConfig.borderWidthPt.toDouble())
+                put("pageNumberFormat", doc.layoutConfig.pageNumberFormat.name)
+                put("pageNumberStart", doc.layoutConfig.pageNumberStart)
+                put("differentFirstPage", doc.layoutConfig.differentFirstPage)
             }
             put("layoutConfig", layoutObj)
 
@@ -396,13 +411,45 @@ class DocumentStorageManager(private val context: Context) {
             val marginPreset = try {
                 MarginPreset.valueOf(lObj.optString("marginPreset", "NORMAL"))
             } catch (e: Exception) { MarginPreset.NORMAL }
+            val borderStyle = try {
+                com.example.core.layout.PageBorderStyle.valueOf(lObj.optString("borderStyle", "NONE"))
+            } catch (e: Exception) { com.example.core.layout.PageBorderStyle.NONE }
+            val numberFormat = try {
+                com.example.core.layout.PageNumberFormat.valueOf(lObj.optString("pageNumberFormat", "ARABIC_NUMERALS"))
+            } catch (e: Exception) { com.example.core.layout.PageNumberFormat.ARABIC_NUMERALS }
+            val headerAlign = try {
+                TextAlignment.valueOf(lObj.optString("headerAlignment", "START"))
+            } catch (e: Exception) { TextAlignment.START }
+            val footerAlign = try {
+                TextAlignment.valueOf(lObj.optString("footerAlignment", "CENTER"))
+            } catch (e: Exception) { TextAlignment.CENTER }
+
+            val customTop = if (lObj.has("customTopMarginMm")) lObj.getDouble("customTopMarginMm").toFloat() else null
+            val customBottom = if (lObj.has("customBottomMarginMm")) lObj.getDouble("customBottomMarginMm").toFloat() else null
+            val customLeft = if (lObj.has("customLeftMarginMm")) lObj.getDouble("customLeftMarginMm").toFloat() else null
+            val customRight = if (lObj.has("customRightMarginMm")) lObj.getDouble("customRightMarginMm").toFloat() else null
 
             PageLayoutConfig(
                 pageSize = pageSize,
                 orientation = orientation,
                 marginPreset = marginPreset,
+                customTopMarginMm = customTop,
+                customBottomMarginMm = customBottom,
+                customLeftMarginMm = customLeft,
+                customRightMarginMm = customRight,
+                showHeader = lObj.optBoolean("showHeader", true),
+                showFooter = lObj.optBoolean("showFooter", true),
                 headerText = lObj.optString("headerText", ""),
-                footerText = lObj.optString("footerText", "Page {page} of {pages}")
+                footerText = lObj.optString("footerText", "Page {page} of {pages}"),
+                headerAlignment = headerAlign,
+                footerAlignment = footerAlign,
+                pageBackgroundHex = lObj.optString("pageBackgroundHex", "#FFFFFF"),
+                borderStyle = borderStyle,
+                borderColorHex = lObj.optString("borderColorHex", "#CBD5E1"),
+                borderWidthPt = lObj.optDouble("borderWidthPt", 1.0).toFloat(),
+                pageNumberFormat = numberFormat,
+                pageNumberStart = lObj.optInt("pageNumberStart", 1),
+                differentFirstPage = lObj.optBoolean("differentFirstPage", false)
             )
         } else {
             PageLayoutConfig()

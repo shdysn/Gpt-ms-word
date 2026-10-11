@@ -117,6 +117,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.layout.MarginPreset
+import com.example.core.layout.PageLayoutConfig
 import com.example.core.layout.PageOrientation
 import com.example.core.layout.PageSize
 import com.example.data.model.BlockElement
@@ -158,6 +159,7 @@ fun EditorScreen(
     val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
+    val paginatedPages by viewModel.paginatedPages.collectAsStateWithLifecycle()
     val activeBlockIndex by viewModel.activeBlockIndex.collectAsStateWithLifecycle()
     val autosaveStatus by viewModel.autosaveStatus.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
@@ -530,6 +532,7 @@ fun EditorScreen(
                 if (document != null) {
                     DocumentCanvas(
                         document = document!!,
+                        paginatedPages = paginatedPages,
                         viewMode = viewMode,
                         zoomPercent = zoomPercent,
                         isTabletOrExpanded = isTabletOrExpanded,
@@ -697,8 +700,8 @@ fun EditorScreen(
         PageLayoutDialog(
             currentLayout = document!!.layoutConfig,
             onDismiss = { showLayoutDialog = false },
-            onSave = { ps, po, mp, header, footer ->
-                viewModel.updatePageLayout(ps, po, mp)
+            onSaveConfig = { newConfig ->
+                viewModel.updatePageLayoutConfig(newConfig)
                 showLayoutDialog = false
             }
         )
@@ -976,45 +979,42 @@ fun LayoutRibbonControls(
     viewModel: EditorViewModel,
     onOpenLayoutDialog: () -> Unit
 ) {
+    val document by viewModel.document.collectAsStateWithLifecycle()
+    val layout = document?.layoutConfig ?: PageLayoutConfig()
+
     Text("Paper:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    FilterChip(
-        selected = true,
-        onClick = { viewModel.updatePageLayout(pageSize = PageSize.A4) },
-        label = { Text("A4", fontSize = 11.sp) }
-    )
-    FilterChip(
-        selected = false,
-        onClick = { viewModel.updatePageLayout(pageSize = PageSize.LETTER) },
-        label = { Text("Letter", fontSize = 11.sp) }
-    )
-
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
-
-    Text("Margins:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    FilterChip(
-        selected = true,
-        onClick = { viewModel.updatePageLayout(marginPreset = MarginPreset.NORMAL) },
-        label = { Text("Normal", fontSize = 11.sp) }
-    )
-    FilterChip(
-        selected = false,
-        onClick = { viewModel.updatePageLayout(marginPreset = MarginPreset.NARROW) },
-        label = { Text("Narrow", fontSize = 11.sp) }
-    )
+    listOf(PageSize.A4, PageSize.LETTER, PageSize.LEGAL, PageSize.A5).forEach { ps ->
+        FilterChip(
+            selected = layout.pageSize == ps,
+            onClick = { viewModel.updatePageLayout(pageSize = ps) },
+            label = { Text(ps.name, fontSize = 11.sp) }
+        )
+    }
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
 
     Text("Orientation:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     FilterChip(
-        selected = true,
+        selected = layout.orientation == PageOrientation.PORTRAIT,
         onClick = { viewModel.updatePageLayout(orientation = PageOrientation.PORTRAIT) },
         label = { Text("Portrait", fontSize = 11.sp) }
     )
     FilterChip(
-        selected = false,
+        selected = layout.orientation == PageOrientation.LANDSCAPE,
         onClick = { viewModel.updatePageLayout(orientation = PageOrientation.LANDSCAPE) },
         label = { Text("Landscape", fontSize = 11.sp) }
     )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
+
+    Text("Margins:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    listOf(MarginPreset.NORMAL, MarginPreset.NARROW, MarginPreset.WIDE).forEach { mp ->
+        FilterChip(
+            selected = layout.marginPreset == mp,
+            onClick = { viewModel.updatePageLayout(marginPreset = mp) },
+            label = { Text(mp.displayName.split(" ")[0], fontSize = 11.sp) }
+        )
+    }
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(Color(0xFFE2E8F0)))
 
@@ -1119,6 +1119,7 @@ fun RibbonActionButton(
 @Composable
 fun DocumentCanvas(
     document: RichDocument,
+    paginatedPages: List<com.example.core.layout.DocumentPage>,
     viewMode: EditorViewMode,
     zoomPercent: Int,
     isTabletOrExpanded: Boolean,
@@ -1139,76 +1140,175 @@ fun DocumentCanvas(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (viewMode == EditorViewMode.PAGINATED_A4) {
-            // A4 Physical Sheet
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .widthIn(max = if (isTabletOrExpanded) 760.dp else 640.dp)
-                    .shadow(6.dp, RoundedCornerShape(4.dp)),
-                shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(
+            val pagesToDisplay = if (paginatedPages.isEmpty()) {
+                com.example.core.layout.PaginationEngine.paginate(document)
+            } else {
+                paginatedPages
+            }
+
+            pagesToDisplay.forEach { page ->
+                // Page indicator badge above physical sheet
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White.copy(alpha = 0.9f),
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        text = "Page ${page.pageNumber} of ${page.totalPages} • ${page.layout.pageSize.name} (${page.layout.orientation.name.lowercase().replaceFirstChar { it.uppercase() }})",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                val pageBgColor = try {
+                    Color(android.graphics.Color.parseColor(page.layout.pageBackgroundHex))
+                } catch (e: Exception) { Color.White }
+
+                val borderStroke = when (page.layout.borderStyle) {
+                    com.example.core.layout.PageBorderStyle.SINGLE_THIN -> androidx.compose.foundation.BorderStroke(1.dp, Color(try { android.graphics.Color.parseColor(page.layout.borderColorHex) } catch (e: Exception) { android.graphics.Color.LTGRAY }))
+                    com.example.core.layout.PageBorderStyle.SINGLE_THICK -> androidx.compose.foundation.BorderStroke(2.dp, Color(try { android.graphics.Color.parseColor(page.layout.borderColorHex) } catch (e: Exception) { android.graphics.Color.LTGRAY }))
+                    com.example.core.layout.PageBorderStyle.DOUBLE -> androidx.compose.foundation.BorderStroke(3.dp, Color(try { android.graphics.Color.parseColor(page.layout.borderColorHex) } catch (e: Exception) { android.graphics.Color.LTGRAY }))
+                    com.example.core.layout.PageBorderStyle.DASHED -> androidx.compose.foundation.BorderStroke(1.5.dp, Color(try { android.graphics.Color.parseColor(page.layout.borderColorHex) } catch (e: Exception) { android.graphics.Color.LTGRAY }))
+                    com.example.core.layout.PageBorderStyle.NONE -> null
+                }
+
+                val maxSheetWidth = if (page.layout.orientation == PageOrientation.LANDSCAPE) {
+                    if (isTabletOrExpanded) 920.dp else 720.dp
+                } else {
+                    if (isTabletOrExpanded) 760.dp else 640.dp
+                }
+
+                // Margins mapped to responsive dp
+                val leftMarginDp = (page.layout.leftMarginMm * 1.25f).dp.coerceIn(16.dp, 48.dp)
+                val rightMarginDp = (page.layout.rightMarginMm * 1.25f).dp.coerceIn(16.dp, 48.dp)
+                val topMarginDp = (page.layout.topMarginMm * 1.2f).dp.coerceIn(20.dp, 44.dp)
+                val bottomMarginDp = (page.layout.bottomMarginMm * 1.2f).dp.coerceIn(20.dp, 44.dp)
+
+                // Physical Paper Sheet Card
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = if (isTabletOrExpanded) 40.dp else 24.dp, vertical = 32.dp)
+                        .widthIn(max = maxSheetWidth)
+                        .shadow(6.dp, RoundedCornerShape(2.dp)),
+                    shape = RoundedCornerShape(2.dp),
+                    colors = CardDefaults.cardColors(containerColor = pageBgColor),
+                    border = borderStroke
                 ) {
-                    // Page Header Area
-                    if (document.layoutConfig.headerText.isNotBlank()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = document.layoutConfig.headerText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.Gray
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                start = leftMarginDp,
+                                end = rightMarginDp,
+                                top = topMarginDp,
+                                bottom = bottomMarginDp
                             )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
-                        Spacer(modifier = Modifier.height(18.dp))
-                    }
-
-                    // Blocks List
-                    var listNumberCounter = 1
-                    document.blocks.forEachIndexed { index, block ->
-                        val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
-                            listNumberCounter++
-                        } else {
-                            listNumberCounter = 1
-                            null
-                        }
-
-                        BlockItemView(
-                            block = block,
-                            itemNumber = itemNumber,
-                            isActive = index == activeBlockIndex,
-                            onFocus = { onBlockSelected(index) },
-                            onSelectionChanged = onSelectionChanged,
-                            onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
-                            onEnterPressed = onInsertParagraph
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // Page Footer Area
-                    Spacer(modifier = Modifier.height(24.dp))
-                    HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = document.layoutConfig.footerText
-                                .replace("{page}", "1")
-                                .replace("{pages}", "${document.estimatedPageCount}"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.Gray
-                        )
+                        // Header Area
+                        if (page.hasHeader) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = when (page.layout.headerAlignment) {
+                                    TextAlignment.CENTER -> Arrangement.Center
+                                    TextAlignment.END -> Arrangement.End
+                                    else -> Arrangement.Start
+                                }
+                            ) {
+                                Text(
+                                    text = page.formattedHeader,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.Gray
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
+                        // Content items on this page
+                        var listNumberCounter = 1
+                        page.items.forEach { pageItem ->
+                            when (pageItem) {
+                                is com.example.core.layout.ParagraphPageItem -> {
+                                    val block = pageItem.originalBlock
+                                    val itemNumber = if (block.listType == ListType.NUMBERED) {
+                                        listNumberCounter++
+                                    } else {
+                                        listNumberCounter = 1
+                                        null
+                                    }
+
+                                    BlockItemView(
+                                        block = block,
+                                        itemNumber = itemNumber,
+                                        isActive = pageItem.originalBlockIndex == activeBlockIndex,
+                                        onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                        onSelectionChanged = onSelectionChanged,
+                                        onTextChanged = { newText, sel -> onUpdateBlockText(pageItem.originalBlockIndex, newText, sel) },
+                                        onEnterPressed = onInsertParagraph
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+
+                                is com.example.core.layout.TablePageItem -> {
+                                    TableBlockSliceView(
+                                        table = pageItem.originalBlock,
+                                        startRow = pageItem.startRow,
+                                        endRow = pageItem.endRow
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+
+                                is com.example.core.layout.ImagePageItem -> {
+                                    ImageBlockView(
+                                        imageBlock = pageItem.originalBlock,
+                                        onFocus = { onBlockSelected(pageItem.originalBlockIndex) }
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+
+                                is com.example.core.layout.DividerPageItem -> {
+                                    HorizontalDivider(
+                                        color = Color(0xFFCBD5E1),
+                                        thickness = 1.dp,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                }
+
+                                is com.example.core.layout.PageBreakPageItem -> {
+                                    // Page break boundary is naturally reflected by the next paper sheet
+                                }
+                            }
+                        }
+
+                        // Footer Area with Automatic Page Numbering
+                        if (page.hasFooter) {
+                            Spacer(modifier = Modifier.height(20.dp))
+                            HorizontalDivider(color = Color(0xFFE5E7EB), thickness = 0.5.dp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = when (page.layout.footerAlignment) {
+                                    TextAlignment.START -> Arrangement.Start
+                                    TextAlignment.END -> Arrangement.End
+                                    else -> Arrangement.Center
+                                }
+                            ) {
+                                Text(
+                                    text = page.formattedFooter,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
                     }
                 }
+
+                // Desk gap between physical paper sheets
+                Spacer(modifier = Modifier.height(24.dp))
             }
         } else {
             // Continuous Mobile View
@@ -1246,6 +1346,65 @@ fun DocumentCanvas(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun TableBlockSliceView(table: TableBlock, startRow: Int, endRow: Int) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
+            .padding(2.dp)
+    ) {
+        for (r in startRow until endRow) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                for (c in 0 until table.columnCount) {
+                    val cell = table.cells.getOrNull(r)?.getOrNull(c)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(0.5.dp, Color(0xFFE2E8F0))
+                            .background(if (r == 0) Color(0xFFF1F5F9) else Color.White)
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = cell?.text?.ifBlank { "Cell ${r + 1},${c + 1}" } ?: "",
+                            fontWeight = if (r == 0) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 12.sp,
+                            color = Color.DarkGray
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ImageBlockView(imageBlock: ImageBlock, onFocus: () -> Unit = {}) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFFF1F5F9),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp)
+            .clickable(onClick = onFocus)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(Icons.Default.Image, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(36.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = imageBlock.caption.ifBlank { "Picture Asset" },
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
         }
     }
 }

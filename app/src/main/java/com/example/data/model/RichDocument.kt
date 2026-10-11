@@ -147,13 +147,8 @@ data class RichDocument(
             ?.take(160) ?: "Empty document"
 
     /**
-     * Estimated page count based on page layout and text density.
+     * Exact page count based on layout dimensions, margins, and pagination engine.
      */
     val estimatedPageCount: Int
-        get() {
-            val explicitBreaks = blocks.count { it is PageBreakBlock }
-            val charsPerPage = 1800 // Approx A4 character capacity at normal margins
-            val textPages = (characterCount / charsPerPage).coerceAtLeast(1)
-            return (textPages + explicitBreaks).coerceAtLeast(1)
-        }
+        get() = com.example.core.layout.PaginationEngine.paginate(this).size
 }

@@ -1,5 +1,7 @@
 package com.example.core.layout
 
+import com.example.data.model.TextAlignment
+
 /**
  * Standard page size specifications with ISO and ANSI dimensions.
  */
@@ -38,7 +40,42 @@ enum class MarginPreset(
     NORMAL("Normal (25.4 mm)", 25.4f, 25.4f, 25.4f, 25.4f),
     NARROW("Narrow (12.7 mm)", 12.7f, 12.7f, 12.7f, 12.7f),
     MODERATE("Moderate (Top/Bot 25.4, L/R 19.1 mm)", 25.4f, 25.4f, 19.1f, 19.1f),
-    WIDE("Wide (Top/Bot 25.4, L/R 50.8 mm)", 25.4f, 25.4f, 50.8f, 50.8f)
+    WIDE("Wide (Top/Bot 25.4, L/R 50.8 mm)", 25.4f, 25.4f, 50.8f, 50.8f),
+    CUSTOM("Custom", 25.4f, 25.4f, 25.4f, 25.4f)
+}
+
+/**
+ * Decorative and print page borders.
+ */
+enum class PageBorderStyle(val displayName: String, val strokeWidthPt: Float) {
+    NONE("None", 0f),
+    SINGLE_THIN("Single Thin (1 pt)", 1f),
+    SINGLE_THICK("Single Thick (2 pt)", 2f),
+    DOUBLE("Double Line (3 pt)", 3f),
+    DASHED("Dashed Line (1.5 pt)", 1.5f)
+}
+
+/**
+ * Page background color presets.
+ */
+enum class PageBackgroundPreset(val displayName: String, val colorHex: String) {
+    WHITE("White", "#FFFFFF"),
+    IVORY("Ivory", "#FFFDF7"),
+    CREAM("Cream", "#FFFFF0"),
+    SOFT_BLUE("Soft Blue", "#F0F4F8"),
+    LIGHT_GRAY("Light Gray", "#F8F9FA"),
+    PARCHMENT("Parchment", "#F5EFE0"),
+    DARK("Dark / Night", "#1E1E1E")
+}
+
+/**
+ * Page number formatting style.
+ */
+enum class PageNumberFormat(val displayName: String) {
+    ARABIC_NUMERALS("1, 2, 3..."),
+    ROMAN_LOWER("i, ii, iii..."),
+    ROMAN_UPPER("I, II, III..."),
+    LETTERS("A, B, C...")
 }
 
 /**
@@ -55,7 +92,16 @@ data class PageLayoutConfig(
     val showHeader: Boolean = true,
     val showFooter: Boolean = true,
     val headerText: String = "",
-    val footerText: String = "Page {page} of {pages}"
+    val footerText: String = "Page {page} of {pages}",
+    val headerAlignment: TextAlignment = TextAlignment.START,
+    val footerAlignment: TextAlignment = TextAlignment.CENTER,
+    val pageBackgroundHex: String = "#FFFFFF",
+    val borderStyle: PageBorderStyle = PageBorderStyle.NONE,
+    val borderColorHex: String = "#CBD5E1",
+    val borderWidthPt: Float = 1f,
+    val pageNumberFormat: PageNumberFormat = PageNumberFormat.ARABIC_NUMERALS,
+    val pageNumberStart: Int = 1,
+    val differentFirstPage: Boolean = false
 ) {
     val topMarginMm: Float get() = customTopMarginMm ?: marginPreset.topMm
     val bottomMarginMm: Float get() = customBottomMarginMm ?: marginPreset.bottomMm
@@ -75,19 +121,64 @@ data class PageLayoutConfig(
         get() = pageWidthPt.toFloat() / pageHeightPt.toFloat()
 
     /**
+     * Margins in PostScript points (72 DPI).
+     */
+    val topMarginPt: Float get() = (topMarginMm / 25.4f) * 72f
+    val bottomMarginPt: Float get() = (bottomMarginMm / 25.4f) * 72f
+    val leftMarginPt: Float get() = (leftMarginMm / 25.4f) * 72f
+    val rightMarginPt: Float get() = (rightMarginMm / 25.4f) * 72f
+
+    /**
      * Printable area in points.
      */
     val printableWidthPt: Float
-        get() {
-            val leftPt = (leftMarginMm / 25.4f) * 72f
-            val rightPt = (rightMarginMm / 25.4f) * 72f
-            return pageWidthPt - leftPt - rightPt
-        }
+        get() = (pageWidthPt - leftMarginPt - rightMarginPt).coerceAtLeast(72f)
 
     val printableHeightPt: Float
         get() {
-            val topPt = (topMarginMm / 25.4f) * 72f
-            val bottomPt = (bottomMarginMm / 25.4f) * 72f
-            return pageHeightPt - topPt - bottomPt
+            val headerReserved = if (showHeader && headerText.isNotBlank()) 24f else 0f
+            val footerReserved = if (showFooter && footerText.isNotBlank()) 24f else 0f
+            return (pageHeightPt - topMarginPt - bottomMarginPt - headerReserved - footerReserved).coerceAtLeast(100f)
         }
+
+    /**
+     * Formats a page number integer into the configured format (Arabic, Roman, Letters).
+     */
+    fun formatPageNumber(pageNumber: Int): String {
+        val num = pageNumber + (pageNumberStart - 1)
+        if (num <= 0) return num.toString()
+        return when (pageNumberFormat) {
+            PageNumberFormat.ARABIC_NUMERALS -> num.toString()
+            PageNumberFormat.ROMAN_LOWER -> toRomanNumeral(num).lowercase()
+            PageNumberFormat.ROMAN_UPPER -> toRomanNumeral(num)
+            PageNumberFormat.LETTERS -> toAlphabetLetter(num)
+        }
+    }
+
+    private fun toRomanNumeral(number: Int): String {
+        if (number <= 0) return number.toString()
+        val values = intArrayOf(1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1)
+        val numerals = arrayOf("M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I")
+        val result = StringBuilder()
+        var rem = number
+        for (i in values.indices) {
+            while (rem >= values[i]) {
+                result.append(numerals[i])
+                rem -= values[i]
+            }
+        }
+        return result.toString()
+    }
+
+    private fun toAlphabetLetter(number: Int): String {
+        if (number <= 0) return number.toString()
+        val sb = StringBuilder()
+        var n = number
+        while (n > 0) {
+            n--
+            sb.append(('A'.code + (n % 26)).toChar())
+            n /= 26
+        }
+        return sb.reverse().toString()
+    }
 }

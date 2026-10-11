@@ -182,6 +182,67 @@ class DocumentPersistenceRobolectricTest {
     }
 
     @Test
+    fun testSaveAndLoadAllPageLayoutSettingsPreserved() = runTest {
+        val docId = UUID.randomUUID().toString()
+        val advancedLayout = PageLayoutConfig(
+            pageSize = PageSize.LEGAL,
+            orientation = PageOrientation.LANDSCAPE,
+            marginPreset = MarginPreset.CUSTOM,
+            customTopMarginMm = 18f,
+            customBottomMarginMm = 22f,
+            customLeftMarginMm = 35f,
+            customRightMarginMm = 35f,
+            showHeader = true,
+            showFooter = true,
+            headerText = "Confidential - Legal Department",
+            footerText = "Document {page} of {pages}",
+            pageBackgroundHex = "#FFFDF7",
+            borderStyle = com.example.core.layout.PageBorderStyle.DOUBLE,
+            borderColorHex = "#185ABD",
+            pageNumberFormat = com.example.core.layout.PageNumberFormat.ROMAN_LOWER,
+            pageNumberStart = 2,
+            differentFirstPage = true
+        )
+
+        val doc = RichDocument(
+            id = docId,
+            title = "Legal Brief",
+            layoutConfig = advancedLayout,
+            blocks = listOf(
+                ParagraphBlock(text = "Agreement between parties...", headingStyle = HeadingStyle.NORMAL)
+            )
+        )
+
+        val saveRes = repository.saveDocument(doc)
+        assertTrue("Save must succeed", saveRes.isSuccess)
+
+        val loadRes = repository.getDocument(docId)
+        assertTrue("Load must succeed", loadRes is DocumentResult.Success)
+        val loaded = (loadRes as DocumentResult.Success).data
+        val l = loaded.layoutConfig
+
+        assertEquals(PageSize.LEGAL, l.pageSize)
+        assertEquals(PageOrientation.LANDSCAPE, l.orientation)
+        assertEquals(MarginPreset.CUSTOM, l.marginPreset)
+        assertEquals(18f, l.customTopMarginMm)
+        assertEquals(22f, l.customBottomMarginMm)
+        assertEquals(35f, l.customLeftMarginMm)
+        assertEquals(35f, l.customRightMarginMm)
+        assertEquals(18f, l.topMarginMm)
+        assertEquals(35f, l.leftMarginMm)
+        assertTrue(l.showHeader)
+        assertTrue(l.showFooter)
+        assertEquals("Confidential - Legal Department", l.headerText)
+        assertEquals("Document {page} of {pages}", l.footerText)
+        assertEquals("#FFFDF7", l.pageBackgroundHex)
+        assertEquals(com.example.core.layout.PageBorderStyle.DOUBLE, l.borderStyle)
+        assertEquals("#185ABD", l.borderColorHex)
+        assertEquals(com.example.core.layout.PageNumberFormat.ROMAN_LOWER, l.pageNumberFormat)
+        assertEquals(2, l.pageNumberStart)
+        assertTrue(l.differentFirstPage)
+    }
+
+    @Test
     fun testRenamingDocumentDoesNotDestroyContent() = runTest {
         val createRes = repository.createDocument("Original Name", TemplateType.BLANK)
         val doc = (createRes as DocumentResult.Success).data

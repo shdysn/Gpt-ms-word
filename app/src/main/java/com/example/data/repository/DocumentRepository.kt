@@ -16,6 +16,7 @@ enum class TemplateType(val title: String, val description: String) {
     BUSINESS_LETTER("Business Letter", "Formal letterhead, address blocks, and professional closing"),
     PROJECT_REPORT("Formal Report", "Cover layout, abstract, numbered sections, and conclusion"),
     MEETING_MINUTES("Meeting Minutes", "Attendees, agenda items, decisions, and action tables"),
+    PAGINATION_SHOWCASE("Multi-Page Specification", "Comprehensive multi-page whitepaper with page breaks, tables, and headers"),
     URDU_DOCUMENT("Urdu Nastaliq Document", "Urdu / Arabic RTL document with poetry and taleem layout")
 }
 
