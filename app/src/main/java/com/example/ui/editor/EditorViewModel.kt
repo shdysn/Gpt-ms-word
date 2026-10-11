@@ -54,7 +54,6 @@ import java.io.File
 enum class RibbonTab {
     HOME,
     INSERT,
-    LAYOUT,
     VIEW
 }
 

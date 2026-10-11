@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -114,397 +116,421 @@ fun FormattingToolbar(
         color = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Paragraph / Heading Style Selector
-            Box {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .height(34.dp)
-                        .clickable { styleMenuExpanded = true }
-                        .testTag("heading_style_selector")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+            // Row 1: Font & Character Styling Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Font Family Selector
+                Box {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .height(34.dp)
+                            .clickable { fontMenuExpanded = true }
+                            .testTag("font_family_selector")
                     ) {
-                        Text(
-                            text = currentHeadingStyle.displayName,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = WordPrimary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Heading Style", modifier = Modifier.size(16.dp), tint = WordPrimary)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = currentFontDisplay,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
                     }
-                }
 
-                DropdownMenu(
-                    expanded = styleMenuExpanded,
-                    onDismissRequest = { styleMenuExpanded = false }
-                ) {
-                    HeadingStyle.entries.forEach { style ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = style.displayName,
-                                    fontSize = style.defaultFontSizeSp.coerceIn(12f, 20f).sp,
-                                    fontWeight = if (style.isBold || currentHeadingStyle == style) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (currentHeadingStyle == style) WordPrimary else MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            onClick = {
-                                styleMenuExpanded = false
-                                onSetHeadingStyle(style)
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Font Family Selector
-            Box {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .height(34.dp)
-                        .clickable { fontMenuExpanded = true }
-                        .testTag("font_family_selector")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                    DropdownMenu(
+                        expanded = fontMenuExpanded,
+                        onDismissRequest = { fontMenuExpanded = false }
                     ) {
-                        Text(
-                            text = currentFontDisplay,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = fontMenuExpanded,
-                    onDismissRequest = { fontMenuExpanded = false }
-                ) {
-                    fontOptions.forEach { opt ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(opt.displayName, fontSize = 13.sp)
-                                    if (opt.isUrduOptimized) {
-                                        Surface(
-                                            color = WordPrimary.copy(alpha = 0.12f),
-                                            shape = RoundedCornerShape(4.dp)
-                                        ) {
-                                            Text(
-                                                text = "اردو",
-                                                color = WordPrimary,
-                                                fontSize = 10.sp,
-                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                                            )
+                        fontOptions.forEach { opt ->
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(opt.displayName, fontSize = 13.sp)
+                                        if (opt.isUrduOptimized) {
+                                            Surface(
+                                                color = WordPrimary.copy(alpha = 0.12f),
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "اردو",
+                                                    color = WordPrimary,
+                                                    fontSize = 10.sp,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
                                         }
                                     }
+                                },
+                                onClick = {
+                                    fontMenuExpanded = false
+                                    onSetFontFamily(opt.id)
                                 }
-                            },
+                            )
+                        }
+                    }
+                }
+
+                // Font Size Selector
+                Box {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .height(34.dp)
+                            .clickable { sizeMenuExpanded = true }
+                            .testTag("font_size_selector")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            val currentSize = activeFormatting.fontSizeSp ?: 11f
+                            Text(
+                                text = "${currentSize.toInt()} pt",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = sizeMenuExpanded,
+                        onDismissRequest = { sizeMenuExpanded = false }
+                    ) {
+                        fontSizes.forEach { sz ->
+                            DropdownMenuItem(
+                                text = { Text("${sz.toInt()} pt", fontSize = 13.sp) },
+                                onClick = {
+                                    sizeMenuExpanded = false
+                                    onSetFontSize(sz)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                ToolbarDivider()
+
+                // Bold / Italic / Underline / Strikethrough
+                FormatToggleButton(
+                    icon = Icons.Default.FormatBold,
+                    label = "Bold",
+                    isActive = isBold,
+                    onClick = onToggleBold,
+                    tag = "format_bold"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.FormatItalic,
+                    label = "Italic",
+                    isActive = isItalic,
+                    onClick = onToggleItalic,
+                    tag = "format_italic"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.FormatUnderlined,
+                    label = "Underline",
+                    isActive = isUnderline,
+                    onClick = onToggleUnderline,
+                    tag = "format_underline"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.FormatStrikethrough,
+                    label = "Strikethrough",
+                    isActive = isStrikethrough,
+                    onClick = onToggleStrikethrough,
+                    tag = "format_strikethrough"
+                )
+
+                // Superscript & Subscript
+                FormatTextToggleButton(
+                    text = "X²",
+                    label = "Superscript",
+                    isActive = isSuperscript,
+                    onClick = onToggleSuperscript,
+                    tag = "format_superscript"
+                )
+                FormatTextToggleButton(
+                    text = "X₂",
+                    label = "Subscript",
+                    isActive = isSubscript,
+                    onClick = onToggleSubscript,
+                    tag = "format_subscript"
+                )
+
+                ToolbarDivider()
+
+                // Text Color Picker
+                Box {
+                    IconButton(
+                        onClick = { textColorMenuExpanded = true },
+                        modifier = Modifier.size(36.dp).testTag("format_text_color")
+                    ) {
+                        Icon(Icons.Default.FormatColorText, contentDescription = "Text Color", tint = WordPrimary)
+                    }
+
+                    DropdownMenu(
+                        expanded = textColorMenuExpanded,
+                        onDismissRequest = { textColorMenuExpanded = false }
+                    ) {
+                        val colors = listOf(
+                            "#000000" to "Black",
+                            "#185ABD" to "Word Blue",
+                            "#C00000" to "Dark Red",
+                            "#107C41" to "Office Green",
+                            "#7030A0" to "Purple",
+                            "#7F7F7F" to "Gray"
+                        )
+                        colors.forEach { (hex, name) ->
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .background(Color(android.graphics.Color.parseColor(hex)), CircleShape)
+                                    )
+                                },
+                                text = { Text(name, fontSize = 13.sp) },
+                                onClick = {
+                                    textColorMenuExpanded = false
+                                    onSetTextColor(hex)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Highlight Color Picker
+                Box {
+                    IconButton(
+                        onClick = { highlightMenuExpanded = true },
+                        modifier = Modifier.size(36.dp).testTag("format_highlight_color")
+                    ) {
+                        Icon(Icons.Default.FormatColorFill, contentDescription = "Highlight Color", tint = Color(0xFFD83B01))
+                    }
+
+                    DropdownMenu(
+                        expanded = highlightMenuExpanded,
+                        onDismissRequest = { highlightMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("No Color", fontSize = 13.sp) },
                             onClick = {
-                                fontMenuExpanded = false
-                                onSetFontFamily(opt.id)
+                                highlightMenuExpanded = false
+                                onSetHighlightColor(null)
                             }
                         )
+                        val highlights = listOf(
+                            "#FFF275" to "Yellow Highlight",
+                            "#A8F387" to "Bright Green",
+                            "#94ECF8" to "Cyan Highlight",
+                            "#FFB7DF" to "Pink Highlight"
+                        )
+                        highlights.forEach { (hex, name) ->
+                            DropdownMenuItem(
+                                leadingIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .background(Color(android.graphics.Color.parseColor(hex)), RoundedCornerShape(2.dp))
+                                    )
+                                },
+                                text = { Text(name, fontSize = 13.sp) },
+                                onClick = {
+                                    highlightMenuExpanded = false
+                                    onSetHighlightColor(hex)
+                                }
+                            )
+                        }
                     }
                 }
             }
 
-            // Font Size Selector
-            Box {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+
+            // Row 2: Paragraph, Alignment, Lists & Utilities Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Paragraph / Heading Style Selector
+                Box {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .height(34.dp)
+                            .clickable { styleMenuExpanded = true }
+                            .testTag("heading_style_selector")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Text(
+                                text = currentHeadingStyle.displayName,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = WordPrimary,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Heading Style", modifier = Modifier.size(16.dp), tint = WordPrimary)
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = styleMenuExpanded,
+                        onDismissRequest = { styleMenuExpanded = false }
+                    ) {
+                        HeadingStyle.entries.forEach { style ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = style.displayName,
+                                        fontSize = style.defaultFontSizeSp.coerceIn(12f, 20f).sp,
+                                        fontWeight = if (style.isBold || currentHeadingStyle == style) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (currentHeadingStyle == style) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    styleMenuExpanded = false
+                                    onSetHeadingStyle(style)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                ToolbarDivider()
+
+                // Alignments
+                FormatToggleButton(
+                    icon = Icons.AutoMirrored.Filled.FormatAlignLeft,
+                    label = "Align Left",
+                    isActive = if (isRtl) currentAlignment == TextAlignment.END else currentAlignment == TextAlignment.START,
+                    onClick = { onSetAlignment(if (isRtl) TextAlignment.END else TextAlignment.START) },
+                    tag = "align_left"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.FormatAlignCenter,
+                    label = "Center",
+                    isActive = currentAlignment == TextAlignment.CENTER,
+                    onClick = { onSetAlignment(TextAlignment.CENTER) },
+                    tag = "align_center"
+                )
+                FormatToggleButton(
+                    icon = Icons.AutoMirrored.Filled.FormatAlignRight,
+                    label = "Align Right",
+                    isActive = if (isRtl) currentAlignment == TextAlignment.START else currentAlignment == TextAlignment.END,
+                    onClick = { onSetAlignment(if (isRtl) TextAlignment.START else TextAlignment.END) },
+                    tag = "align_right"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.FormatAlignJustify,
+                    label = "Justify",
+                    isActive = currentAlignment == TextAlignment.JUSTIFY,
+                    onClick = { onSetAlignment(TextAlignment.JUSTIFY) },
+                    tag = "align_justify"
+                )
+
+                ToolbarDivider()
+
+                // Bulleted & Numbered Lists
+                FormatToggleButton(
+                    icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+                    label = "Bulleted List",
+                    isActive = currentListType == ListType.BULLET,
+                    onClick = { onToggleListType(ListType.BULLET) },
+                    tag = "list_bullet"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.FormatListNumbered,
+                    label = "Numbered List",
+                    isActive = currentListType == ListType.NUMBERED,
+                    onClick = { onToggleListType(ListType.NUMBERED) },
+                    tag = "list_numbered"
+                )
+
+                ToolbarDivider()
+
+                // Indentation
+                FormatToggleButton(
+                    icon = Icons.AutoMirrored.Filled.FormatIndentDecrease,
+                    label = "Decrease Indent",
+                    isActive = false,
+                    onClick = onDecreaseIndent,
+                    tag = "indent_decrease"
+                )
+                FormatToggleButton(
+                    icon = Icons.AutoMirrored.Filled.FormatIndentIncrease,
+                    label = "Increase Indent",
+                    isActive = (activeParagraph?.indentationLevel ?: 0) > 0,
+                    onClick = onIncreaseIndent,
+                    tag = "indent_increase"
+                )
+
+                ToolbarDivider()
+
+                // Hyperlink
+                FormatToggleButton(
+                    icon = Icons.Default.Link,
+                    label = "Hyperlink",
+                    isActive = activeFormatting.linkUrl != null,
+                    onClick = onOpenLinkDialog,
+                    tag = "format_link"
+                )
+
+                ToolbarDivider()
+
+                // Urdu / RTL Direction Toggle
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = if (isRtl) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                    border = if (isRtl) androidx.compose.foundation.BorderStroke(1.5.dp, WordPrimary) else null,
                     modifier = Modifier
-                        .height(34.dp)
-                        .clickable { sizeMenuExpanded = true }
-                        .testTag("font_size_selector")
+                        .clickable(onClick = onToggleRtl)
+                        .testTag("toggle_urdu_rtl")
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
-                        val currentSize = activeFormatting.fontSizeSp ?: 11f
                         Text(
-                            text = "${currentSize.toInt()} pt",
+                            text = if (isRtl) "اردو (RTL)" else "English (LTR)",
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = sizeMenuExpanded,
-                    onDismissRequest = { sizeMenuExpanded = false }
-                ) {
-                    fontSizes.forEach { sz ->
-                        DropdownMenuItem(
-                            text = { Text("${sz.toInt()} pt", fontSize = 13.sp) },
-                            onClick = {
-                                sizeMenuExpanded = false
-                                onSetFontSize(sz)
-                            }
+                            fontWeight = if (isRtl) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isRtl) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-            }
-
-            ToolbarDivider()
-
-            // Bold / Italic / Underline / Strikethrough
-            FormatToggleButton(
-                icon = Icons.Default.FormatBold,
-                label = "Bold",
-                isActive = isBold,
-                onClick = onToggleBold,
-                tag = "format_bold"
-            )
-            FormatToggleButton(
-                icon = Icons.Default.FormatItalic,
-                label = "Italic",
-                isActive = isItalic,
-                onClick = onToggleItalic,
-                tag = "format_italic"
-            )
-            FormatToggleButton(
-                icon = Icons.Default.FormatUnderlined,
-                label = "Underline",
-                isActive = isUnderline,
-                onClick = onToggleUnderline,
-                tag = "format_underline"
-            )
-            FormatToggleButton(
-                icon = Icons.Default.FormatStrikethrough,
-                label = "Strikethrough",
-                isActive = isStrikethrough,
-                onClick = onToggleStrikethrough,
-                tag = "format_strikethrough"
-            )
-
-            // Superscript & Subscript
-            FormatTextToggleButton(
-                text = "X²",
-                label = "Superscript",
-                isActive = isSuperscript,
-                onClick = onToggleSuperscript,
-                tag = "format_superscript"
-            )
-            FormatTextToggleButton(
-                text = "X₂",
-                label = "Subscript",
-                isActive = isSubscript,
-                onClick = onToggleSubscript,
-                tag = "format_subscript"
-            )
-
-            ToolbarDivider()
-
-            // Text Color Picker
-            Box {
-                IconButton(
-                    onClick = { textColorMenuExpanded = true },
-                    modifier = Modifier.size(36.dp).testTag("format_text_color")
-                ) {
-                    Icon(Icons.Default.FormatColorText, contentDescription = "Text Color", tint = WordPrimary)
-                }
-
-                DropdownMenu(
-                    expanded = textColorMenuExpanded,
-                    onDismissRequest = { textColorMenuExpanded = false }
-                ) {
-                    val colors = listOf(
-                        "#000000" to "Black",
-                        "#185ABD" to "Word Blue",
-                        "#C00000" to "Dark Red",
-                        "#107C41" to "Office Green",
-                        "#7030A0" to "Purple",
-                        "#7F7F7F" to "Gray"
-                    )
-                    colors.forEach { (hex, name) ->
-                        DropdownMenuItem(
-                            leadingIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .background(Color(android.graphics.Color.parseColor(hex)), CircleShape)
-                                )
-                            },
-                            text = { Text(name, fontSize = 13.sp) },
-                            onClick = {
-                                textColorMenuExpanded = false
-                                onSetTextColor(hex)
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Highlight Color Picker
-            Box {
-                IconButton(
-                    onClick = { highlightMenuExpanded = true },
-                    modifier = Modifier.size(36.dp).testTag("format_highlight_color")
-                ) {
-                    Icon(Icons.Default.FormatColorFill, contentDescription = "Highlight Color", tint = Color(0xFFD83B01))
-                }
-
-                DropdownMenu(
-                    expanded = highlightMenuExpanded,
-                    onDismissRequest = { highlightMenuExpanded = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("No Color", fontSize = 13.sp) },
-                        onClick = {
-                            highlightMenuExpanded = false
-                            onSetHighlightColor(null)
-                        }
-                    )
-                    val highlights = listOf(
-                        "#FFF275" to "Yellow Highlight",
-                        "#A8F387" to "Bright Green",
-                        "#94ECF8" to "Cyan Highlight",
-                        "#FFB7DF" to "Pink Highlight"
-                    )
-                    highlights.forEach { (hex, name) ->
-                        DropdownMenuItem(
-                            leadingIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .background(Color(android.graphics.Color.parseColor(hex)), RoundedCornerShape(2.dp))
-                                )
-                            },
-                            text = { Text(name, fontSize = 13.sp) },
-                            onClick = {
-                                highlightMenuExpanded = false
-                                onSetHighlightColor(hex)
-                            }
-                        )
-                    }
-                }
-            }
-
-            ToolbarDivider()
-
-            // Alignments
-            FormatToggleButton(
-                icon = Icons.AutoMirrored.Filled.FormatAlignLeft,
-                label = "Align Left",
-                isActive = if (isRtl) currentAlignment == TextAlignment.END else currentAlignment == TextAlignment.START,
-                onClick = { onSetAlignment(if (isRtl) TextAlignment.END else TextAlignment.START) },
-                tag = "align_left"
-            )
-            FormatToggleButton(
-                icon = Icons.Default.FormatAlignCenter,
-                label = "Center",
-                isActive = currentAlignment == TextAlignment.CENTER,
-                onClick = { onSetAlignment(TextAlignment.CENTER) },
-                tag = "align_center"
-            )
-            FormatToggleButton(
-                icon = Icons.AutoMirrored.Filled.FormatAlignRight,
-                label = "Align Right",
-                isActive = if (isRtl) currentAlignment == TextAlignment.START else currentAlignment == TextAlignment.END,
-                onClick = { onSetAlignment(if (isRtl) TextAlignment.START else TextAlignment.END) },
-                tag = "align_right"
-            )
-            FormatToggleButton(
-                icon = Icons.Default.FormatAlignJustify,
-                label = "Justify",
-                isActive = currentAlignment == TextAlignment.JUSTIFY,
-                onClick = { onSetAlignment(TextAlignment.JUSTIFY) },
-                tag = "align_justify"
-            )
-
-            ToolbarDivider()
-
-            // Bulleted & Numbered Lists
-            FormatToggleButton(
-                icon = Icons.AutoMirrored.Filled.FormatListBulleted,
-                label = "Bulleted List",
-                isActive = currentListType == ListType.BULLET,
-                onClick = { onToggleListType(ListType.BULLET) },
-                tag = "list_bullet"
-            )
-            FormatToggleButton(
-                icon = Icons.Default.FormatListNumbered,
-                label = "Numbered List",
-                isActive = currentListType == ListType.NUMBERED,
-                onClick = { onToggleListType(ListType.NUMBERED) },
-                tag = "list_numbered"
-            )
-
-            // Indentation
-            FormatToggleButton(
-                icon = Icons.AutoMirrored.Filled.FormatIndentDecrease,
-                label = "Decrease Indent",
-                isActive = false,
-                onClick = onDecreaseIndent,
-                tag = "indent_decrease"
-            )
-            FormatToggleButton(
-                icon = Icons.AutoMirrored.Filled.FormatIndentIncrease,
-                label = "Increase Indent",
-                isActive = (activeParagraph?.indentationLevel ?: 0) > 0,
-                onClick = onIncreaseIndent,
-                tag = "indent_increase"
-            )
-
-            // Hyperlink
-            FormatToggleButton(
-                icon = Icons.Default.Link,
-                label = "Hyperlink",
-                isActive = activeFormatting.linkUrl != null,
-                onClick = onOpenLinkDialog,
-                tag = "format_link"
-            )
-
-            ToolbarDivider()
-
-            // Urdu / RTL Direction Toggle
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = if (isRtl) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
-                border = if (isRtl) androidx.compose.foundation.BorderStroke(1.5.dp, WordPrimary) else null,
-                modifier = Modifier
-                    .clickable(onClick = onToggleRtl)
-                    .testTag("toggle_urdu_rtl")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = if (isRtl) "اردو (RTL)" else "English (LTR)",
-                        fontSize = 12.sp,
-                        fontWeight = if (isRtl) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isRtl) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }

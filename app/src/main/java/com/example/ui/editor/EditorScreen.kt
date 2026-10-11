@@ -396,6 +396,15 @@ fun EditorScreen(
                                     },
                                     modifier = Modifier.testTag("menu_export_options")
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Page Setup...") },
+                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, tint = WordPrimary) },
+                                    onClick = {
+                                        showOptionsMenu = false
+                                        showLayoutDialog = true
+                                    },
+                                    modifier = Modifier.testTag("menu_page_setup")
+                                )
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                                 DropdownMenuItem(
                                     text = { Text("Print") },
@@ -472,7 +481,6 @@ fun EditorScreen(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )
                 },
-                onOpenLayoutDialog = { showLayoutDialog = true },
                 onOpenLinkDialog = { showLinkDialog = true },
                 onOpenHeaderFooterDialog = { showHeaderFooterDialog = true },
                 onOpenPageNumberDialog = { showPageNumberDialog = true }
@@ -1222,7 +1230,6 @@ fun WordRibbon(
     context: Context,
     onOpenTableDialog: () -> Unit,
     onOpenPhotoPicker: () -> Unit,
-    onOpenLayoutDialog: () -> Unit,
     onOpenLinkDialog: () -> Unit,
     onOpenHeaderFooterDialog: () -> Unit = {},
     onOpenPageNumberDialog: () -> Unit = {}
@@ -1357,22 +1364,6 @@ fun WordRibbon(
                         }
                     }
 
-                    RibbonTab.LAYOUT -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            LayoutRibbonControls(
-                                viewModel = viewModel,
-                                onOpenLayoutDialog = onOpenLayoutDialog
-                            )
-                        }
-                    }
-
                     RibbonTab.VIEW -> {
                         Row(
                             modifier = Modifier
@@ -1450,57 +1441,6 @@ fun InsertRibbonControls(
             val dateStr = dateFormat.format(Date())
             viewModel.insertDateTimeStamp(dateStr)
         }
-    )
-}
-
-@Composable
-fun LayoutRibbonControls(
-    viewModel: EditorViewModel,
-    onOpenLayoutDialog: () -> Unit
-) {
-    val document by viewModel.document.collectAsStateWithLifecycle()
-    val layout = document?.layoutConfig ?: PageLayoutConfig()
-
-    Text("Paper:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    listOf(PageSize.A4, PageSize.LETTER, PageSize.LEGAL, PageSize.A5).forEach { ps ->
-        FilterChip(
-            selected = layout.pageSize == ps,
-            onClick = { viewModel.updatePageLayout(pageSize = ps) },
-            label = { Text(ps.name, fontSize = 11.sp) }
-        )
-    }
-
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-    Text("Orientation:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    FilterChip(
-        selected = layout.orientation == PageOrientation.PORTRAIT,
-        onClick = { viewModel.updatePageLayout(orientation = PageOrientation.PORTRAIT) },
-        label = { Text("Portrait", fontSize = 11.sp) }
-    )
-    FilterChip(
-        selected = layout.orientation == PageOrientation.LANDSCAPE,
-        onClick = { viewModel.updatePageLayout(orientation = PageOrientation.LANDSCAPE) },
-        label = { Text("Landscape", fontSize = 11.sp) }
-    )
-
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-    Text("Margins:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    listOf(MarginPreset.NORMAL, MarginPreset.NARROW, MarginPreset.WIDE).forEach { mp ->
-        FilterChip(
-            selected = layout.marginPreset == mp,
-            onClick = { viewModel.updatePageLayout(marginPreset = mp) },
-            label = { Text(mp.displayName.split(" ")[0], fontSize = 11.sp) }
-        )
-    }
-
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-    RibbonActionButton(
-        icon = Icons.Default.Tune,
-        label = "Page Setup...",
-        onClick = onOpenLayoutDialog
     )
 }
 
