@@ -91,14 +91,10 @@ fun FormattingToolbar(
     var textColorMenuExpanded by remember { mutableStateOf(false) }
     var highlightMenuExpanded by remember { mutableStateOf(false) }
 
-    val fontFamilies = listOf(
-        "Calibri" to "Calibri (Word Standard)",
-        "Arial" to "Arial (Clean Sans)",
-        "Times New Roman" to "Times New Roman (Formal)",
-        "Georgia" to "Georgia (Editorial Serif)",
-        "Courier New" to "Courier New (Monospace)",
-        "Nastaliq" to "Jameel Noori Nastaliq (Urdu)"
-    )
+    val isRtl = activeParagraph?.isRtl == true
+    val fontOptions = com.example.core.typography.DocumentFontManager.AVAILABLE_FONTS
+    val defaultFontForDisplay = if (isRtl) "Noto Nastaliq Urdu" else "Calibri"
+    val currentFontDisplay = activeFormatting.fontFamilyName ?: defaultFontForDisplay
 
     val fontSizes = listOf(10f, 11f, 12f, 14f, 16f, 18f, 20f, 24f, 28f, 36f)
 
@@ -108,7 +104,6 @@ fun FormattingToolbar(
     val isStrikethrough = activeFormatting.isStrikethrough
     val isSuperscript = activeFormatting.isSuperscript
     val isSubscript = activeFormatting.isSubscript
-    val isRtl = activeParagraph?.isRtl == true
     val currentAlignment = activeParagraph?.alignment ?: TextAlignment.START
     val currentListType = activeParagraph?.listType ?: ListType.NONE
 
@@ -138,7 +133,7 @@ fun FormattingToolbar(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = activeFormatting.fontFamilyName ?: "Calibri",
+                            text = currentFontDisplay,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -150,12 +145,32 @@ fun FormattingToolbar(
                     expanded = fontMenuExpanded,
                     onDismissRequest = { fontMenuExpanded = false }
                 ) {
-                    fontFamilies.forEach { (name, label) ->
+                    fontOptions.forEach { opt ->
                         DropdownMenuItem(
-                            text = { Text(label, fontSize = 13.sp) },
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(opt.displayName, fontSize = 13.sp)
+                                    if (opt.isUrduOptimized) {
+                                        Surface(
+                                            color = WordPrimary.copy(alpha = 0.12f),
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "اردو",
+                                                color = WordPrimary,
+                                                fontSize = 10.sp,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            },
                             onClick = {
                                 fontMenuExpanded = false
-                                onSetFontFamily(name)
+                                onSetFontFamily(opt.id)
                             }
                         )
                     }
@@ -342,8 +357,8 @@ fun FormattingToolbar(
             FormatToggleButton(
                 icon = Icons.AutoMirrored.Filled.FormatAlignLeft,
                 label = "Align Left",
-                isActive = currentAlignment == TextAlignment.START && !isRtl,
-                onClick = { onSetAlignment(TextAlignment.START) },
+                isActive = if (isRtl) currentAlignment == TextAlignment.END else currentAlignment == TextAlignment.START,
+                onClick = { onSetAlignment(if (isRtl) TextAlignment.END else TextAlignment.START) },
                 tag = "align_left"
             )
             FormatToggleButton(
@@ -356,8 +371,8 @@ fun FormattingToolbar(
             FormatToggleButton(
                 icon = Icons.AutoMirrored.Filled.FormatAlignRight,
                 label = "Align Right",
-                isActive = currentAlignment == TextAlignment.END || (currentAlignment == TextAlignment.START && isRtl),
-                onClick = { onSetAlignment(TextAlignment.END) },
+                isActive = if (isRtl) currentAlignment == TextAlignment.START else currentAlignment == TextAlignment.END,
+                onClick = { onSetAlignment(if (isRtl) TextAlignment.START else TextAlignment.END) },
                 tag = "align_right"
             )
             FormatToggleButton(
@@ -416,21 +431,21 @@ fun FormattingToolbar(
             // Urdu / RTL Direction Toggle
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = if (isRtl) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
-                border = if (isRtl) androidx.compose.foundation.BorderStroke(1.dp, WordPrimary) else null,
+                color = if (isRtl) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                border = if (isRtl) androidx.compose.foundation.BorderStroke(1.5.dp, WordPrimary) else null,
                 modifier = Modifier
                     .clickable(onClick = onToggleRtl)
                     .testTag("toggle_urdu_rtl")
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "اردو (RTL)",
+                        text = if (isRtl) "اردو (RTL)" else "English (LTR)",
                         fontSize = 12.sp,
-                        fontWeight = if (isRtl) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isRtl) WordPrimary else MaterialTheme.colorScheme.onSurface
+                        fontWeight = if (isRtl) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isRtl) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }

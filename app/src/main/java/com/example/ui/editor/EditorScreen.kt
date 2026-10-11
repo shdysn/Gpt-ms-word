@@ -1425,10 +1425,15 @@ fun BlockItemView(
                 TextAlignment.CENTER -> TextAlign.Center
                 TextAlignment.END -> TextAlign.End
                 TextAlignment.JUSTIFY -> TextAlign.Justify
-                TextAlignment.START -> if (block.isRtl) TextAlign.End else TextAlign.Start
+                TextAlignment.START -> TextAlign.Start
             }
 
             val textDirection = if (block.isRtl) TextDirection.Rtl else TextDirection.Ltr
+
+            val effectiveFontFamily = com.example.core.typography.DocumentFontManager.getFontFamily(
+                fontName = block.spans.firstOrNull { it.fontFamilyName != null }?.fontFamilyName,
+                isRtl = block.isRtl
+            )
 
             val baseFontSize = when (block.headingStyle) {
                 HeadingStyle.TITLE -> 26.sp
@@ -1472,73 +1477,83 @@ fun BlockItemView(
 
             val indentPadding = (block.indentationLevel * 20).dp
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = indentPadding)
-                    .clickable(onClick = onFocus)
-                    .background(
-                        if (isActive) WordPrimary.copy(alpha = 0.04f) else Color.Transparent,
-                        RoundedCornerShape(4.dp)
-                    )
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.Top
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalLayoutDirection provides (if (block.isRtl) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr)
             ) {
-                // List prefix
-                when (block.listType) {
-                    ListType.BULLET -> {
-                        Text(
-                            text = "• ",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = baseFontSize,
-                            color = WordPrimary,
-                            modifier = Modifier.padding(end = 6.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = indentPadding)
+                        .clickable(onClick = onFocus)
+                        .background(
+                            if (isActive) WordPrimary.copy(alpha = 0.04f) else Color.Transparent,
+                            RoundedCornerShape(4.dp)
                         )
-                    }
-                    ListType.NUMBERED -> {
-                        Text(
-                            text = "${itemNumber ?: 1}. ",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = baseFontSize,
-                            color = WordPrimary,
-                            modifier = Modifier.padding(end = 6.dp)
-                        )
-                    }
-                    ListType.NONE -> Unit
-                }
-
-                Box(
-                    modifier = Modifier.weight(1f)
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    BasicTextField(
-                        value = textFieldValue,
-                        onValueChange = { newTfv ->
-                            textFieldValue = newTfv
-                            onSelectionChanged(newTfv.selection)
-                            if (newTfv.text != block.text) {
-                                onTextChanged(newTfv.text, newTfv.selection)
-                            }
-                        },
-                        visualTransformation = richTransformation,
-                        textStyle = TextStyle(
-                            fontSize = baseFontSize,
-                            fontWeight = if (block.headingStyle.isBold) FontWeight.Bold else FontWeight.Normal,
-                            fontStyle = if (block.headingStyle == HeadingStyle.QUOTE) FontStyle.Italic else FontStyle.Normal,
-                            color = defaultTextColor,
-                            textAlign = align,
-                            textDirection = textDirection,
-                            lineHeight = baseFontSize * block.lineSpacingMultiplier
-                        ),
-                        cursorBrush = SolidColor(WordPrimary),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .onFocusChanged { focusState ->
-                                if (focusState.isFocused) {
-                                    onFocus()
+                    // List prefix
+                    when (block.listType) {
+                        ListType.BULLET -> {
+                            Text(
+                                text = "• ",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = baseFontSize,
+                                color = WordPrimary,
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+                        }
+                        ListType.NUMBERED -> {
+                            val formattedNumber = com.example.core.typography.BidiUtils.formatListNumber(
+                                number = itemNumber ?: 1,
+                                isRtl = block.isRtl,
+                                useUrduNumerals = false
+                            )
+                            Text(
+                                text = formattedNumber,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = baseFontSize,
+                                color = WordPrimary,
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+                        }
+                        ListType.NONE -> Unit
+                    }
+
+                    Box(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        BasicTextField(
+                            value = textFieldValue,
+                            onValueChange = { newTfv ->
+                                textFieldValue = newTfv
+                                onSelectionChanged(newTfv.selection)
+                                if (newTfv.text != block.text) {
+                                    onTextChanged(newTfv.text, newTfv.selection)
                                 }
-                            }
-                            .testTag("paragraph_input_${block.id}")
-                    )
+                            },
+                            visualTransformation = richTransformation,
+                            textStyle = TextStyle(
+                                fontSize = baseFontSize,
+                                fontFamily = effectiveFontFamily,
+                                fontWeight = if (block.headingStyle.isBold) FontWeight.Bold else FontWeight.Normal,
+                                fontStyle = if (block.headingStyle == HeadingStyle.QUOTE) FontStyle.Italic else FontStyle.Normal,
+                                color = defaultTextColor,
+                                textAlign = align,
+                                textDirection = textDirection,
+                                lineHeight = baseFontSize * (if (block.isRtl) block.lineSpacingMultiplier.coerceAtLeast(1.4f) else block.lineSpacingMultiplier)
+                            ),
+                            cursorBrush = SolidColor(WordPrimary),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { focusState ->
+                                    if (focusState.isFocused) {
+                                        onFocus()
+                                    }
+                                }
+                                .testTag("paragraph_input_${block.id}")
+                        )
+                    }
                 }
             }
         }

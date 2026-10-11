@@ -287,13 +287,17 @@ class EditorViewModel(
             pendingFormatting = if (insertedLen > 0) _pendingFormatting.value else null
         )
 
+        val autoRtl = if (oldText.isBlank() && !block.isRtl && com.example.core.typography.BidiUtils.detectParagraphIsRtl(newText)) true else null
+
         executeCommand(
             com.example.editor.engine.UpdateParagraphTextAndSpansCommand(
                 blockId = block.id,
                 oldText = oldText,
                 newText = newText,
                 oldSpans = block.spans,
-                newSpans = newSpans
+                newSpans = newSpans,
+                wasRtl = block.isRtl,
+                isRtl = autoRtl
             )
         )
         _selection.value = newSelection
@@ -619,8 +623,14 @@ class EditorViewModel(
 
     fun insertParagraph() {
         val currentDoc = _document.value ?: return
+        val activeBlock = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock
         val insertIndex = _activeBlockIndex.value + 1
-        val newBlock = ParagraphBlock()
+        val newBlock = ParagraphBlock(
+            isRtl = activeBlock?.isRtl ?: false,
+            listType = activeBlock?.listType ?: com.example.data.model.ListType.NONE,
+            alignment = activeBlock?.alignment ?: com.example.data.model.TextAlignment.START,
+            lineSpacingMultiplier = activeBlock?.lineSpacingMultiplier ?: 1.25f
+        )
 
         executeCommand(
             InsertBlockCommand(index = insertIndex, block = newBlock)

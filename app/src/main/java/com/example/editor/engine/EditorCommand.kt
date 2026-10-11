@@ -283,14 +283,20 @@ data class UpdateParagraphTextAndSpansCommand(
     val oldText: String,
     val newText: String,
     val oldSpans: List<InlineSpan>,
-    val newSpans: List<InlineSpan>
+    val newSpans: List<InlineSpan>,
+    val wasRtl: Boolean? = null,
+    val isRtl: Boolean? = null
 ) : EditorCommand {
     override val description: String = "Edit Text"
 
     override fun apply(document: RichDocument): RichDocument {
         val updated = document.blocks.map { block ->
             if (block.id == blockId && block is ParagraphBlock) {
-                block.copy(text = newText, spans = newSpans)
+                block.copy(
+                    text = newText,
+                    spans = newSpans,
+                    isRtl = isRtl ?: block.isRtl
+                )
             } else block
         }
         return document.copy(blocks = updated)
@@ -299,7 +305,11 @@ data class UpdateParagraphTextAndSpansCommand(
     override fun revert(document: RichDocument): RichDocument {
         val updated = document.blocks.map { block ->
             if (block.id == blockId && block is ParagraphBlock) {
-                block.copy(text = oldText, spans = oldSpans)
+                block.copy(
+                    text = oldText,
+                    spans = oldSpans,
+                    isRtl = wasRtl ?: block.isRtl
+                )
             } else block
         }
         return document.copy(blocks = updated)

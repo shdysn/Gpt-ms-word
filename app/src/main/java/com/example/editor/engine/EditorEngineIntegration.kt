@@ -45,12 +45,8 @@ object EditorEngineIntegration {
                 val safeEnd = span.end.coerceIn(safeStart, paragraph.text.length)
                 if (safeStart >= safeEnd) continue
 
-                val fontFamily = when (span.fontFamilyName) {
-                    "Arial" -> androidx.compose.ui.text.font.FontFamily.SansSerif
-                    "Times New Roman", "Georgia" -> androidx.compose.ui.text.font.FontFamily.Serif
-                    "Courier New" -> androidx.compose.ui.text.font.FontFamily.Monospace
-                    "Nastaliq" -> androidx.compose.ui.text.font.FontFamily.Cursive
-                    else -> null
+                val fontFamily = span.fontFamilyName?.let {
+                    com.example.core.typography.DocumentFontManager.getFontFamily(it, paragraph.isRtl)
                 }
 
                 val baselineShift = when {
@@ -98,16 +94,7 @@ object EditorEngineIntegration {
      * Inspects text for Right-to-Left character presence (Urdu, Arabic, Persian, Hebrew).
      */
     fun detectScriptDirection(text: String): Boolean {
-        var rtlCount = 0
-        var ltrCount = 0
-        for (char in text) {
-            when (Character.getDirectionality(char)) {
-                Character.DIRECTIONALITY_RIGHT_TO_LEFT,
-                Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> rtlCount++
-                Character.DIRECTIONALITY_LEFT_TO_RIGHT -> ltrCount++
-            }
-        }
-        return rtlCount > ltrCount
+        return com.example.core.typography.BidiUtils.detectParagraphIsRtl(text)
     }
 
     /**

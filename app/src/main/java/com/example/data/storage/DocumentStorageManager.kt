@@ -237,19 +237,40 @@ class DocumentStorageManager(private val context: Context) {
         }
 
     /**
-     * Creates a new RichDocument from raw plain text.
+     * Creates a new RichDocument from raw plain text, preserving RTL script direction and list structures.
      */
     fun createDocumentFromPlainText(title: String, text: String): RichDocument {
         val lines = text.lines()
         val blocks = if (lines.isEmpty() || text.isBlank()) {
             listOf(ParagraphBlock())
         } else {
-            lines.map { line ->
-                val trimmed = line.trim()
-                val isUrduOrArabic = isTextRtl(trimmed)
+            lines.map { rawLine ->
+                val trimmed = rawLine.trim()
+                var listType = ListType.NONE
+                var lineContent = rawLine
+
+                // Detect bullet list markers
+                val bulletPrefixes = listOf("• ", "* ", "- ", "— ")
+                val matchedBullet = bulletPrefixes.firstOrNull { trimmed.startsWith(it) }
+                if (matchedBullet != null) {
+                    listType = ListType.BULLET
+                    lineContent = trimmed.removePrefix(matchedBullet).trim()
+                } else {
+                    // Detect numbered list markers (Latin 1., 2. or Urdu ۱. , ۲.)
+                    val numberRegex = Regex("^([0-9]+|[۰-۹]+)[\\.\\-۔]\\s*(.*)$")
+                    val matchResult = numberRegex.find(trimmed)
+                    if (matchResult != null) {
+                        listType = ListType.NUMBERED
+                        lineContent = matchResult.groupValues[2].trim()
+                    }
+                }
+
+                val isUrduOrArabic = com.example.core.typography.BidiUtils.detectParagraphIsRtl(lineContent.ifBlank { rawLine })
                 ParagraphBlock(
-                    text = line,
-                    isRtl = isUrduOrArabic
+                    text = lineContent,
+                    isRtl = isUrduOrArabic,
+                    listType = listType,
+                    alignment = TextAlignment.START
                 )
             }
         }
@@ -263,15 +284,7 @@ class DocumentStorageManager(private val context: Context) {
      * Detection helper for Right-to-Left script (Urdu, Arabic, Hebrew).
      */
     private fun isTextRtl(text: String): Boolean {
-        for (char in text) {
-            val directionality = Character.getDirectionality(char)
-            if (directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT ||
-                directionality == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC
-            ) {
-                return true
-            }
-        }
-        return false
+        return com.example.core.typography.BidiUtils.containsRtl(text)
     }
 
     // ----------------------------------------------------
