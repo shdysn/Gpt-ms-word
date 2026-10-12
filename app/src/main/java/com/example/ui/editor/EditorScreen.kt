@@ -1700,7 +1700,16 @@ fun DocumentCanvas(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (viewMode == EditorViewMode.PAGINATED_A4) {
-            val pagesToDisplay = if (paginatedPages.isEmpty()) {
+            val hasOnlyParagraphs = document.blocks.all { it is ParagraphBlock }
+            val pagesToDisplay = if (hasOnlyParagraphs) {
+                listOf(com.example.core.layout.DocumentPage(
+                    pageIndex = 0,
+                    pageNumber = 1,
+                    totalPages = 1,
+                    layout = document.layoutConfig,
+                    items = emptyList()
+                ))
+            } else if (paginatedPages.isEmpty()) {
                 com.example.core.layout.PaginationEngine.paginate(document)
             } else {
                 paginatedPages
@@ -1787,9 +1796,8 @@ fun DocumentCanvas(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Content items on this page
-                        val isSinglePagePureText = pagesToDisplay.size <= 1 && page.items.all { it is com.example.core.layout.ParagraphPageItem }
-                        if (isSinglePagePureText) {
+                        // Content items: Pure text documents ALWAYS render UnifiedTextCanvas (no blocks)
+                        if (hasOnlyParagraphs) {
                             UnifiedTextCanvas(
                                 document = document,
                                 zoomScale = zoomScale,
@@ -1946,6 +1954,7 @@ fun DocumentCanvas(
                                 }
                             }
                         }
+                    }
 
                         // Footer Area (only rendered if footer exists and is non-blank)
                         if (page.hasFooter && page.formattedFooter.isNotBlank()) {
@@ -2458,10 +2467,16 @@ fun UnifiedTextCanvas(
         isRtl = isRtl
     )
 
-    val richTransformation = remember(fullText, firstParagraph.spans, firstParagraph.headingStyle, isRtl) {
-        VisualTransformation { _ ->
-            val synthesizedBlock = firstParagraph.copy(text = fullText, isRtl = isRtl)
-            val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedParagraph(synthesizedBlock)
+    val richTransformation = remember(firstParagraph.spans, firstParagraph.headingStyle, isRtl, zoomScale) {
+        VisualTransformation { inputText ->
+            val currentText = inputText.text
+            val safeSpans = firstParagraph.spans.mapNotNull { span ->
+                val s = span.start.coerceIn(0, currentText.length)
+                val e = span.end.coerceIn(s, currentText.length)
+                if (s < e) span.copy(start = s, end = e) else null
+            }
+            val synthesizedBlock = firstParagraph.copy(text = currentText, spans = safeSpans, isRtl = isRtl)
+            val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedParagraph(synthesizedBlock, zoomScale)
             TransformedText(annotated, OffsetMapping.Identity)
         }
     }
@@ -2497,9 +2512,27 @@ fun UnifiedTextCanvas(
                 cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(min = 350.dp)
                     .focusRequester(focusRequester)
                     .testTag("unified_text_canvas")
-                    .testTag("paragraph_input_${firstParagraph.id}")
+                    .testTag("paragraph_input_${firstParagraph.id}"),
+                decorationBox = { innerTextField ->
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        if (textFieldValue.text.isEmpty()) {
+                            Text(
+                                text = "Start typing...",
+                                style = TextStyle(
+                                    fontSize = baseFontSize,
+                                    fontFamily = effectiveFontFamily,
+                                    color = if (isDarkPage) Color(0xFF64748B) else Color(0xFF94A3B8),
+                                    textAlign = align,
+                                    textDirection = textDirection
+                                )
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
             )
         }
     }

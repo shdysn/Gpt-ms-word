@@ -208,7 +208,8 @@ class EditorViewModel(
             when (val res = repository.getDocument(documentId)) {
                 is DocumentResult.Success -> {
                     val loadedDoc = res.data
-                    val firstBlock = loadedDoc.blocks.singleOrNull() as? ParagraphBlock
+                    val unifiedBlocks = unifyParagraphBlocks(loadedDoc.blocks)
+                    val firstBlock = unifiedBlocks.singleOrNull() as? ParagraphBlock
                     val adjustedDoc = if (defaultRtl.value && firstBlock != null && firstBlock.text.isEmpty() && !firstBlock.isRtl) {
                         loadedDoc.copy(
                             blocks = listOf(
@@ -219,7 +220,7 @@ class EditorViewModel(
                             )
                         )
                     } else {
-                        loadedDoc
+                        loadedDoc.copy(blocks = unifiedBlocks)
                     }
                     _document.value = adjustedDoc
                     undoRedoManager.clear()
@@ -231,6 +232,31 @@ class EditorViewModel(
                 }
             }
         }
+    }
+
+    private fun unifyParagraphBlocks(blocks: List<BlockElement>): List<BlockElement> {
+        val nonParagraphs = blocks.filter { it !is ParagraphBlock }
+        if (nonParagraphs.isEmpty()) {
+            if (blocks.size <= 1) return blocks
+            val paragraphs = blocks.filterIsInstance<ParagraphBlock>()
+            val first = paragraphs.first()
+            val sb = StringBuilder()
+            val allSpans = mutableListOf<InlineSpan>()
+            var offset = 0
+            paragraphs.forEachIndexed { idx, p ->
+                if (idx > 0) {
+                    sb.append("\n")
+                    offset += 1
+                }
+                sb.append(p.text)
+                p.spans.forEach { sp ->
+                    allSpans.add(sp.copy(start = sp.start + offset, end = sp.end + offset))
+                }
+                offset += p.text.length
+            }
+            return listOf(first.copy(text = sb.toString(), spans = allSpans))
+        }
+        return blocks
     }
 
     fun selectRibbonTab(tab: RibbonTab) {
@@ -421,9 +447,21 @@ class EditorViewModel(
             return
         }
 
-        val (editOffset, deletedLen, insertedLen) = calculateEditDelta(firstBlock.text, newFullText)
+        val (editOffset, deletedLen, insertedLen) = calculateEditDelta(oldFullText, newFullText)
+
+        val oldSpans = mutableListOf<InlineSpan>()
+        var spanOffset = 0
+        currentDoc.blocks.forEach { b ->
+            if (b is ParagraphBlock) {
+                b.spans.forEach { sp ->
+                    oldSpans.add(sp.copy(start = sp.start + spanOffset, end = sp.end + spanOffset))
+                }
+                spanOffset += b.text.length + 1
+            }
+        }
+
         val newSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
-            spans = firstBlock.spans,
+            spans = oldSpans,
             editOffset = editOffset,
             deletedLength = deletedLen,
             insertedLength = insertedLen,
@@ -819,20 +857,11 @@ class EditorViewModel(
 
     fun insertParagraph() {
         val currentDoc = _document.value ?: return
-        val activeBlock = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock
-        val insertIndex = _activeBlockIndex.value + 1
-        val isRtl = activeBlock?.isRtl ?: defaultRtl.value
-        val newBlock = ParagraphBlock(
-            isRtl = isRtl,
-            listType = activeBlock?.listType ?: com.example.data.model.ListType.NONE,
-            alignment = activeBlock?.alignment ?: if (isRtl) com.example.data.model.TextAlignment.END else com.example.data.model.TextAlignment.START,
-            lineSpacingMultiplier = activeBlock?.lineSpacingMultiplier ?: 1.25f
-        )
-
-        executeCommand(
-            InsertBlockCommand(index = insertIndex, block = newBlock)
-        )
-        _activeBlockIndex.value = insertIndex
+        val fullText = currentDoc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
+        val sel = _selection.value
+        val pos = sel.start.coerceIn(0, fullText.length)
+        val newText = fullText.substring(0, pos) + "\n" + fullText.substring(pos)
+        updateUnifiedDocumentText(newText, androidx.compose.ui.text.TextRange(pos + 1))
     }
 
     fun insertDivider() {
