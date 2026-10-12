@@ -164,16 +164,23 @@ object PaginationEngine {
                     }
 
                     val lineHeight = fontSizePt * block.lineSpacingMultiplier + 2f
-                    val paragraphSpacing = when (block.headingStyle) {
-                        HeadingStyle.TITLE -> 10f
-                        HeadingStyle.HEADING_1 -> 8f
-                        HeadingStyle.HEADING_2 -> 6f
-                        else -> 5f
+                    val paragraphSpacing = if (block.spaceAfterPt > 0f) {
+                        block.spaceAfterPt
+                    } else {
+                        when (block.headingStyle) {
+                            HeadingStyle.TITLE -> 10f
+                            HeadingStyle.HEADING_1 -> 8f
+                            HeadingStyle.HEADING_2 -> 6f
+                            else -> 5f
+                        }
                     }
+                    val spaceBefore = block.spaceBeforePt
+                    val indentPt = if (block.leftIndentPt > 0f) block.leftIndentPt else (block.indentationLevel * 18f)
+                    val effectivePrintableWidth = (printableWidthPt - indentPt).coerceAtLeast(72f)
 
                     val isBold = block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 || block.headingStyle == HeadingStyle.HEADING_2
-                    val lines = breakTextIntoLines(block.text, paint, fontSizePt, isBold, printableWidthPt)
-                    val totalParagraphHeight = (lines.size * lineHeight) + paragraphSpacing
+                    val lines = breakTextIntoLines(block.text, paint, fontSizePt, isBold, effectivePrintableWidth)
+                    val totalParagraphHeight = spaceBefore + (lines.size * lineHeight) + paragraphSpacing
 
                     if (currentHeight + totalParagraphHeight <= printableHeightPt) {
                         // Entire paragraph fits on current page

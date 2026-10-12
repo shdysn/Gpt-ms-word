@@ -194,7 +194,7 @@ class DocxPackageReader(private val context: Context?) {
                     zipEntries[headerEntry]?.let { bytes ->
                         try {
                             val hDom = parseXml(bytes)
-                            headerText = extractAllText(hDom).trim()
+                            headerText = extractHeaderFooterText(hDom).trim()
                         } catch (e: Exception) {}
                     }
                 } else if (target.contains("footer", ignoreCase = true)) {
@@ -202,7 +202,7 @@ class DocxPackageReader(private val context: Context?) {
                     zipEntries[footerEntry]?.let { bytes ->
                         try {
                             val fDom = parseXml(bytes)
-                            val raw = extractAllText(fDom).trim()
+                            val raw = extractHeaderFooterText(fDom).trim()
                             if (raw.isNotBlank()) footerText = raw
                         } catch (e: Exception) {}
                     }
@@ -293,6 +293,39 @@ class DocxPackageReader(private val context: Context?) {
         return sb.toString()
     }
 
+    private fun extractHeaderFooterText(dom: Document): String {
+        val sb = StringBuilder()
+        fun traverse(node: Node) {
+            if (node.nodeType == Node.ELEMENT_NODE) {
+                val element = node as Element
+                if (element.tagName == "w:fldSimple") {
+                    val instr = element.getAttribute("w:instr")
+                    when {
+                        instr.contains("NUMPAGES", ignoreCase = true) -> sb.append("{pages}")
+                        instr.contains("PAGE", ignoreCase = true) -> sb.append("{page}")
+                        else -> {
+                            val tNodes = element.getElementsByTagName("w:t")
+                            for (i in 0 until tNodes.length) {
+                                sb.append(tNodes.item(i).textContent)
+                            }
+                        }
+                    }
+                    return
+                }
+                if (element.tagName == "w:t") {
+                    sb.append(element.textContent)
+                    return
+                }
+            }
+            val children = node.childNodes
+            for (i in 0 until children.length) {
+                traverse(children.item(i))
+            }
+        }
+        traverse(dom.documentElement ?: dom)
+        return sb.toString()
+    }
+
     private fun parseParagraphElement(
         pElement: Element,
         numberingMap: Map<String, ListType>,
@@ -320,7 +353,22 @@ class DocxPackageReader(private val context: Context?) {
                     val localUri = relIdToLocalUri[embedRelId]!!
                     val docPr = pElement.getElementsByTagName("wp:docPr").item(0) as? Element
                     val caption = docPr?.getAttribute("name") ?: ""
-                    return ImageBlock(imageUri = localUri, caption = caption)
+
+                    // Extract exact image dimensions from wp:extent in EMUs (1 pt = 12700 EMUs, 1 dp ~ 1 pt)
+                    val extentEl = pElement.getElementsByTagName("wp:extent").item(0) as? Element
+                    val cx = extentEl?.getAttribute("cx")?.toLongOrNull()
+                    val cy = extentEl?.getAttribute("cy")?.toLongOrNull()
+                    val widthDp = if (cx != null && cx > 0L) (cx / 12700L).toInt().coerceIn(30, 800) else 240
+                    val heightDp = if (cy != null && cy > 0L) (cy / 12700L).toInt().coerceIn(30, 800) else 180
+                    val aspectRatio = if (heightDp > 0) widthDp.toFloat() / heightDp.toFloat() else 1.333f
+
+                    return ImageBlock(
+                        imageUri = localUri,
+                        caption = caption,
+                        widthDp = widthDp,
+                        heightDp = heightDp,
+                        aspectRatio = aspectRatio
+                    )
                 }
             }
         }
@@ -376,16 +424,35 @@ class DocxPackageReader(private val context: Context?) {
 
         // Indentation Level
         var indentationLevel = 0
+        var leftIndentPt = 0f
         val ind = pPr?.getElementsByTagName("w:ind")?.item(0) as? Element
-        ind?.getAttribute("w:left")?.toIntOrNull()?.let { twips ->
-            indentationLevel = (twips / 720).coerceIn(0, 5)
+        if (ind != null) {
+            ind.getAttribute("w:left")?.toIntOrNull()?.let { twips ->
+                indentationLevel = (twips / 720).coerceIn(0, 5)
+                leftIndentPt = twips / 20f
+            }
+            if (leftIndentPt == 0f) {
+                ind.getAttribute("w:firstLine")?.toIntOrNull()?.let { twips ->
+                    leftIndentPt = twips / 20f
+                }
+            }
         }
 
-        // Line Spacing
+        // Line Spacing and Paragraph Spacing (Before / After)
         var lineSpacing = 1.25f
+        var spaceBeforePt = 0f
+        var spaceAfterPt = 0f
         val spacing = pPr?.getElementsByTagName("w:spacing")?.item(0) as? Element
-        spacing?.getAttribute("w:line")?.toIntOrNull()?.let { lineTwips ->
-            lineSpacing = (lineTwips / 240f).coerceIn(1.0f, 3.0f)
+        if (spacing != null) {
+            spacing.getAttribute("w:before")?.toIntOrNull()?.let { twips ->
+                spaceBeforePt = twips / 20f
+            }
+            spacing.getAttribute("w:after")?.toIntOrNull()?.let { twips ->
+                spaceAfterPt = twips / 20f
+            }
+            spacing.getAttribute("w:line")?.toIntOrNull()?.let { lineTwips ->
+                lineSpacing = (lineTwips / 240f).coerceIn(1.0f, 3.0f)
+            }
         }
 
         // BiDi / RTL
@@ -417,9 +484,18 @@ class DocxPackageReader(private val context: Context?) {
                     if (it == "subscript") isSubscript = true
                 }
 
+                val isRunRtl = (rPr?.getElementsByTagName("w:rtl")?.length ?: 0) > 0 ||
+                        (rPr?.getElementsByTagName("w:cs")?.length ?: 0) > 0
+                if (isRunRtl) {
+                    isRtl = true
+                }
+
                 var fontSizeSp: Float? = null
                 val sz = rPr?.getElementsByTagName("w:sz")?.item(0) as? Element
-                sz?.getAttribute("w:val")?.toIntOrNull()?.let { halfPts ->
+                val szCs = rPr?.getElementsByTagName("w:szCs")?.item(0) as? Element
+                val halfPts = sz?.getAttribute("w:val")?.toIntOrNull()
+                    ?: if (isRunRtl) szCs?.getAttribute("w:val")?.toIntOrNull() else null
+                if (halfPts != null) {
                     fontSizeSp = halfPts / 2f
                 }
 
@@ -439,12 +515,15 @@ class DocxPackageReader(private val context: Context?) {
 
                 var fontName: String? = null
                 val rFonts = rPr?.getElementsByTagName("w:rFonts")?.item(0) as? Element
-                rFonts?.getAttribute("w:ascii")?.let { f ->
-                    if (f.isNotBlank()) fontName = f
-                }
-
-                if (rPr?.getElementsByTagName("w:rtl")?.length ?: 0 > 0) {
-                    isRtl = true
+                if (rFonts != null) {
+                    val csFont = rFonts.getAttribute("w:cs").takeIf { it.isNotBlank() }
+                    val asciiFont = rFonts.getAttribute("w:ascii").takeIf { it.isNotBlank() }
+                    val hAnsiFont = rFonts.getAttribute("w:hAnsi").takeIf { it.isNotBlank() }
+                    fontName = if (isRunRtl && csFont != null) {
+                        csFont
+                    } else {
+                        asciiFont ?: hAnsiFont ?: csFont
+                    }
                 }
 
                 // Collect run text
@@ -526,7 +605,10 @@ class DocxPackageReader(private val context: Context?) {
             listType = listType,
             indentationLevel = indentationLevel,
             isRtl = isRtl,
-            lineSpacingMultiplier = lineSpacing
+            lineSpacingMultiplier = lineSpacing,
+            spaceBeforePt = spaceBeforePt,
+            spaceAfterPt = spaceAfterPt,
+            leftIndentPt = leftIndentPt
         )
     }
 
@@ -546,6 +628,18 @@ class DocxPackageReader(private val context: Context?) {
             val topVal = (tblBorders.getElementsByTagName("w:top").item(0) as? Element)?.getAttribute("w:val")
             topVal != "none"
         } else true
+
+        // Extract column widths from w:tblGrid
+        val tblGrid = tblElement.getElementsByTagName("w:tblGrid").item(0) as? Element
+        val gridCols = tblGrid?.getElementsByTagName("w:gridCol")
+        val parsedColWidths = mutableListOf<Float>()
+        if (gridCols != null && gridCols.length > 0) {
+            for (g in 0 until gridCols.length) {
+                val colEl = gridCols.item(g) as? Element
+                val twips = colEl?.getAttribute("w:w")?.toFloatOrNull() ?: 1440f
+                parsedColWidths.add(twips / 20f)
+            }
+        }
 
         var maxCols = 0
         for (r in 0 until trNodes.length) {
@@ -579,13 +673,18 @@ class DocxPackageReader(private val context: Context?) {
                     }
                 }
 
+                val tcPr = tc.getElementsByTagName("w:tcPr").item(0) as? Element
+                val tcW = tcPr?.getElementsByTagName("w:tcW")?.item(0) as? Element
+                val cellW = tcW?.getAttribute("w:w")?.toFloatOrNull()?.let { it / 20f }
+
                 cellList.add(
                     TableCell(
                         text = cellText,
                         isBold = isBold,
                         isItalic = isItalic,
                         backgroundColorHex = bgHex,
-                        alignment = cellAlign
+                        alignment = cellAlign,
+                        widthPt = cellW
                     )
                 )
             }
@@ -595,6 +694,14 @@ class DocxPackageReader(private val context: Context?) {
 
         val rowCount = rows.size.coerceAtLeast(1)
         val colCount = maxCols.coerceAtLeast(1)
+
+        // Calculate proportional column weights
+        val columnWidthWeights = if (parsedColWidths.size == colCount && parsedColWidths.sum() > 0f) {
+            val total = parsedColWidths.sum()
+            parsedColWidths.map { it / total }
+        } else {
+            List(colCount) { 1f / colCount.toFloat() }
+        }
 
         // Pad uneven rows to rectangular grid
         val normalizedRows = rows.map { row ->
@@ -608,7 +715,8 @@ class DocxPackageReader(private val context: Context?) {
             columnCount = colCount,
             cells = normalizedRows,
             hasBorders = hasBorders,
-            alignment = tableAlignment
+            alignment = tableAlignment,
+            columnWidthWeights = columnWidthWeights
         )
     }
 
@@ -628,9 +736,10 @@ class DocxPackageReader(private val context: Context?) {
             orientation = if (orient == "landscape") PageOrientation.LANDSCAPE else PageOrientation.PORTRAIT
 
             val effectiveW = if (orientation == PageOrientation.LANDSCAPE) h else w
+            val effectiveH = if (orientation == PageOrientation.LANDSCAPE) w else h
             pageSize = when {
                 effectiveW in 11800..12050 -> PageSize.A4
-                effectiveW in 12100..12350 -> PageSize.LETTER
+                effectiveW in 12100..12350 -> if (effectiveH > 18000) PageSize.LEGAL else PageSize.LETTER
                 effectiveW in 8200..8500 -> PageSize.A5
                 effectiveW in 10300..10600 -> PageSize.EXECUTIVE
                 else -> PageSize.A4
@@ -645,6 +754,34 @@ class DocxPackageReader(private val context: Context?) {
             pgMar.getAttribute("w:right").toIntOrNull()?.let { rightMm = (it / 1440f) * 25.4f }
         }
 
+        // Parse page borders
+        var borderStyle = currentConfig.borderStyle
+        var borderColor = currentConfig.borderColorHex
+        var borderWidthPt = currentConfig.borderWidthPt
+        val pgBorders = sectPr.getElementsByTagName("w:pgBorders").item(0) as? Element
+        if (pgBorders != null) {
+            val topBorder = pgBorders.getElementsByTagName("w:top").item(0) as? Element
+            if (topBorder != null) {
+                val borderVal = topBorder.getAttribute("w:val")
+                val colorVal = topBorder.getAttribute("w:color")
+                if (colorVal != null && colorVal != "auto" && colorVal.isNotBlank()) {
+                    borderColor = "#$colorVal"
+                }
+                val szVal = topBorder.getAttribute("w:sz").toIntOrNull()
+                if (szVal != null && szVal > 0) {
+                    borderWidthPt = szVal / 8f
+                }
+                borderStyle = when (borderVal) {
+                    "single" -> if (borderWidthPt >= 2f) com.example.core.layout.PageBorderStyle.SINGLE_THICK else com.example.core.layout.PageBorderStyle.SINGLE_THIN
+                    "thick" -> com.example.core.layout.PageBorderStyle.SINGLE_THICK
+                    "double" -> com.example.core.layout.PageBorderStyle.DOUBLE
+                    "dashed" -> com.example.core.layout.PageBorderStyle.DASHED
+                    "none" -> com.example.core.layout.PageBorderStyle.NONE
+                    else -> com.example.core.layout.PageBorderStyle.SINGLE_THIN
+                }
+            }
+        }
+
         return currentConfig.copy(
             pageSize = pageSize,
             orientation = orientation,
@@ -652,7 +789,10 @@ class DocxPackageReader(private val context: Context?) {
             customTopMarginMm = topMm,
             customBottomMarginMm = bottomMm,
             customLeftMarginMm = leftMm,
-            customRightMarginMm = rightMm
+            customRightMarginMm = rightMm,
+            borderStyle = borderStyle,
+            borderColorHex = borderColor,
+            borderWidthPt = borderWidthPt
         )
     }
 

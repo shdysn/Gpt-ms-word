@@ -47,13 +47,14 @@ object DocumentFontManager {
      * Returns the appropriate Compose [FontFamily] with automatic fallback for Urdu/Arabic content.
      */
     fun getFontFamily(fontName: String?, isRtl: Boolean): FontFamily {
-        return when (fontName?.lowercase()) {
-            "noto nastaliq urdu", "nastaliq", "jameel noori nastaliq" -> NotoNastaliqUrduFontFamily
-            "noto sans arabic", "arabic sans", "naskh" -> NotoSansArabicFontFamily
-            "arial", "roboto", "sans-serif" -> FontFamily.SansSerif
-            "times new roman", "georgia", "serif" -> FontFamily.Serif
-            "courier new", "monospace" -> FontFamily.Monospace
-            "system default" -> FontFamily.Default
+        val cleanName = fontName?.lowercase()?.trim()
+        return when {
+            cleanName in listOf("noto nastaliq urdu", "nastaliq", "jameel noori nastaliq", "urdu") -> NotoNastaliqUrduFontFamily
+            cleanName in listOf("noto sans arabic", "arabic sans", "naskh", "arabic") -> NotoSansArabicFontFamily
+            cleanName in listOf("calibri", "aptos", "arial", "roboto", "sans-serif", "tahoma", "verdana", "segoe ui", "century gothic") -> FontFamily.SansSerif
+            cleanName in listOf("cambria", "times new roman", "georgia", "garamond", "serif") -> FontFamily.Serif
+            cleanName in listOf("consolas", "courier new", "courier", "monospace") -> FontFamily.Monospace
+            cleanName == "system default" -> FontFamily.Default
             else -> {
                 if (isRtl) {
                     NotoNastaliqUrduFontFamily
@@ -90,8 +91,10 @@ object DocumentFontManager {
 
         val resolvedTypeface = try {
             val isUrduNastaliq = fontName?.contains("nastaliq", ignoreCase = true) == true ||
+                fontName?.contains("urdu", ignoreCase = true) == true ||
                 (isRtl && (fontName == null || fontName.isBlank() || fontName.equals("default", ignoreCase = true)))
-            val isArabicSans = fontName?.contains("sans arabic", ignoreCase = true) == true
+            val isArabicSans = fontName?.contains("sans arabic", ignoreCase = true) == true ||
+                fontName?.contains("naskh", ignoreCase = true) == true
 
             if (context != null) {
                 if (isUrduNastaliq) {
@@ -109,18 +112,26 @@ object DocumentFontManager {
                         Typeface.create(Typeface.SANS_SERIF, style)
                     }
                 } else {
-                    when (fontName?.lowercase()) {
-                        "arial", "roboto" -> Typeface.create(Typeface.SANS_SERIF, style)
-                        "times new roman", "georgia" -> Typeface.create(Typeface.SERIF, style)
-                        "courier new" -> Typeface.create(Typeface.MONOSPACE, style)
+                    val clean = fontName?.lowercase()?.trim()
+                    when {
+                        clean in listOf("calibri", "aptos", "arial", "roboto", "tahoma", "verdana", "segoe ui", "century gothic") ->
+                            Typeface.create(Typeface.SANS_SERIF, style)
+                        clean in listOf("cambria", "times new roman", "georgia", "garamond") ->
+                            Typeface.create(Typeface.SERIF, style)
+                        clean in listOf("consolas", "courier new", "courier") ->
+                            Typeface.create(Typeface.MONOSPACE, style)
                         else -> Typeface.create(Typeface.DEFAULT, style)
                     }
                 }
             } else {
                 when {
                     isRtl -> Typeface.create(Typeface.SERIF, style)
-                    fontName?.contains("serif", ignoreCase = true) == true -> Typeface.create(Typeface.SERIF, style)
-                    fontName?.contains("courier", ignoreCase = true) == true -> Typeface.create(Typeface.MONOSPACE, style)
+                    fontName?.contains("serif", ignoreCase = true) == true || fontName?.contains("cambria", ignoreCase = true) == true || fontName?.contains("times", ignoreCase = true) == true ->
+                        Typeface.create(Typeface.SERIF, style)
+                    fontName?.contains("courier", ignoreCase = true) == true || fontName?.contains("consolas", ignoreCase = true) == true || fontName?.contains("mono", ignoreCase = true) == true ->
+                        Typeface.create(Typeface.MONOSPACE, style)
+                    fontName?.contains("calibri", ignoreCase = true) == true || fontName?.contains("aptos", ignoreCase = true) == true || fontName?.contains("arial", ignoreCase = true) == true ->
+                        Typeface.create(Typeface.SANS_SERIF, style)
                     else -> Typeface.create(Typeface.DEFAULT, style)
                 }
             }

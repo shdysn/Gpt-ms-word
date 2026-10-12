@@ -245,8 +245,28 @@ class EditorViewModel(
         _viewMode.value = mode
     }
 
+    fun toggleViewMode() {
+        _viewMode.value = if (_viewMode.value == EditorViewMode.PAGINATED_A4) {
+            EditorViewMode.CONTINUOUS_MOBILE
+        } else {
+            EditorViewMode.PAGINATED_A4
+        }
+    }
+
     fun setZoomPercent(percent: Int) {
-        _zoomPercent.value = percent.coerceIn(50, 200)
+        _zoomPercent.value = percent.coerceIn(25, 250)
+    }
+
+    fun zoomIn() {
+        setZoomPercent(_zoomPercent.value + 10)
+    }
+
+    fun zoomOut() {
+        setZoomPercent(_zoomPercent.value - 10)
+    }
+
+    fun zoom100() {
+        setZoomPercent(100)
     }
 
     fun setActiveBlock(index: Int) {

@@ -73,7 +73,10 @@ data class ParagraphBlock(
     val listType: ListType = ListType.NONE,
     val indentationLevel: Int = 0,
     val isRtl: Boolean = false, // True for Urdu, Arabic, Persian, Hebrew
-    val lineSpacingMultiplier: Float = 1.25f
+    val lineSpacingMultiplier: Float = 1.25f,
+    val spaceBeforePt: Float = 0f,
+    val spaceAfterPt: Float = 0f,
+    val leftIndentPt: Float = 0f
 ) : BlockElement
 
 /**
@@ -84,7 +87,8 @@ data class TableCell(
     val isBold: Boolean = false,
     val isItalic: Boolean = false,
     val backgroundColorHex: String? = null,
-    val alignment: TextAlignment = TextAlignment.START
+    val alignment: TextAlignment = TextAlignment.START,
+    val widthPt: Float? = null
 )
 
 /**
@@ -98,7 +102,8 @@ data class TableBlock(
     val hasBorders: Boolean = true,
     val borderColorHex: String = "#CBD5E1",
     val tableWidthPercent: Int = 100,
-    val alignment: TextAlignment = TextAlignment.CENTER
+    val alignment: TextAlignment = TextAlignment.CENTER,
+    val columnWidthWeights: List<Float> = emptyList()
 ) : BlockElement
 
 /**

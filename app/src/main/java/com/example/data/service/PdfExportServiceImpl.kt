@@ -577,7 +577,7 @@ class PdfExportServiceImpl : DocumentExportService {
                             TextAlignment.START -> Layout.Alignment.ALIGN_NORMAL
                         }
 
-                        val indentPt = (block.indentationLevel * 18f)
+                        val indentPt = if (block.leftIndentPt > 0f) block.leftIndentPt else (block.indentationLevel * 18f)
                         val effectiveWidth = (contentWidth - indentPt).toInt().coerceAtLeast(100)
 
                         val staticLayout = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
@@ -599,13 +599,16 @@ class PdfExportServiceImpl : DocumentExportService {
                             )
                         }
 
+                        cursorY += block.spaceBeforePt
+
                         canvas.save()
                         val drawX = if (isRtl) leftMargin else (leftMargin + indentPt)
                         canvas.translate(drawX, cursorY)
                         staticLayout.draw(canvas)
                         canvas.restore()
 
-                        cursorY += staticLayout.height + 6f
+                        val afterSpacing = if (block.spaceAfterPt > 0f) block.spaceAfterPt else 6f
+                        cursorY += staticLayout.height + afterSpacing
                     }
 
                     is com.example.core.layout.DividerPageItem -> {
@@ -623,7 +626,13 @@ class PdfExportServiceImpl : DocumentExportService {
                             TextAlignment.END -> pageWidth - rightMargin - effectiveTableWidth
                             else -> leftMargin + (contentWidth - effectiveTableWidth) / 2f
                         }
-                        val colWidth = effectiveTableWidth / block.columnCount.coerceAtLeast(1)
+
+                        val colWeights = if (block.columnWidthWeights.size == block.columnCount && block.columnWidthWeights.sum() > 0f) {
+                            val sum = block.columnWidthWeights.sum()
+                            block.columnWidthWeights.map { it / sum }
+                        } else {
+                            List(block.columnCount) { 1f / block.columnCount.toFloat() }
+                        }
 
                         val tableBorderColor = try {
                             Color.parseColor(block.borderColorHex)
@@ -640,24 +649,27 @@ class PdfExportServiceImpl : DocumentExportService {
                         }
 
                         for (r in item.startRow until item.endRow) {
+                            var currentCellX = tableStartX
                             for (c in 0 until block.columnCount) {
-                                val cellX = tableStartX + c * colWidth
+                                val cellColWidth = effectiveTableWidth * colWeights.getOrElse(c) { 1f / block.columnCount }
+                                val cellX = currentCellX
+                                currentCellX += cellColWidth
                                 val cell = block.cells.getOrNull(r)?.getOrNull(c)
 
                                 // Cell background color
                                 if (cell?.backgroundColorHex != null) {
                                     try {
                                         cellFillPaint.color = Color.parseColor(cell.backgroundColorHex)
-                                        canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, cellFillPaint)
+                                        canvas.drawRect(cellX, cursorY, cellX + cellColWidth, cursorY + rowHeight, cellFillPaint)
                                     } catch (e: Exception) {}
                                 } else if (r == 0) {
                                     cellFillPaint.color = Color.rgb(241, 245, 249)
-                                    canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, cellFillPaint)
+                                    canvas.drawRect(cellX, cursorY, cellX + cellColWidth, cursorY + rowHeight, cellFillPaint)
                                 }
 
                                 // Cell border if enabled
                                 if (block.hasBorders) {
-                                    canvas.drawRect(cellX, cursorY, cellX + colWidth, cursorY + rowHeight, tablePaint)
+                                    canvas.drawRect(cellX, cursorY, cellX + cellColWidth, cursorY + rowHeight, tablePaint)
                                 }
 
                                 val cellText = cell?.text ?: ""
@@ -678,12 +690,12 @@ class PdfExportServiceImpl : DocumentExportService {
                                     val cellMeasure = textPaint.measureText(cellText)
                                     val cellAlign = cell?.alignment ?: TextAlignment.START
                                     val textX = when (cellAlign) {
-                                        TextAlignment.CENTER -> cellX + (colWidth - cellMeasure) / 2f
-                                        TextAlignment.END -> cellX + colWidth - cellMeasure - 4f
-                                        TextAlignment.START -> if (isCellRtl) cellX + colWidth - cellMeasure - 4f else cellX + 4f
+                                        TextAlignment.CENTER -> cellX + (cellColWidth - cellMeasure) / 2f
+                                        TextAlignment.END -> cellX + cellColWidth - cellMeasure - 4f
+                                        TextAlignment.START -> if (isCellRtl) cellX + cellColWidth - cellMeasure - 4f else cellX + 4f
                                         TextAlignment.JUSTIFY -> cellX + 4f
                                     }
-                                    canvas.drawText(cellText, textX.coerceIn(cellX + 2f, (cellX + colWidth - cellMeasure).coerceAtLeast(cellX + 2f)), cursorY + 15f, textPaint)
+                                    canvas.drawText(cellText, textX.coerceIn(cellX + 2f, (cellX + cellColWidth - cellMeasure).coerceAtLeast(cellX + 2f)), cursorY + 15f, textPaint)
                                 }
                             }
                             cursorY += rowHeight

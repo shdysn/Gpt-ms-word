@@ -36,7 +36,7 @@ object EditorEngineIntegration {
      * Converts a domain ParagraphBlock model into a Jetpack Compose AnnotatedString,
      * applying all inline styling spans (Bold, Italic, Underline, Colors, Spans).
      */
-    fun buildAnnotatedParagraph(paragraph: ParagraphBlock): AnnotatedString {
+    fun buildAnnotatedParagraph(paragraph: ParagraphBlock, zoomScale: Float = 1f): AnnotatedString {
         return buildAnnotatedString {
             append(paragraph.text)
 
@@ -56,8 +56,8 @@ object EditorEngineIntegration {
                 }
 
                 val computedFontSize = when {
-                    span.fontSizeSp != null -> span.fontSizeSp.sp
-                    span.isSuperscript || span.isSubscript -> 10.sp
+                    span.fontSizeSp != null -> (span.fontSizeSp * zoomScale).sp
+                    span.isSuperscript || span.isSubscript -> (10f * zoomScale).sp
                     else -> androidx.compose.ui.unit.TextUnit.Unspecified
                 }
 

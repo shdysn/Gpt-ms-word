@@ -596,16 +596,29 @@ class DocxPackageWriter(private val context: Context?) {
         }
 
         // Indentation
-        if (block.indentationLevel > 0) {
-            val leftTwips = block.indentationLevel * 720
+        val leftTwips = if (block.leftIndentPt > 0f) {
+            (block.leftIndentPt * 20f).toInt()
+        } else if (block.indentationLevel > 0) {
+            block.indentationLevel * 720
+        } else 0
+        if (leftTwips > 0) {
             sb.append("""<w:ind w:left="$leftTwips"/>""")
         }
 
-        // Line Spacing
-        if (block.lineSpacingMultiplier != 1.0f) {
-            val lineTwips = (240 * block.lineSpacingMultiplier).toInt()
-            sb.append("""<w:spacing w:line="$lineTwips" w:lineRule="auto"/>""")
+        // Spacing (before, after, line)
+        val beforeTwips = if (block.spaceBeforePt > 0f) (block.spaceBeforePt * 20f).toInt() else 0
+        val afterTwips = if (block.spaceAfterPt > 0f) {
+            (block.spaceAfterPt * 20f).toInt()
+        } else {
+            when (block.headingStyle) {
+                HeadingStyle.TITLE -> 240
+                HeadingStyle.HEADING_1 -> 160
+                HeadingStyle.HEADING_2 -> 120
+                else -> 100
+            }
         }
+        val lineTwips = (240 * block.lineSpacingMultiplier).toInt()
+        sb.append("""<w:spacing w:before="$beforeTwips" w:after="$afterTwips" w:line="$lineTwips" w:lineRule="auto"/>""")
 
         sb.append("</w:pPr>")
 
@@ -642,6 +655,8 @@ class DocxPackageWriter(private val context: Context?) {
             if (run.fontFamilyName != null) {
                 val font = escapeXml(run.fontFamilyName)
                 runSb.append("""<w:rFonts w:ascii="$font" w:hAnsi="$font" w:cs="$font"/>""")
+            } else if (isRtl) {
+                runSb.append("""<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Noto Nastaliq Urdu"/>""")
             }
 
             if (isRtl) {
@@ -703,13 +718,30 @@ class DocxPackageWriter(private val context: Context?) {
 $bordersXml
 </w:tblPr>""")
 
+        val colWeights = if (block.columnWidthWeights.size == block.columnCount && block.columnWidthWeights.sum() > 0f) {
+            val total = block.columnWidthWeights.sum()
+            block.columnWidthWeights.map { it / total }
+        } else {
+            List(block.columnCount) { 1f / block.columnCount.toFloat() }
+        }
+        val totalTableTwips = (9000 * (block.tableWidthPercent.coerceIn(20, 100) / 100f)).toInt()
+
+        sb.append("<w:tblGrid>")
+        for (w in colWeights) {
+            val colTwips = (totalTableTwips * w).toInt().coerceAtLeast(720)
+            sb.append("""<w:gridCol w:w="$colTwips"/>""")
+        }
+        sb.append("</w:tblGrid>")
+
         for (r in 0 until block.rowCount) {
             val row = block.cells.getOrNull(r) ?: emptyList()
             sb.append("<w:tr>")
             for (c in 0 until block.columnCount) {
                 val cell = row.getOrNull(c)
+                val colTwips = (totalTableTwips * colWeights.getOrElse(c) { 1f / block.columnCount }).toInt().coerceAtLeast(720)
                 sb.append("<w:tc>")
                 sb.append("<w:tcPr>")
+                sb.append("""<w:tcW w:w="$colTwips" w:type="dxa"/>""")
                 if (cell?.backgroundColorHex != null) {
                     val cleanHex = cell.backgroundColorHex.removePrefix("#")
                     sb.append("""<w:shd w:val="clear" w:color="auto" w:fill="$cleanHex"/>""")
@@ -832,6 +864,24 @@ $bordersXml
 
         sb.append("""<w:pgSz w:w="$effWidth" w:h="$effHeight" ${if (isLandscape) """w:orient="landscape"""" else ""}/>""")
         sb.append("""<w:pgMar w:top="$topTwips" w:right="$rightTwips" w:bottom="$bottomTwips" w:left="$leftTwips" w:header="720" w:footer="720" w:gutter="0"/>""")
+
+        if (layout.borderStyle != com.example.core.layout.PageBorderStyle.NONE) {
+            val borderVal = when (layout.borderStyle) {
+                com.example.core.layout.PageBorderStyle.SINGLE_THIN -> "single"
+                com.example.core.layout.PageBorderStyle.SINGLE_THICK -> "thick"
+                com.example.core.layout.PageBorderStyle.DOUBLE -> "double"
+                com.example.core.layout.PageBorderStyle.DASHED -> "dashed"
+                com.example.core.layout.PageBorderStyle.NONE -> "none"
+            }
+            val cleanBorderHex = layout.borderColorHex.removePrefix("#")
+            val szVal = (layout.borderWidthPt * 8).toInt().coerceIn(2, 96)
+            sb.append("""<w:pgBorders w:offsetFrom="page">
+  <w:top w:val="$borderVal" w:sz="$szVal" w:space="24" w:color="$cleanBorderHex"/>
+  <w:left w:val="$borderVal" w:sz="$szVal" w:space="24" w:color="$cleanBorderHex"/>
+  <w:bottom w:val="$borderVal" w:sz="$szVal" w:space="24" w:color="$cleanBorderHex"/>
+  <w:right w:val="$borderVal" w:sz="$szVal" w:space="24" w:color="$cleanBorderHex"/>
+</w:pgBorders>""")
+        }
 
         sb.append("</w:sectPr>")
         return sb.toString()

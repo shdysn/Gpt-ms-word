@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -35,6 +36,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.Canvas
+import androidx.compose.material.icons.filled.FitScreen
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
@@ -353,6 +357,18 @@ fun EditorScreen(
                                 imageVector = Icons.AutoMirrored.Filled.Redo,
                                 contentDescription = "Redo",
                                 tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                            )
+                        }
+
+                        // Switch between MS Word Full Page Print Layout and Mobile View
+                        IconButton(
+                            onClick = { viewModel.toggleViewMode() },
+                            modifier = Modifier.testTag("action_toggle_view_mode")
+                        ) {
+                            Icon(
+                                imageVector = if (viewMode == EditorViewMode.PAGINATED_A4) Icons.Default.PhoneAndroid else Icons.Default.Description,
+                                contentDescription = if (viewMode == EditorViewMode.PAGINATED_A4) "Switch to Mobile View" else "Switch to Full Page A4 View",
+                                tint = if (viewMode == EditorViewMode.PAGINATED_A4) WordPrimary else MaterialTheme.colorScheme.onSurface
                             )
                         }
 
@@ -1703,17 +1719,21 @@ fun DocumentCanvas(
                     com.example.core.layout.PageBorderStyle.NONE -> null
                 }
 
-                // Margins mapped to responsive dp scaled by zoom
-                val leftMarginDp = ((page.layout.leftMarginMm * 1.25f).coerceIn(16f, 48f) * zoomScale).dp
-                val rightMarginDp = ((page.layout.rightMarginMm * 1.25f).coerceIn(16f, 48f) * zoomScale).dp
-                val topMarginDp = ((page.layout.topMarginMm * 1.2f).coerceIn(20f, 44f) * zoomScale).dp
-                val bottomMarginDp = ((page.layout.bottomMarginMm * 1.2f).coerceIn(20f, 44f) * zoomScale).dp
+                // Physical Paper Sheet Dimensions and Aspect Ratio
+                val sheetHeightDp = (scaledMaxSheetWidth.value / page.layout.aspectRatio).dp
+
+                // Margins accurately mapped to physical sheet proportions
+                val leftMarginDp = ((page.layout.leftMarginPt / page.layout.pageWidthPt) * scaledMaxSheetWidth.value).dp
+                val rightMarginDp = ((page.layout.rightMarginPt / page.layout.pageWidthPt) * scaledMaxSheetWidth.value).dp
+                val topMarginDp = ((page.layout.topMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
+                val bottomMarginDp = ((page.layout.bottomMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
 
                 // Physical Paper Sheet Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = scaledMaxSheetWidth)
+                        .heightIn(min = sheetHeightDp)
                         .shadow(6.dp, RoundedCornerShape(2.dp)),
                     shape = RoundedCornerShape(2.dp),
                     colors = CardDefaults.cardColors(containerColor = pageBgColor),
@@ -2168,9 +2188,10 @@ fun TableBlockView(
                             isDarkPage
                         }
 
+                        val colWeight = table.columnWidthWeights.getOrNull(c) ?: 1f
                         Box(
                             modifier = Modifier
-                                .weight(1f)
+                                .weight(colWeight.coerceAtLeast(0.05f))
                                 .border(
                                     width = 0.5.dp,
                                     color = if (table.hasBorders) tableBorderColor else Color(0xFFE2E8F0)
@@ -2407,7 +2428,9 @@ fun BlockItemView(
                 }
             }
 
-            val indentPadding = (block.indentationLevel * 20).dp
+            val indentPadding = if (block.leftIndentPt > 0f) (block.leftIndentPt * zoomScale).dp else (block.indentationLevel * 20 * zoomScale).dp
+            val spaceBeforeDp = (block.spaceBeforePt * zoomScale).dp
+            val spaceAfterDp = (block.spaceAfterPt * zoomScale).dp
 
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalLayoutDirection provides (if (block.isRtl) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr)
@@ -2415,7 +2438,7 @@ fun BlockItemView(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = indentPadding)
+                        .padding(start = indentPadding, top = spaceBeforeDp, bottom = spaceAfterDp)
                         .clickable(onClick = onFocus)
                         .background(
                             if (isActive) WordPrimary.copy(alpha = if (isDarkPage) 0.14f else 0.04f) else Color.Transparent,
