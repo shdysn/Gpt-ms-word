@@ -78,6 +78,37 @@ data class ChangeAlignmentCommand(
 }
 
 /**
+ * Command for changing alignment of multiple paragraphs in a selection.
+ */
+data class ChangeMultipleParagraphsAlignmentCommand(
+    val blockIds: List<String>,
+    val oldAlignments: Map<String, TextAlignment>,
+    val newAlignment: TextAlignment
+) : EditorCommand {
+    override val description: String = "Change Multiple Alignments to $newAlignment"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val idSet = blockIds.toSet()
+        val updatedBlocks = document.blocks.map { block ->
+            if (block is ParagraphBlock && block.id in idSet) {
+                block.copy(alignment = newAlignment)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        val updatedBlocks = document.blocks.map { block ->
+            if (block is ParagraphBlock && block.id in oldAlignments) {
+                block.copy(alignment = oldAlignments[block.id] ?: block.alignment)
+            } else block
+        }
+        return document.copy(blocks = updatedBlocks)
+    }
+}
+
+
+/**
  * Command for changing heading style (Title, Heading 1, 2, 3, Normal).
  */
 data class ChangeHeadingStyleCommand(

@@ -295,4 +295,58 @@ class RichTextEngineUnitTest {
         assertEquals("Second feature point: multi-paragraph document editing", retrievedP3.text)
         assertEquals(ListType.NUMBERED, retrievedP3.listType)
     }
+
+    @Test
+    fun testParagraphStyleInAnnotatedString() {
+        val annotated = androidx.compose.ui.text.buildAnnotatedString {
+            append("First Line\n\nRight Line")
+            addStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.Start), 0, 10)
+            addStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.Center), 11, 11)
+            addStyle(androidx.compose.ui.text.ParagraphStyle(textAlign = androidx.compose.ui.text.style.TextAlign.End), 12, 22)
+        }
+
+        assertEquals(3, annotated.paragraphStyles.size)
+        assertEquals(androidx.compose.ui.text.style.TextAlign.Start, annotated.paragraphStyles[0].item.textAlign)
+        assertEquals(androidx.compose.ui.text.style.TextAlign.Center, annotated.paragraphStyles[1].item.textAlign)
+        assertEquals(androidx.compose.ui.text.style.TextAlign.End, annotated.paragraphStyles[2].item.textAlign)
+    }
+
+    @Test
+    fun testBuildAnnotatedTextWithParagraphBlocksDifferentAlignments() {
+        val p1 = ParagraphBlock(id = "p1", text = "Left Heading", alignment = TextAlignment.START)
+        val p2 = ParagraphBlock(id = "p2", text = "Centered Subtitle", alignment = TextAlignment.CENTER)
+        val p3 = ParagraphBlock(id = "p3", text = "Right Footer", alignment = TextAlignment.END)
+
+        val text = "Left Heading\nCentered Subtitle\nRight Footer"
+        val annotated = EditorEngineIntegration.buildAnnotatedTextWithParagraphBlocks(
+            text = text,
+            paragraphs = listOf(p1, p2, p3)
+        )
+
+        assertEquals(3, annotated.paragraphStyles.size)
+        assertEquals(androidx.compose.ui.text.style.TextAlign.Start, annotated.paragraphStyles[0].item.textAlign)
+        assertEquals(androidx.compose.ui.text.style.TextAlign.Center, annotated.paragraphStyles[1].item.textAlign)
+        assertEquals(androidx.compose.ui.text.style.TextAlign.End, annotated.paragraphStyles[2].item.textAlign)
+    }
+
+    @Test
+    fun testParagraphAlignmentChangeOnlyAffectsTargetParagraph() {
+        val p1 = ParagraphBlock(id = "p1", text = "First Paragraph", alignment = TextAlignment.START)
+        val p2 = ParagraphBlock(id = "p2", text = "Second Paragraph", alignment = TextAlignment.START)
+        val doc = RichDocument(blocks = listOf(p1, p2))
+
+        val manager = UndoRedoManager()
+        val command = ChangeAlignmentCommand(blockId = "p2", oldAlignment = p2.alignment, newAlignment = TextAlignment.CENTER)
+        val updatedDoc = manager.execute(command, doc)
+
+        val r1 = updatedDoc.blocks[0] as ParagraphBlock
+        val r2 = updatedDoc.blocks[1] as ParagraphBlock
+
+        // First paragraph should STILL be START
+        assertEquals(TextAlignment.START, r1.alignment)
+        // Only second paragraph should be CENTER
+        assertEquals(TextAlignment.CENTER, r2.alignment)
+    }
 }
+
+

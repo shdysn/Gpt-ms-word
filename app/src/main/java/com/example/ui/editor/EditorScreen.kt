@@ -2542,9 +2542,12 @@ fun UnifiedTextCanvas(
     onUpdateUnifiedText: (String, TextRange) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
-    val firstParagraph = document.blocks.firstOrNull() as? ParagraphBlock ?: ParagraphBlock()
-    val fullText = remember(document.blocks) {
-        document.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
+    val paragraphs = remember(document.blocks) {
+        document.blocks.filterIsInstance<ParagraphBlock>()
+    }
+    val firstParagraph = paragraphs.firstOrNull() ?: ParagraphBlock()
+    val fullText = remember(paragraphs) {
+        paragraphs.joinToString("\n") { it.text }
     }
 
     var textFieldValue by remember(document.id) {
@@ -2570,49 +2573,27 @@ fun UnifiedTextCanvas(
         }
     }
 
-    val unscaledFontSize = when (firstParagraph.headingStyle) {
-        HeadingStyle.TITLE -> 26f
-        HeadingStyle.SUBTITLE -> 18f
-        HeadingStyle.HEADING_1 -> 22f
-        HeadingStyle.HEADING_2 -> 18f
-        HeadingStyle.HEADING_3 -> 16f
-        HeadingStyle.QUOTE -> 15f
-        HeadingStyle.NORMAL -> 15f
-    }
-    val baseFontSize = (unscaledFontSize * zoomScale).sp
+    val baseFontSize = (15f * zoomScale).sp
+    val defaultTextColor = if (isDarkPage) Color(0xFFF8FAFC) else Color(0xFF1E293B)
 
-    val defaultTextColor = when {
-        firstParagraph.headingStyle == HeadingStyle.TITLE || firstParagraph.headingStyle == HeadingStyle.HEADING_1 ->
-            if (isDarkPage) Color(0xFF60A5FA) else WordPrimary
-        isDarkPage -> Color(0xFFF8FAFC)
-        else -> Color(0xFF1E293B)
+    val isRtl = remember(paragraphs, fullText) {
+        paragraphs.any { it.isRtl } || com.example.core.typography.BidiUtils.detectParagraphIsRtl(fullText)
     }
-
-    val align = when (firstParagraph.alignment) {
-        TextAlignment.CENTER -> TextAlign.Center
-        TextAlignment.END -> TextAlign.End
-        TextAlignment.JUSTIFY -> TextAlign.Justify
-        TextAlignment.START -> TextAlign.Start
-    }
-
-    val isRtl = firstParagraph.isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(fullText)
     val textDirection = if (isRtl) TextDirection.Rtl else TextDirection.Ltr
 
     val effectiveFontFamily = com.example.core.typography.DocumentFontManager.getFontFamily(
-        fontName = firstParagraph.spans.firstOrNull { it.fontFamilyName != null }?.fontFamilyName,
+        fontName = paragraphs.firstOrNull { it.spans.any { sp -> sp.fontFamilyName != null } }
+            ?.spans?.firstOrNull { it.fontFamilyName != null }?.fontFamilyName,
         isRtl = isRtl
     )
 
-    val richTransformation = remember(firstParagraph.spans, firstParagraph.headingStyle, isRtl, zoomScale) {
+    val richTransformation = remember(paragraphs, isDarkPage, zoomScale) {
         VisualTransformation { inputText ->
-            val currentText = inputText.text
-            val safeSpans = firstParagraph.spans.mapNotNull { span ->
-                val s = span.start.coerceIn(0, currentText.length)
-                val e = span.end.coerceIn(s, currentText.length)
-                if (s < e) span.copy(start = s, end = e) else null
-            }
-            val synthesizedBlock = firstParagraph.copy(text = currentText, spans = safeSpans, isRtl = isRtl)
-            val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedParagraph(synthesizedBlock, zoomScale)
+            val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedTextWithParagraphBlocks(
+                text = inputText.text,
+                paragraphs = paragraphs,
+                zoomScale = zoomScale
+            )
             TransformedText(annotated, OffsetMapping.Identity)
         }
     }
@@ -2638,12 +2619,10 @@ fun UnifiedTextCanvas(
                 textStyle = TextStyle(
                     fontSize = baseFontSize,
                     fontFamily = effectiveFontFamily,
-                    fontWeight = if (firstParagraph.headingStyle.isBold) FontWeight.Bold else FontWeight.Normal,
-                    fontStyle = if (firstParagraph.headingStyle == HeadingStyle.QUOTE) FontStyle.Italic else FontStyle.Normal,
                     color = defaultTextColor,
-                    textAlign = align,
+                    textAlign = TextAlign.Unspecified,
                     textDirection = textDirection,
-                    lineHeight = baseFontSize * (if (isRtl) firstParagraph.lineSpacingMultiplier.coerceAtLeast(1.4f) else firstParagraph.lineSpacingMultiplier)
+                    lineHeight = baseFontSize * (if (isRtl) 1.4f else 1.25f)
                 ),
                 cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                 modifier = Modifier
@@ -2661,7 +2640,7 @@ fun UnifiedTextCanvas(
                                     fontSize = baseFontSize,
                                     fontFamily = effectiveFontFamily,
                                     color = if (isDarkPage) Color(0xFF64748B) else Color(0xFF94A3B8),
-                                    textAlign = align,
+                                    textAlign = TextAlign.Start,
                                     textDirection = textDirection
                                 )
                             )
@@ -2672,6 +2651,7 @@ fun UnifiedTextCanvas(
             )
         }
     }
+
 }
 
 @Composable

@@ -29,6 +29,7 @@ import com.example.editor.engine.AutosaveController
 import com.example.editor.engine.AutosaveStatus
 import com.example.editor.engine.ChangeAlignmentCommand
 import com.example.editor.engine.ChangeHeadingStyleCommand
+import com.example.editor.engine.ChangeMultipleParagraphsAlignmentCommand
 import com.example.editor.engine.DeleteBlockCommand
 import com.example.editor.engine.EditorCommand
 import com.example.editor.engine.InsertBlockCommand
@@ -208,8 +209,8 @@ class EditorViewModel(
             when (val res = repository.getDocument(documentId)) {
                 is DocumentResult.Success -> {
                     val loadedDoc = res.data
-                    val unifiedBlocks = unifyParagraphBlocks(loadedDoc.blocks)
-                    val firstBlock = unifiedBlocks.singleOrNull() as? ParagraphBlock
+                    val normalizedBlocks = normalizeParagraphBlocks(loadedDoc.blocks)
+                    val firstBlock = normalizedBlocks.firstOrNull() as? ParagraphBlock
                     val adjustedDoc = if (defaultRtl.value && firstBlock != null && firstBlock.text.isEmpty() && !firstBlock.isRtl) {
                         loadedDoc.copy(
                             blocks = listOf(
@@ -220,7 +221,7 @@ class EditorViewModel(
                             )
                         )
                     } else {
-                        loadedDoc.copy(blocks = unifiedBlocks)
+                        loadedDoc.copy(blocks = normalizedBlocks)
                     }
                     _document.value = adjustedDoc
                     undoRedoManager.clear()
@@ -234,29 +235,36 @@ class EditorViewModel(
         }
     }
 
-    private fun unifyParagraphBlocks(blocks: List<BlockElement>): List<BlockElement> {
-        val nonParagraphs = blocks.filter { it !is ParagraphBlock }
-        if (nonParagraphs.isEmpty()) {
-            if (blocks.size <= 1) return blocks
-            val paragraphs = blocks.filterIsInstance<ParagraphBlock>()
-            val first = paragraphs.first()
-            val sb = StringBuilder()
-            val allSpans = mutableListOf<InlineSpan>()
-            var offset = 0
-            paragraphs.forEachIndexed { idx, p ->
-                if (idx > 0) {
-                    sb.append("\n")
-                    offset += 1
+    private fun normalizeParagraphBlocks(blocks: List<BlockElement>): List<BlockElement> {
+        val result = mutableListOf<BlockElement>()
+        for (block in blocks) {
+            if (block is ParagraphBlock && block.text.contains("\n")) {
+                val lines = block.text.split("\n")
+                var offset = 0
+                lines.forEachIndexed { idx, line ->
+                    val lineStart = offset
+                    val lineEnd = offset + line.length
+                    val lineSpans = block.spans.mapNotNull { span ->
+                        val s = (span.start - lineStart).coerceIn(0, line.length)
+                        val e = (span.end - lineStart).coerceIn(0, line.length)
+                        if (s < e && span.start < lineEnd && span.end > lineStart) {
+                            span.copy(start = s, end = e)
+                        } else null
+                    }
+                    result.add(
+                        block.copy(
+                            id = if (idx == 0) block.id else java.util.UUID.randomUUID().toString(),
+                            text = line,
+                            spans = lineSpans
+                        )
+                    )
+                    offset = lineEnd + 1
                 }
-                sb.append(p.text)
-                p.spans.forEach { sp ->
-                    allSpans.add(sp.copy(start = sp.start + offset, end = sp.end + offset))
-                }
-                offset += p.text.length
+            } else {
+                result.add(block)
             }
-            return listOf(first.copy(text = sb.toString(), spans = allSpans))
         }
-        return blocks
+        return if (result.isEmpty()) listOf(ParagraphBlock()) else result
     }
 
     fun selectRibbonTab(tab: RibbonTab) {
@@ -344,6 +352,47 @@ class EditorViewModel(
 
     fun updateSelection(newSelection: androidx.compose.ui.text.TextRange) {
         _selection.value = newSelection
+        val currentDoc = _document.value ?: return
+        val activeIdx = findActiveParagraphBlockIndex(currentDoc.blocks, newSelection.start)
+        if (activeIdx != _activeBlockIndex.value) {
+            _activeBlockIndex.value = activeIdx
+        }
+    }
+
+    fun findActiveParagraphBlockIndex(blocks: List<BlockElement>, offset: Int): Int {
+        var accumulated = 0
+        var lastParagraphIndex = 0
+        blocks.forEachIndexed { index, block ->
+            if (block is ParagraphBlock) {
+                lastParagraphIndex = index
+                val len = block.text.length
+                if (offset <= accumulated + len) {
+                    return index
+                }
+                accumulated += len + 1
+            }
+        }
+        return lastParagraphIndex
+    }
+
+    fun findParagraphBlockIndicesForRange(blocks: List<BlockElement>, startOffset: Int, endOffset: Int): List<Int> {
+        val min = minOf(startOffset, endOffset)
+        val max = maxOf(startOffset, endOffset)
+        if (min == max) return listOf(findActiveParagraphBlockIndex(blocks, min))
+
+        val result = mutableListOf<Int>()
+        var accumulated = 0
+        blocks.forEachIndexed { index, block ->
+            if (block is ParagraphBlock) {
+                val blockStart = accumulated
+                val blockEnd = accumulated + block.text.length
+                if (blockStart <= max && (blockEnd >= min || (blockStart == blockEnd && blockStart == min))) {
+                    result.add(index)
+                }
+                accumulated = blockEnd + 1
+            }
+        }
+        return if (result.isEmpty()) listOf(findActiveParagraphBlockIndex(blocks, min)) else result
     }
 
     fun updateParagraphSubSliceText(
@@ -475,47 +524,27 @@ class EditorViewModel(
             return
         }
 
-        val firstBlock = currentDoc.blocks.firstOrNull() as? ParagraphBlock ?: ParagraphBlock()
-        val oldFullText = currentDoc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
-        if (oldFullText == newFullText && currentDoc.blocks.size == 1) {
-            _selection.value = newSelection
+        val oldParagraphs = currentDoc.blocks.filterIsInstance<ParagraphBlock>()
+        val nonParagraphBlocks = currentDoc.blocks.filter { it !is ParagraphBlock }
+        val oldFullText = oldParagraphs.joinToString("\n") { it.text }
+        if (oldFullText == newFullText && oldParagraphs.isNotEmpty()) {
+            updateSelection(newSelection)
             return
         }
 
         val (editOffset, deletedLen, insertedLen) = calculateEditDelta(oldFullText, newFullText)
+        val newLines = newFullText.split("\n")
 
-        val oldSpans = mutableListOf<InlineSpan>()
-        var spanOffset = 0
-        currentDoc.blocks.forEach { b ->
-            if (b is ParagraphBlock) {
-                b.spans.forEach { sp ->
-                    oldSpans.add(sp.copy(start = sp.start + spanOffset, end = sp.end + spanOffset))
-                }
-                spanOffset += b.text.length + 1
-            }
-        }
-
-        val newSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
-            spans = oldSpans,
+        val newParagraphs = reconcileParagraphBlocks(
+            oldParagraphs = oldParagraphs,
+            newLines = newLines,
             editOffset = editOffset,
-            deletedLength = deletedLen,
-            insertedLength = insertedLen,
-            pendingFormatting = if (insertedLen > 0) _pendingFormatting.value else null
+            deletedLen = deletedLen,
+            insertedLen = insertedLen,
+            pendingFormatting = _pendingFormatting.value
         )
 
-        val autoRtl = if (firstBlock.text.isBlank() && !firstBlock.isRtl && com.example.core.typography.BidiUtils.detectParagraphIsRtl(newFullText)) true else null
-
-        val nonParagraphBlocks = currentDoc.blocks.filter { it !is ParagraphBlock }
-        val updatedParagraph = firstBlock.copy(
-            text = newFullText,
-            spans = newSpans,
-            isRtl = autoRtl ?: firstBlock.isRtl
-        )
-        val newBlocks = if (nonParagraphBlocks.isEmpty()) {
-            listOf(updatedParagraph)
-        } else {
-            listOf(updatedParagraph) + nonParagraphBlocks
-        }
+        val newBlocks = newParagraphs + nonParagraphBlocks
 
         val updatedDoc = currentDoc.copy(
             blocks = newBlocks,
@@ -523,10 +552,118 @@ class EditorViewModel(
         )
         registerTypingUndoCheckpoint(currentDoc, updatedDoc, newFullText)
         _document.value = updatedDoc
-        _activeBlockIndex.value = 0
-        _selection.value = newSelection
+        updateSelection(newSelection)
         scheduleDocumentAutosave()
     }
+
+    private fun reconcileParagraphBlocks(
+        oldParagraphs: List<ParagraphBlock>,
+        newLines: List<String>,
+        editOffset: Int,
+        deletedLen: Int,
+        insertedLen: Int,
+        pendingFormatting: com.example.editor.engine.ActiveFormatting?
+    ): List<ParagraphBlock> {
+        if (oldParagraphs.isEmpty()) {
+            return newLines.map { line ->
+                ParagraphBlock(text = line)
+            }
+        }
+
+        // Case 1: Same number of lines (editing within lines, no newline added/removed)
+        if (newLines.size == oldParagraphs.size) {
+            return newLines.mapIndexed { idx, line ->
+                val oldP = oldParagraphs[idx]
+                if (oldP.text == line) {
+                    oldP
+                } else {
+                    val (pOffset, pDeleted, pInserted) = calculateEditDelta(oldP.text, line)
+                    val shiftedSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+                        spans = oldP.spans,
+                        editOffset = pOffset,
+                        deletedLength = pDeleted,
+                        insertedLength = pInserted,
+                        pendingFormatting = if (pInserted > 0) pendingFormatting else null
+                    )
+                    val autoRtl = if (oldP.text.isBlank() && !oldP.isRtl && com.example.core.typography.BidiUtils.detectParagraphIsRtl(line)) true else oldP.isRtl
+                    oldP.copy(text = line, spans = shiftedSpans, isRtl = autoRtl)
+                }
+            }
+        }
+
+        // Case 2: Newlines were added or removed
+        var accumulated = 0
+        var editParaIndex = oldParagraphs.lastIndex
+        for (i in oldParagraphs.indices) {
+            val pLen = oldParagraphs[i].text.length
+            if (editOffset <= accumulated + pLen) {
+                editParaIndex = i
+                break
+            }
+            accumulated += pLen + 1
+        }
+
+        val deltaLines = newLines.size - oldParagraphs.size
+        val result = mutableListOf<ParagraphBlock>()
+
+        if (deltaLines > 0) {
+            // Newlines inserted (e.g. Enter pressed)
+            for (i in 0 until editParaIndex) {
+                val lineText = newLines.getOrElse(i) { oldParagraphs[i].text }
+                result.add(oldParagraphs[i].copy(text = lineText))
+            }
+
+            val sourceP = oldParagraphs[editParaIndex]
+            val firstLineText = newLines.getOrElse(editParaIndex) { sourceP.text }
+            result.add(sourceP.copy(text = firstLineText))
+
+            for (d in 1..deltaLines) {
+                val newLineIndex = editParaIndex + d
+                val newLineText = newLines.getOrElse(newLineIndex) { "" }
+                result.add(
+                    ParagraphBlock(
+                        text = newLineText,
+                        alignment = sourceP.alignment,
+                        isRtl = sourceP.isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(newLineText),
+                        lineSpacingMultiplier = sourceP.lineSpacingMultiplier
+                    )
+                )
+            }
+
+            for (i in (editParaIndex + 1) until oldParagraphs.size) {
+                val targetLineIndex = i + deltaLines
+                val lineText = newLines.getOrElse(targetLineIndex) { oldParagraphs[i].text }
+                result.add(oldParagraphs[i].copy(text = lineText))
+            }
+        } else {
+            // Newlines deleted (e.g. Backspace merged lines)
+            for (i in 0 until editParaIndex) {
+                val lineText = newLines.getOrElse(i) { oldParagraphs[i].text }
+                result.add(oldParagraphs[i].copy(text = lineText))
+            }
+
+            val sourceP = oldParagraphs[editParaIndex]
+            val mergedText = newLines.getOrElse(editParaIndex) { sourceP.text }
+            result.add(sourceP.copy(text = mergedText))
+
+            val deletedCount = -deltaLines
+            for (i in (editParaIndex + 1 + deletedCount) until oldParagraphs.size) {
+                val targetLineIndex = i - deletedCount
+                if (targetLineIndex in newLines.indices) {
+                    val lineText = newLines[targetLineIndex]
+                    result.add(oldParagraphs[i].copy(text = lineText))
+                }
+            }
+
+            while (result.size < newLines.size) {
+                val idx = result.size
+                result.add(ParagraphBlock(text = newLines[idx]))
+            }
+        }
+
+        return if (result.isEmpty()) listOf(ParagraphBlock()) else result
+    }
+
 
     /**
      * Seamless backspace handling: when cursor is at the beginning of a block
@@ -613,15 +750,33 @@ class EditorViewModel(
 
     fun setAlignment(alignment: TextAlignment) {
         val currentDoc = _document.value ?: return
-        val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+        val sel = _selection.value
+        val targetIndices = findParagraphBlockIndicesForRange(currentDoc.blocks, sel.min, sel.max)
 
-        executeCommand(
-            ChangeAlignmentCommand(
-                blockId = block.id,
-                oldAlignment = block.alignment,
-                newAlignment = alignment
+        if (targetIndices.size <= 1) {
+            val targetIdx = targetIndices.firstOrNull() ?: _activeBlockIndex.value
+            val block = currentDoc.blocks.getOrNull(targetIdx) as? ParagraphBlock ?: return
+
+            executeCommand(
+                ChangeAlignmentCommand(
+                    blockId = block.id,
+                    oldAlignment = block.alignment,
+                    newAlignment = alignment
+                )
             )
-        )
+        } else {
+            val affectedBlocks = targetIndices.mapNotNull { idx ->
+                currentDoc.blocks.getOrNull(idx) as? ParagraphBlock
+            }
+            val oldMap = affectedBlocks.associate { it.id to it.alignment }
+            executeCommand(
+                ChangeMultipleParagraphsAlignmentCommand(
+                    blockIds = affectedBlocks.map { it.id },
+                    oldAlignments = oldMap,
+                    newAlignment = alignment
+                )
+            )
+        }
     }
 
     fun setHeadingStyle(heading: HeadingStyle) {
