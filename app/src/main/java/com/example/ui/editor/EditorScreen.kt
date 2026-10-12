@@ -115,6 +115,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -591,6 +596,8 @@ fun EditorScreen(
                         onInsertParagraph = viewModel::insertParagraph,
                         onDeleteCurrentBlock = viewModel::deleteCurrentBlock,
                         onDeleteBlockById = viewModel::deleteBlockById,
+                        onUpdateUnifiedText = { text, sel -> viewModel.updateUnifiedDocumentText(text, sel) },
+                        onDeleteOrMergeWithPrevious = { index -> viewModel.deleteOrMergeWithPrevious(index) },
                         onEditTableProperties = { table -> selectedTableForProperties = table },
                         onEditTableCell = { table, r, c -> selectedCellForEdit = Triple(table, r, c) },
                         onQuickAddTableRow = { id -> viewModel.addTableRow(id) },
@@ -1656,6 +1663,8 @@ fun DocumentCanvas(
     onInsertParagraph: () -> Unit,
     onDeleteCurrentBlock: () -> Unit,
     onDeleteBlockById: (String) -> Unit = {},
+    onUpdateUnifiedText: (String, TextRange) -> Unit = { _, _ -> },
+    onDeleteOrMergeWithPrevious: (Int) -> Unit = {},
     onEditTableProperties: (TableBlock) -> Unit = {},
     onEditTableCell: (TableBlock, Int, Int) -> Unit = { _, _, _ -> },
     onQuickAddTableRow: (String) -> Unit = {},
@@ -1779,65 +1788,76 @@ fun DocumentCanvas(
                         }
 
                         // Content items on this page
-                        page.items.forEach { pageItem ->
-                            when (pageItem) {
-                                is com.example.core.layout.ParagraphPageItem -> {
-                                    val block = pageItem.originalBlock
-                                    val isSplitSlice = pageItem.startChar > 0 || (pageItem.endChar > 0 && pageItem.endChar < block.text.length)
-                                    val sliceStart = if (isSplitSlice) pageItem.startChar.coerceIn(0, block.text.length) else 0
-                                    val sliceEnd = if (isSplitSlice) pageItem.endChar.coerceIn(sliceStart, block.text.length) else block.text.length
+                        val isSinglePagePureText = pagesToDisplay.size <= 1 && page.items.all { it is com.example.core.layout.ParagraphPageItem }
+                        if (isSinglePagePureText) {
+                            UnifiedTextCanvas(
+                                document = document,
+                                zoomScale = zoomScale,
+                                isDarkPage = isDarkPage,
+                                onSelectionChanged = onSelectionChanged,
+                                onUpdateUnifiedText = onUpdateUnifiedText
+                            )
+                        } else {
+                            page.items.forEach { pageItem ->
+                                when (pageItem) {
+                                    is com.example.core.layout.ParagraphPageItem -> {
+                                        val block = pageItem.originalBlock
+                                        val isSplitSlice = pageItem.startChar > 0 || (pageItem.endChar > 0 && pageItem.endChar < block.text.length)
+                                        val sliceStart = if (isSplitSlice) pageItem.startChar.coerceIn(0, block.text.length) else 0
+                                        val sliceEnd = if (isSplitSlice) pageItem.endChar.coerceIn(sliceStart, block.text.length) else block.text.length
 
-                                    val displayBlock = remember(block, isSplitSlice, sliceStart, sliceEnd) {
-                                        if (isSplitSlice) {
-                                            val subSpans = block.spans.mapNotNull { span ->
-                                                val spStart = (span.start - sliceStart).coerceAtLeast(0)
-                                                val spEnd = (span.end - sliceStart).coerceAtMost(sliceEnd - sliceStart)
-                                                if (spStart < spEnd) span.copy(start = spStart, end = spEnd) else null
-                                            }
-                                            block.copy(
-                                                text = block.text.substring(sliceStart, sliceEnd),
-                                                spans = subSpans,
-                                                listType = if (pageItem.isContinuation) ListType.NONE else block.listType
-                                            )
-                                        } else {
-                                            block
-                                        }
-                                    }
-
-                                    val itemNumber = if (!pageItem.isContinuation && block.listType == ListType.NUMBERED) {
-                                        globalListNumbers[pageItem.originalBlockIndex] ?: 1
-                                    } else {
-                                        null
-                                    }
-
-                                    BlockItemView(
-                                        block = displayBlock,
-                                        itemNumber = itemNumber,
-                                        isActive = pageItem.originalBlockIndex == activeBlockIndex,
-                                        isDarkPage = isDarkPage,
-                                        zoomScale = zoomScale,
-                                        canDeleteBlock = document.blocks.size > 1,
-                                        onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
-                                        onSelectionChanged = { sel ->
-                                            onSelectionChanged(
-                                                TextRange(
-                                                    (sliceStart + sel.start).coerceIn(0, block.text.length),
-                                                    (sliceStart + sel.end).coerceIn(0, block.text.length)
-                                                )
-                                            )
-                                        },
-                                        onTextChanged = { newText, sel ->
+                                        val displayBlock = remember(block, isSplitSlice, sliceStart, sliceEnd) {
                                             if (isSplitSlice) {
-                                                onUpdateSubSliceText(pageItem.originalBlockIndex, sliceStart, sliceEnd, newText, sel)
+                                                val subSpans = block.spans.mapNotNull { span ->
+                                                    val spStart = (span.start - sliceStart).coerceAtLeast(0)
+                                                    val spEnd = (span.end - sliceStart).coerceAtMost(sliceEnd - sliceStart)
+                                                    if (spStart < spEnd) span.copy(start = spStart, end = spEnd) else null
+                                                }
+                                                block.copy(
+                                                    text = block.text.substring(sliceStart, sliceEnd),
+                                                    spans = subSpans,
+                                                    listType = if (pageItem.isContinuation) ListType.NONE else block.listType
+                                                )
                                             } else {
-                                                onUpdateBlockText(pageItem.originalBlockIndex, newText, sel)
+                                                block
                                             }
-                                        },
-                                        onEnterPressed = onInsertParagraph,
-                                        onDeleteBlock = { onDeleteBlockById(block.id) }
-                                    )
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                }
+                                        }
+
+                                        val itemNumber = if (!pageItem.isContinuation && block.listType == ListType.NUMBERED) {
+                                            globalListNumbers[pageItem.originalBlockIndex] ?: 1
+                                        } else {
+                                            null
+                                        }
+
+                                        BlockItemView(
+                                            block = displayBlock,
+                                            itemNumber = itemNumber,
+                                            isActive = pageItem.originalBlockIndex == activeBlockIndex,
+                                            isDarkPage = isDarkPage,
+                                            zoomScale = zoomScale,
+                                            canDeleteBlock = document.blocks.size > 1,
+                                            onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                            onSelectionChanged = { sel ->
+                                                onSelectionChanged(
+                                                    TextRange(
+                                                        (sliceStart + sel.start).coerceIn(0, block.text.length),
+                                                        (sliceStart + sel.end).coerceIn(0, block.text.length)
+                                                    )
+                                                )
+                                            },
+                                            onTextChanged = { newText, sel ->
+                                                if (isSplitSlice) {
+                                                    onUpdateSubSliceText(pageItem.originalBlockIndex, sliceStart, sliceEnd, newText, sel)
+                                                } else {
+                                                    onUpdateBlockText(pageItem.originalBlockIndex, newText, sel)
+                                                }
+                                            },
+                                            onEnterPressed = onInsertParagraph,
+                                            onDeleteBlock = { onDeleteBlockById(block.id) },
+                                            onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(pageItem.originalBlockIndex) }
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                    }
 
                                 is com.example.core.layout.TablePageItem -> {
                                     TableBlockView(
@@ -1979,34 +1999,46 @@ fun DocumentCanvas(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    document.blocks.forEachIndexed { index, block ->
-                        val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
-                            globalListNumbers[index] ?: 1
-                        } else {
-                            null
-                        }
-
-                        BlockItemView(
-                            block = block,
-                            itemNumber = itemNumber,
-                            isActive = index == activeBlockIndex,
-                            isDarkPage = isDarkPage,
+                    val hasOnlyParagraphs = document.blocks.all { it is ParagraphBlock }
+                    if (hasOnlyParagraphs) {
+                        UnifiedTextCanvas(
+                            document = document,
                             zoomScale = zoomScale,
-                            canDeleteBlock = document.blocks.size > 1,
-                            onFocus = { onBlockSelected(index) },
+                            isDarkPage = isDarkPage,
                             onSelectionChanged = onSelectionChanged,
-                            onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
-                            onEnterPressed = onInsertParagraph,
-                            onDeleteBlock = { onDeleteBlockById(block.id) },
-                            onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
-                            onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
-                            onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
-                            onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
-                            onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
-                            onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
-                            onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) }
+                            onUpdateUnifiedText = onUpdateUnifiedText
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                    } else {
+                        document.blocks.forEachIndexed { index, block ->
+                            val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
+                                globalListNumbers[index] ?: 1
+                            } else {
+                                null
+                            }
+
+                            BlockItemView(
+                                block = block,
+                                itemNumber = itemNumber,
+                                isActive = index == activeBlockIndex,
+                                isDarkPage = isDarkPage,
+                                zoomScale = zoomScale,
+                                canDeleteBlock = document.blocks.size > 1,
+                                onFocus = { onBlockSelected(index) },
+                                onSelectionChanged = onSelectionChanged,
+                                onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
+                                onEnterPressed = onInsertParagraph,
+                                onDeleteBlock = { onDeleteBlockById(block.id) },
+                                onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(index) },
+                                onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
+                                onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
+                                onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
+                                onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
+                                onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
+                                onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
+                                onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
             }
@@ -2350,6 +2382,129 @@ fun ImageBlockView(
     }
 }
 
+/**
+ * Unified Text Canvas:
+ * Provides a clean, distraction-free, paper-native continuous writing canvas without
+ * separated block boundaries. Users can type fluidly with Enter creating new lines,
+ * and can delete all text down to an empty clean canvas using Backspace.
+ */
+@Composable
+fun UnifiedTextCanvas(
+    document: RichDocument,
+    zoomScale: Float = 1f,
+    isDarkPage: Boolean = false,
+    onSelectionChanged: (TextRange) -> Unit = {},
+    onUpdateUnifiedText: (String, TextRange) -> Unit = { _, _ -> },
+    modifier: Modifier = Modifier
+) {
+    val firstParagraph = document.blocks.firstOrNull() as? ParagraphBlock ?: ParagraphBlock()
+    val fullText = remember(document.blocks) {
+        document.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
+    }
+
+    var textFieldValue by remember(document.id) {
+        mutableStateOf(TextFieldValue(text = fullText, selection = TextRange(fullText.length)))
+    }
+
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(document.id) {
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
+    LaunchedEffect(fullText) {
+        if (textFieldValue.text != fullText) {
+            val safeStart = textFieldValue.selection.start.coerceIn(0, fullText.length)
+            val safeEnd = textFieldValue.selection.end.coerceIn(0, fullText.length)
+            textFieldValue = textFieldValue.copy(
+                text = fullText,
+                selection = TextRange(safeStart, safeEnd)
+            )
+        }
+    }
+
+    val unscaledFontSize = when (firstParagraph.headingStyle) {
+        HeadingStyle.TITLE -> 26f
+        HeadingStyle.SUBTITLE -> 18f
+        HeadingStyle.HEADING_1 -> 22f
+        HeadingStyle.HEADING_2 -> 18f
+        HeadingStyle.HEADING_3 -> 16f
+        HeadingStyle.QUOTE -> 15f
+        HeadingStyle.NORMAL -> 15f
+    }
+    val baseFontSize = (unscaledFontSize * zoomScale).sp
+
+    val defaultTextColor = when {
+        firstParagraph.headingStyle == HeadingStyle.TITLE || firstParagraph.headingStyle == HeadingStyle.HEADING_1 ->
+            if (isDarkPage) Color(0xFF60A5FA) else WordPrimary
+        isDarkPage -> Color(0xFFF8FAFC)
+        else -> Color(0xFF1E293B)
+    }
+
+    val align = when (firstParagraph.alignment) {
+        TextAlignment.CENTER -> TextAlign.Center
+        TextAlignment.END -> TextAlign.End
+        TextAlignment.JUSTIFY -> TextAlign.Justify
+        TextAlignment.START -> TextAlign.Start
+    }
+
+    val isRtl = firstParagraph.isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(fullText)
+    val textDirection = if (isRtl) TextDirection.Rtl else TextDirection.Ltr
+
+    val effectiveFontFamily = com.example.core.typography.DocumentFontManager.getFontFamily(
+        fontName = firstParagraph.spans.firstOrNull { it.fontFamilyName != null }?.fontFamilyName,
+        isRtl = isRtl
+    )
+
+    val richTransformation = remember(fullText, firstParagraph.spans, firstParagraph.headingStyle, isRtl) {
+        VisualTransformation { _ ->
+            val synthesizedBlock = firstParagraph.copy(text = fullText, isRtl = isRtl)
+            val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedParagraph(synthesizedBlock)
+            TransformedText(annotated, OffsetMapping.Identity)
+        }
+    }
+
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalLayoutDirection provides (if (isRtl) androidx.compose.ui.unit.LayoutDirection.Rtl else androidx.compose.ui.unit.LayoutDirection.Ltr)
+    ) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        ) {
+            BasicTextField(
+                value = textFieldValue,
+                onValueChange = { newTfv ->
+                    textFieldValue = newTfv
+                    onSelectionChanged(newTfv.selection)
+                    if (newTfv.text != fullText) {
+                        onUpdateUnifiedText(newTfv.text, newTfv.selection)
+                    }
+                },
+                visualTransformation = richTransformation,
+                textStyle = TextStyle(
+                    fontSize = baseFontSize,
+                    fontFamily = effectiveFontFamily,
+                    fontWeight = if (firstParagraph.headingStyle.isBold) FontWeight.Bold else FontWeight.Normal,
+                    fontStyle = if (firstParagraph.headingStyle == HeadingStyle.QUOTE) FontStyle.Italic else FontStyle.Normal,
+                    color = defaultTextColor,
+                    textAlign = align,
+                    textDirection = textDirection,
+                    lineHeight = baseFontSize * (if (isRtl) firstParagraph.lineSpacingMultiplier.coerceAtLeast(1.4f) else firstParagraph.lineSpacingMultiplier)
+                ),
+                cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .testTag("unified_text_canvas")
+                    .testTag("paragraph_input_${firstParagraph.id}")
+            )
+        }
+    }
+}
+
 @Composable
 fun BlockItemView(
     block: BlockElement,
@@ -2363,6 +2518,7 @@ fun BlockItemView(
     onTextChanged: (String, TextRange) -> Unit,
     onEnterPressed: () -> Unit,
     onDeleteBlock: () -> Unit = {},
+    onDeleteOrMergeWithPrevious: () -> Unit = {},
     onEditTableProperties: () -> Unit = {},
     onEditTableCell: (Int, Int) -> Unit = { _, _ -> },
     onAddTableRow: () -> Unit = {},
@@ -2509,6 +2665,18 @@ fun BlockItemView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequester)
+                                .onPreviewKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown && event.key == Key.Backspace) {
+                                        if (textFieldValue.selection.collapsed && textFieldValue.selection.start == 0) {
+                                            onDeleteOrMergeWithPrevious()
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    } else {
+                                        false
+                                    }
+                                }
                                 .onFocusChanged { focusState ->
                                     if (focusState.isFocused) {
                                         onFocus()

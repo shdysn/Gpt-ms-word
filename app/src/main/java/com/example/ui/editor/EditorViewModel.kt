@@ -383,6 +383,122 @@ class EditorViewModel(
         _selection.value = newSelection
     }
 
+    /**
+     * Unified Text Canvas editing handler: updates the full continuous document text,
+     * allowing characters to be added or deleted smoothly across the entire page.
+     * When newFullText is empty (e.g. user backspaces everything), all text is wiped out
+     * leaving a clean single blank paragraph with blinking cursor.
+     */
+    fun updateUnifiedDocumentText(
+        newFullText: String,
+        newSelection: androidx.compose.ui.text.TextRange = androidx.compose.ui.text.TextRange(newFullText.length)
+    ) {
+        val currentDoc = _document.value ?: return
+
+        // If the user deleted all text via backspace or select-all + backspace:
+        if (newFullText.isEmpty()) {
+            val emptyBlock = ParagraphBlock(
+                text = "",
+                spans = emptyList(),
+                alignment = if (defaultRtl.value) TextAlignment.END else TextAlignment.START,
+                isRtl = defaultRtl.value
+            )
+            val updatedDoc = currentDoc.copy(
+                blocks = listOf(emptyBlock),
+                updatedAt = System.currentTimeMillis()
+            )
+            _document.value = updatedDoc
+            _activeBlockIndex.value = 0
+            _selection.value = androidx.compose.ui.text.TextRange.Zero
+            scheduleDocumentAutosave()
+            return
+        }
+
+        val firstBlock = currentDoc.blocks.firstOrNull() as? ParagraphBlock ?: ParagraphBlock()
+        val oldFullText = currentDoc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
+        if (oldFullText == newFullText && currentDoc.blocks.size == 1) {
+            _selection.value = newSelection
+            return
+        }
+
+        val (editOffset, deletedLen, insertedLen) = calculateEditDelta(firstBlock.text, newFullText)
+        val newSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+            spans = firstBlock.spans,
+            editOffset = editOffset,
+            deletedLength = deletedLen,
+            insertedLength = insertedLen,
+            pendingFormatting = if (insertedLen > 0) _pendingFormatting.value else null
+        )
+
+        val autoRtl = if (firstBlock.text.isBlank() && !firstBlock.isRtl && com.example.core.typography.BidiUtils.detectParagraphIsRtl(newFullText)) true else null
+
+        val nonParagraphBlocks = currentDoc.blocks.filter { it !is ParagraphBlock }
+        val updatedParagraph = firstBlock.copy(
+            text = newFullText,
+            spans = newSpans,
+            isRtl = autoRtl ?: firstBlock.isRtl
+        )
+        val newBlocks = if (nonParagraphBlocks.isEmpty()) {
+            listOf(updatedParagraph)
+        } else {
+            listOf(updatedParagraph) + nonParagraphBlocks
+        }
+
+        val updatedDoc = currentDoc.copy(
+            blocks = newBlocks,
+            updatedAt = System.currentTimeMillis()
+        )
+        _document.value = updatedDoc
+        _activeBlockIndex.value = 0
+        _selection.value = newSelection
+        scheduleDocumentAutosave()
+    }
+
+    /**
+     * Seamless backspace handling: when cursor is at the beginning of a block
+     * or on an empty block, merges it with the preceding block or deletes it,
+     * ensuring backspace can traverse and delete the entire document without getting stuck.
+     */
+    fun deleteOrMergeWithPrevious(blockIndex: Int) {
+        val currentDoc = _document.value ?: return
+        if (blockIndex <= 0) {
+            val firstBlock = currentDoc.blocks.firstOrNull() as? ParagraphBlock ?: return
+            if (firstBlock.text.isNotEmpty()) {
+                updateParagraphText(0, "", androidx.compose.ui.text.TextRange.Zero)
+            }
+            return
+        }
+
+        val currentBlock = currentDoc.blocks.getOrNull(blockIndex) as? ParagraphBlock ?: return
+        val prevBlock = currentDoc.blocks.getOrNull(blockIndex - 1) as? ParagraphBlock
+
+        if (prevBlock != null) {
+            val prevText = prevBlock.text
+            val mergedText = prevText + currentBlock.text
+            val joinPosition = prevText.length
+
+            val shiftedCurrentSpans = currentBlock.spans.map { span ->
+                span.copy(start = span.start + joinPosition, end = span.end + joinPosition)
+            }
+            val mergedSpans = prevBlock.spans + shiftedCurrentSpans
+
+            val updatedPrev = prevBlock.copy(text = mergedText, spans = mergedSpans)
+            val newBlocks = currentDoc.blocks.toMutableList()
+            newBlocks[blockIndex - 1] = updatedPrev
+            newBlocks.removeAt(blockIndex)
+
+            _document.value = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+            _activeBlockIndex.value = blockIndex - 1
+            _selection.value = androidx.compose.ui.text.TextRange(joinPosition)
+            scheduleDocumentAutosave()
+        } else {
+            if (currentDoc.blocks.size > 1) {
+                deleteCurrentBlock()
+            }
+        }
+    }
+
+
     private fun calculateEditDelta(oldText: String, newText: String): Triple<Int, Int, Int> {
         var start = 0
         while (start < oldText.length && start < newText.length && oldText[start] == newText[start]) {
