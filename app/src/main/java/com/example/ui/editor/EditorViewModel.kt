@@ -533,7 +533,13 @@ class EditorViewModel(
             spans = spans2,
             alignment = block.alignment,
             isRtl = block.isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(text2),
-            headingStyle = if (block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.SUBTITLE) HeadingStyle.NORMAL else block.headingStyle,
+            headingStyle = if (cursor >= block.text.length && block.headingStyle != HeadingStyle.NORMAL) {
+                HeadingStyle.NORMAL
+            } else if (block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.SUBTITLE) {
+                HeadingStyle.NORMAL
+            } else {
+                block.headingStyle
+            },
             listType = if (block.listType == ListType.NUMBERED) ListType.NUMBERED else ListType.NONE,
             lineSpacingMultiplier = block.lineSpacingMultiplier
         )

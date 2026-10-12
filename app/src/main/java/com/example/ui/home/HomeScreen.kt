@@ -135,6 +135,12 @@ fun HomeScreen(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         uri?.let {
+            try {
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, takeFlags)
+            } catch (e: Exception) {
+                // Safely ignored if provider does not support persistent grant
+            }
             viewModel.importDocument(context, it) { docId ->
                 onNavigateToEditor(docId)
             }
@@ -460,6 +466,10 @@ fun HomeScreen(
                     EmptyDocumentsView(
                         isSearching = searchQuery.isNotBlank(),
                         activeFilter = activeFilter,
+                        onClearFilter = {
+                            viewModel.onSearchQueryChanged("")
+                            viewModel.onFilterChanged(HomeFilter.ALL)
+                        },
                         onCreateClick = {
                             viewModel.createDocument("Untitled Document", TemplateType.BLANK) {
                                 onNavigateToEditor(it)
@@ -1156,6 +1166,7 @@ fun DocumentGridCard(
 fun EmptyDocumentsView(
     isSearching: Boolean,
     activeFilter: HomeFilter = HomeFilter.ALL,
+    onClearFilter: () -> Unit = {},
     onCreateClick: () -> Unit
 ) {
     Column(
@@ -1210,15 +1221,23 @@ fun EmptyDocumentsView(
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        if (!isSearching && activeFilter != HomeFilter.PINNED) {
-            Spacer(modifier = Modifier.height(18.dp))
-            Button(
-                onClick = onCreateClick,
-                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("New Document")
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (isSearching || activeFilter != HomeFilter.ALL) {
+                OutlinedButton(onClick = onClearFilter) {
+                    Text("Clear Filter & Show All")
+                }
+            }
+            if (!isSearching && activeFilter != HomeFilter.PINNED) {
+                Button(
+                    onClick = onCreateClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("New Document")
+                }
             }
         }
     }

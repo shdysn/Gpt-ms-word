@@ -25,6 +25,11 @@ class PreferencesManager(private val context: Context) {
         val KEY_SHOW_RULER = booleanPreferencesKey("show_ruler")
         val KEY_SHOW_WORD_COUNT = booleanPreferencesKey("show_word_count")
         val KEY_DEFAULT_RTL = booleanPreferencesKey("default_rtl")
+        val KEY_SORT_ORDER = stringPreferencesKey("sort_order")
+    }
+
+    val sortOrder: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[KEY_SORT_ORDER] ?: "MODIFIED_DESC"
     }
 
     val isAutosaveEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -65,5 +70,9 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setDefaultRtl(isRtl: Boolean) {
         context.dataStore.edit { it[KEY_DEFAULT_RTL] = isRtl }
+    }
+
+    suspend fun setSortOrder(order: String) {
+        context.dataStore.edit { it[KEY_SORT_ORDER] = order }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,12 +41,20 @@ import com.example.data.model.TableCell
 import com.example.data.model.TextAlignment
 import com.example.data.model.RichDocument
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
@@ -80,49 +89,203 @@ fun InsertTableDialog(
     var hasBorders by remember { mutableStateOf(true) }
     var selectedWidthPercent by remember { mutableStateOf(100) }
 
+    val rowsInt = rowsText.toIntOrNull() ?: 3
+    val colsInt = colsText.toIntOrNull() ?: 3
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Insert Table") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Specify table dimensions and styling:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = rowsText,
-                    onValueChange = { rowsText = it },
-                    label = { Text("Number of Rows (1-10)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("table_rows_input")
-                )
-                OutlinedTextField(
-                    value = colsText,
-                    onValueChange = { colsText = it },
-                    label = { Text("Number of Columns (1-6)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("table_cols_input")
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { hasBorders = !hasBorders }
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = WordPrimary.copy(alpha = 0.12f),
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    Checkbox(
-                        checked = hasBorders,
-                        onCheckedChange = { hasBorders = it },
-                        modifier = Modifier.testTag("table_borders_checkbox")
-                    )
-                    Text("Include table borders", fontSize = 13.sp)
-                }
-                Text("Table Width:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(50, 75, 100).forEach { w ->
-                        FilterChip(
-                            selected = selectedWidthPercent == w,
-                            onClick = { selectedWidthPercent = w },
-                            label = { Text("$w%", fontSize = 11.sp) }
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.TableChart,
+                            contentDescription = null,
+                            tint = WordPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text("Insert Table", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Customize grid dimensions & width", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Dimensions section with stepper buttons
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Dimensions", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+
+                        // Rows Stepper & Input
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Rows (1–10)", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                Text("Current: $rowsInt", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clickable {
+                                            val newR = (rowsInt - 1).coerceAtLeast(1)
+                                            rowsText = newR.toString()
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Remove, contentDescription = "Decrease rows", modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = rowsText,
+                                    onValueChange = { rowsText = it.filter { ch -> ch.isDigit() }.take(2) },
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    modifier = Modifier
+                                        .width(64.dp)
+                                        .padding(horizontal = 6.dp)
+                                        .testTag("table_rows_input")
+                                )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clickable {
+                                            val newR = (rowsInt + 1).coerceAtMost(10)
+                                            rowsText = newR.toString()
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Add, contentDescription = "Increase rows", modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        // Columns Stepper & Input
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Columns (1–6)", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                Text("Current: $colsInt", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clickable {
+                                            val newC = (colsInt - 1).coerceAtLeast(1)
+                                            colsText = newC.toString()
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Remove, contentDescription = "Decrease columns", modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = colsText,
+                                    onValueChange = { colsText = it.filter { ch -> ch.isDigit() }.take(1) },
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    modifier = Modifier
+                                        .width(64.dp)
+                                        .padding(horizontal = 6.dp)
+                                        .testTag("table_cols_input")
+                                )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clickable {
+                                            val newC = (colsInt + 1).coerceAtMost(6)
+                                            colsText = newC.toString()
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Add, contentDescription = "Increase columns", modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Table Width Options
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Table Width:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(50, 75, 100).forEach { w ->
+                            FilterChip(
+                                selected = selectedWidthPercent == w,
+                                onClick = { selectedWidthPercent = w },
+                                label = { Text("$w% Width", fontSize = 11.sp) }
+                            )
+                        }
+                    }
+                }
+
+                // Border Toggle Card
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { hasBorders = !hasBorders }
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Checkbox(
+                            checked = hasBorders,
+                            onCheckedChange = { hasBorders = it },
+                            modifier = Modifier.testTag("table_borders_checkbox")
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Column {
+                            Text("Include Table Grid Borders", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            Text("Draw subtle border grid lines between cells", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -135,9 +298,10 @@ fun InsertTableDialog(
                     onConfirm(r, c, hasBorders, selectedWidthPercent)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.testTag("confirm_insert_table")
             ) {
-                Text("Insert")
+                Text("Insert Table")
             }
         },
         dismissButton = {
@@ -149,6 +313,7 @@ fun InsertTableDialog(
 /**
  * Comprehensive Dialog for configuring page layout, paper size (A4, A5, Letter, Legal),
  * orientation, margins, page background, page borders, headers/footers, and page numbering.
+ * Designed with a modern, professional aesthetic and an interactive live paper preview.
  */
 @Composable
 fun PageLayoutDialog(
@@ -179,382 +344,596 @@ fun PageLayoutDialog(
     var pageNumberStart by remember { mutableStateOf(currentLayout.pageNumberStart) }
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabTitles = listOf("Page & Margins", "Appearance", "Header & Footer")
+    val tabTitles = listOf("Paper & Margins", "Appearance", "Header & Footer")
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column {
-                Text("Page Setup", style = MaterialTheme.typography.titleLarge)
-                Text(
-                    text = "${selectedPageSize.name} • ${selectedOrientation.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = WordPrimary.copy(alpha = 0.12f),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = WordPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Page Setup", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "${selectedPageSize.displayName.substringBefore(" (")} • ${selectedOrientation.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         text = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Interactive Live Paper Thumbnail Preview Card
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        val isPortrait = selectedOrientation == PageOrientation.PORTRAIT
+                        val paperWidth = if (isPortrait) 68.dp else 98.dp
+                        val paperHeight = if (isPortrait) 96.dp else 68.dp
+                        val bgColor = try { Color(android.graphics.Color.parseColor(pageBackgroundHex)) } catch (e: Exception) { Color.White }
+                        val bdrColor = try { Color(android.graphics.Color.parseColor(borderColorHex)) } catch (e: Exception) { Color(0xFFCBD5E1) }
+
+                        // Miniature Sheet
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = bgColor,
+                            shadowElevation = 3.dp,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (borderStyle != com.example.core.layout.PageBorderStyle.NONE) 1.5.dp else 0.5.dp,
+                                color = if (borderStyle != com.example.core.layout.PageBorderStyle.NONE) bdrColor else MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            modifier = Modifier.size(paperWidth, paperHeight)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(
+                                        top = (topMarginMm / 6f).dp.coerceIn(4.dp, 16.dp),
+                                        bottom = (bottomMarginMm / 6f).dp.coerceIn(4.dp, 16.dp),
+                                        start = (leftMarginMm / 6f).dp.coerceIn(4.dp, 16.dp),
+                                        end = (rightMarginMm / 6f).dp.coerceIn(4.dp, 16.dp)
+                                    )
+                                    .border(0.5.dp, WordPrimary.copy(alpha = 0.35f), RoundedCornerShape(2.dp))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(2.dp),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    if (showHeader) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.7f)
+                                                .height(2.dp)
+                                                .background(WordPrimary.copy(alpha = 0.5f))
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                    }
+                                    // Text mock line
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.9f)
+                                            .height(2.dp)
+                                            .background(Color.Gray.copy(alpha = 0.25f))
+                                    )
+                                    if (showFooter) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(0.5f)
+                                                .height(2.dp)
+                                                .background(WordPrimary.copy(alpha = 0.5f))
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "${selectedPageSize.displayName} • ${selectedMargins.displayName.substringBefore(" ")} Margins",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 // Section Tabs
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = WordPrimary
+                    contentColor = WordPrimary,
+                    divider = {},
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = WordPrimary,
+                            height = 2.5.dp
+                        )
+                    }
                 ) {
                     tabTitles.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = { Text(title, fontSize = 11.sp, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }
+                            text = {
+                                Text(
+                                    text = title,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selectedTab == index) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
                 when (selectedTab) {
                     0 -> {
-                        // Paper Size
-                        Text("Paper Size", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            listOf(PageSize.A4, PageSize.LETTER, PageSize.LEGAL, PageSize.A5, PageSize.EXECUTIVE).forEach { ps ->
-                                FilterChip(
-                                    selected = selectedPageSize == ps,
-                                    onClick = {
-                                        selectedPageSize = ps
-                                        onSaveConfig(
-                                            currentLayout.copy(
-                                                pageSize = ps,
-                                                orientation = selectedOrientation,
-                                                marginPreset = selectedMargins
+                        // Paper & Margins Section
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            // Orientation Cards
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Orientation", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    // Portrait Card
+                                    val isPortrait = selectedOrientation == PageOrientation.PORTRAIT
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isPortrait) WordPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            if (isPortrait) 1.5.dp else 0.5.dp,
+                                            if (isPortrait) WordPrimary else MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { selectedOrientation = PageOrientation.PORTRAIT }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(14.dp, 20.dp)
+                                                    .border(
+                                                        1.5.dp,
+                                                        if (isPortrait) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        RoundedCornerShape(2.dp)
+                                                    )
                                             )
-                                        )
-                                    },
-                                    label = { Text(ps.displayName.substringBefore(" ("), fontSize = 11.sp, fontWeight = if (selectedPageSize == ps) FontWeight.Bold else FontWeight.Normal) }
-                                )
-                            }
-                        }
-
-                        // Dimension Details Card for Selected Size
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(
-                                    text = "Selected: ${selectedPageSize.displayName}",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Dimensions: ${selectedPageSize.fullDimensionsText(selectedOrientation)}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Print Points (72 DPI): ${if (selectedOrientation == PageOrientation.PORTRAIT) selectedPageSize.widthPt else selectedPageSize.heightPt} × ${if (selectedOrientation == PageOrientation.PORTRAIT) selectedPageSize.heightPt else selectedPageSize.widthPt} pt",
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Orientation
-                        Text("Orientation", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(PageOrientation.PORTRAIT, PageOrientation.LANDSCAPE).forEach { po ->
-                                FilterChip(
-                                    selected = selectedOrientation == po,
-                                    onClick = {
-                                        selectedOrientation = po
-                                        onSaveConfig(
-                                            currentLayout.copy(
-                                                pageSize = selectedPageSize,
-                                                orientation = po,
-                                                marginPreset = selectedMargins
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = "Portrait",
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isPortrait) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isPortrait) WordPrimary else MaterialTheme.colorScheme.onSurface
                                             )
-                                        )
-                                    },
-                                    label = { Text(po.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 11.sp) }
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Margins Presets
-                        Text("Margins Preset", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            listOf(MarginPreset.NORMAL, MarginPreset.NARROW, MarginPreset.MODERATE, MarginPreset.WIDE, MarginPreset.CUSTOM).forEach { mp ->
-                                FilterChip(
-                                    selected = selectedMargins == mp,
-                                    onClick = {
-                                        selectedMargins = mp
-                                        if (mp != MarginPreset.CUSTOM) {
-                                            topMarginMm = mp.topMm
-                                            bottomMarginMm = mp.bottomMm
-                                            leftMarginMm = mp.leftMm
-                                            rightMarginMm = mp.rightMm
                                         }
-                                    },
-                                    label = { Text(mp.displayName.split(" ")[0], fontSize = 11.sp) }
-                                )
-                            }
-                        }
+                                    }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // Margin dimension inputs / sliders
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Top: ${topMarginMm.toInt()} mm", fontSize = 11.sp, color = Color.Gray)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            topMarginMm = (topMarginMm - 5f).coerceAtLeast(5f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("-", fontSize = 12.sp) }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            topMarginMm = (topMarginMm + 5f).coerceAtMost(60f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("+", fontSize = 12.sp) }
+                                    // Landscape Card
+                                    val isLandscape = selectedOrientation == PageOrientation.LANDSCAPE
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isLandscape) WordPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            if (isLandscape) 1.5.dp else 0.5.dp,
+                                            if (isLandscape) WordPrimary else MaterialTheme.colorScheme.outlineVariant
+                                        ),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { selectedOrientation = PageOrientation.LANDSCAPE }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp, 14.dp)
+                                                    .border(
+                                                        1.5.dp,
+                                                        if (isLandscape) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        RoundedCornerShape(2.dp)
+                                                    )
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = "Landscape",
+                                                fontSize = 12.sp,
+                                                fontWeight = if (isLandscape) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isLandscape) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
                                 }
                             }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Bottom: ${bottomMarginMm.toInt()} mm", fontSize = 11.sp, color = Color.Gray)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            bottomMarginMm = (bottomMarginMm - 5f).coerceAtLeast(5f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("-", fontSize = 12.sp) }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            bottomMarginMm = (bottomMarginMm + 5f).coerceAtMost(60f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("+", fontSize = 12.sp) }
+
+                            // Paper Size Selector
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Paper Size", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(PageSize.A4, PageSize.LETTER, PageSize.LEGAL, PageSize.A5, PageSize.EXECUTIVE).forEach { ps ->
+                                        val isSelected = selectedPageSize == ps
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = if (isSelected) WordPrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                if (isSelected) 1.dp else 0.5.dp,
+                                                if (isSelected) WordPrimary else MaterialTheme.colorScheme.outlineVariant
+                                            ),
+                                            modifier = Modifier.clickable { selectedPageSize = ps }
+                                        ) {
+                                            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)) {
+                                                Text(
+                                                    text = ps.name,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                    color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                                )
+                                                Text(
+                                                    text = "${ps.widthMm.toInt()}×${ps.heightMm.toInt()} mm",
+                                                    fontSize = 10.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Left: ${leftMarginMm.toInt()} mm", fontSize = 11.sp, color = Color.Gray)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            leftMarginMm = (leftMarginMm - 5f).coerceAtLeast(5f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("-", fontSize = 12.sp) }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            leftMarginMm = (leftMarginMm + 5f).coerceAtMost(60f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("+", fontSize = 12.sp) }
+
+                            // Margins Presets
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Margins Preset", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    listOf(MarginPreset.NORMAL, MarginPreset.NARROW, MarginPreset.MODERATE, MarginPreset.WIDE, MarginPreset.CUSTOM).forEach { mp ->
+                                        val isSelected = selectedMargins == mp
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                selectedMargins = mp
+                                                if (mp != MarginPreset.CUSTOM) {
+                                                    topMarginMm = mp.topMm
+                                                    bottomMarginMm = mp.bottomMm
+                                                    leftMarginMm = mp.leftMm
+                                                    rightMarginMm = mp.rightMm
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    text = mp.displayName.substringBefore(" ("),
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Right: ${rightMarginMm.toInt()} mm", fontSize = 11.sp, color = Color.Gray)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            rightMarginMm = (rightMarginMm - 5f).coerceAtLeast(5f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("-", fontSize = 12.sp) }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Button(
-                                        onClick = {
-                                            selectedMargins = MarginPreset.CUSTOM
-                                            rightMarginMm = (rightMarginMm + 5f).coerceAtMost(60f)
-                                        },
-                                        contentPadding = PaddingValues(4.dp),
-                                        modifier = Modifier.size(28.dp)
-                                    ) { Text("+", fontSize = 12.sp) }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                // Margin Steppers Card
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Text("Margin Dimensions (mm)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            // Top Margin Stepper
+                                            MarginStepperItem(
+                                                label = "Top",
+                                                valueMm = topMarginMm,
+                                                modifier = Modifier.weight(1f),
+                                                onMinus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    topMarginMm = (topMarginMm - 5f).coerceAtLeast(5f)
+                                                },
+                                                onPlus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    topMarginMm = (topMarginMm + 5f).coerceAtMost(60f)
+                                                }
+                                            )
+                                            // Bottom Margin Stepper
+                                            MarginStepperItem(
+                                                label = "Bottom",
+                                                valueMm = bottomMarginMm,
+                                                modifier = Modifier.weight(1f),
+                                                onMinus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    bottomMarginMm = (bottomMarginMm - 5f).coerceAtLeast(5f)
+                                                },
+                                                onPlus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    bottomMarginMm = (bottomMarginMm + 5f).coerceAtMost(60f)
+                                                }
+                                            )
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            // Left Margin Stepper
+                                            MarginStepperItem(
+                                                label = "Left",
+                                                valueMm = leftMarginMm,
+                                                modifier = Modifier.weight(1f),
+                                                onMinus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    leftMarginMm = (leftMarginMm - 5f).coerceAtLeast(5f)
+                                                },
+                                                onPlus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    leftMarginMm = (leftMarginMm + 5f).coerceAtMost(60f)
+                                                }
+                                            )
+                                            // Right Margin Stepper
+                                            MarginStepperItem(
+                                                label = "Right",
+                                                valueMm = rightMarginMm,
+                                                modifier = Modifier.weight(1f),
+                                                onMinus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    rightMarginMm = (rightMarginMm - 5f).coerceAtLeast(5f)
+                                                },
+                                                onPlus = {
+                                                    selectedMargins = MarginPreset.CUSTOM
+                                                    rightMarginMm = (rightMarginMm + 5f).coerceAtMost(60f)
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
                     1 -> {
-                        // Background Colors
-                        Text("Page Background", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            com.example.core.layout.PageBackgroundPreset.entries.forEach { bg ->
-                                val color = try { Color(android.graphics.Color.parseColor(bg.colorHex)) } catch (e: Exception) { Color.White }
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.clickable { pageBackgroundHex = bg.colorHex }
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(color)
-                                            .border(
-                                                width = if (pageBackgroundHex.equals(bg.colorHex, ignoreCase = true)) 2.dp else 1.dp,
-                                                color = if (pageBackgroundHex.equals(bg.colorHex, ignoreCase = true)) WordPrimary else Color.LightGray,
-                                                shape = CircleShape
-                                            )
-                                    )
-                                    Text(bg.displayName, fontSize = 10.sp, maxLines = 1)
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Page Borders
-                        Text("Page Border", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            com.example.core.layout.PageBorderStyle.entries.forEach { bs ->
+                        // Appearance Section
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            // Page Background Color Palette
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Page Background Color", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable { borderStyle = bs }
-                                        .padding(vertical = 4.dp)
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    FilterChip(
-                                        selected = borderStyle == bs,
-                                        onClick = { borderStyle = bs },
-                                        label = { Text(bs.displayName, fontSize = 11.sp) }
-                                    )
+                                    com.example.core.layout.PageBackgroundPreset.entries.forEach { bg ->
+                                        val isSelected = pageBackgroundHex.equals(bg.colorHex, ignoreCase = true)
+                                        val color = try { Color(android.graphics.Color.parseColor(bg.colorHex)) } catch (e: Exception) { Color.White }
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier.clickable { pageBackgroundHex = bg.colorHex }
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = color,
+                                                shadowElevation = 2.dp,
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    width = if (isSelected) 2.dp else 1.dp,
+                                                    color = if (isSelected) WordPrimary else Color.LightGray
+                                                ),
+                                                modifier = Modifier.size(38.dp)
+                                            ) {
+                                                if (isSelected) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = "Selected",
+                                                            tint = if (bg == com.example.core.layout.PageBackgroundPreset.DARK) Color.White else WordPrimary,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = bg.displayName,
+                                                fontSize = 10.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Page Border Style
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Page Border", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    com.example.core.layout.PageBorderStyle.entries.forEach { bs ->
+                                        FilterChip(
+                                            selected = borderStyle == bs,
+                                            onClick = { borderStyle = bs },
+                                            label = {
+                                                Text(
+                                                    text = bs.displayName,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = if (borderStyle == bs) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
                     2 -> {
-                        // Header & Footer
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Show Header", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            androidx.compose.material3.Switch(checked = showHeader, onCheckedChange = { showHeader = it })
-                        }
-                        if (showHeader) {
-                            OutlinedTextField(
-                                value = headerText,
-                                onValueChange = { headerText = it },
-                                label = { Text("Header Text (use {title})") },
-                                singleLine = true,
+                        // Header & Footer Section
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            // Header Toggle & Template Card
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
                                 modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Show Footer & Page Numbering", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            androidx.compose.material3.Switch(checked = showFooter, onCheckedChange = { showFooter = it })
-                        }
-                        if (showFooter) {
-                            OutlinedTextField(
-                                value = footerText,
-                                onValueChange = { footerText = it },
-                                label = { Text("Footer Template (use {page} & {pages})") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Page Numbering Format", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                com.example.core.layout.PageNumberFormat.entries.forEach { pnf ->
-                                    FilterChip(
-                                        selected = pageNumberFormat == pnf,
-                                        onClick = { pageNumberFormat = pnf },
-                                        label = { Text(pnf.displayName, fontSize = 11.sp) }
-                                    )
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Document Header", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                            Text("Shown at the top of document pages", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        androidx.compose.material3.Switch(checked = showHeader, onCheckedChange = { showHeader = it })
+                                    }
+                                    if (showHeader) {
+                                        OutlinedTextField(
+                                            value = headerText,
+                                            onValueChange = { headerText = it },
+                                            label = { Text("Header Text (use {title})") },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable { differentFirstPage = !differentFirstPage }
-                        ) {
-                            androidx.compose.material3.Checkbox(
-                                checked = differentFirstPage,
-                                onCheckedChange = { differentFirstPage = it }
-                            )
-                            Text("Different First Page (omit header on cover)", fontSize = 12.sp)
+                            // Footer Toggle & Template Card
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text("Document Footer & Numbering", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                            Text("Shown at the bottom of document pages", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                        androidx.compose.material3.Switch(checked = showFooter, onCheckedChange = { showFooter = it })
+                                    }
+                                    if (showFooter) {
+                                        OutlinedTextField(
+                                            value = footerText,
+                                            onValueChange = { footerText = it },
+                                            label = { Text("Footer Template (use {page} & {pages})") },
+                                            singleLine = true,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("Page Numbering Format:", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            com.example.core.layout.PageNumberFormat.entries.forEach { pnf ->
+                                                FilterChip(
+                                                    selected = pageNumberFormat == pnf,
+                                                    onClick = { pageNumberFormat = pnf },
+                                                    label = { Text(pnf.displayName, fontSize = 11.sp) }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Different First Page Checkbox Card
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { differentFirstPage = !differentFirstPage }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    androidx.compose.material3.Checkbox(
+                                        checked = differentFirstPage,
+                                        onCheckedChange = { differentFirstPage = it }
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Column {
+                                        Text("Different First Page", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        Text("Omit header and footer on the first cover page", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -585,15 +964,68 @@ fun PageLayoutDialog(
                     onSaveConfig(updated)
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Apply")
+                Text("Apply Changes")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+@Composable
+private fun MarginStepperItem(
+    label: String,
+    valueMm: Float,
+    modifier: Modifier = Modifier,
+    onMinus: () -> Unit,
+    onPlus: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${valueMm.toInt()} mm", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable(onClick = onMinus)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Remove, contentDescription = "Decrease $label", modifier = Modifier.size(14.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable(onClick = onPlus)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Add, contentDescription = "Increase $label", modifier = Modifier.size(14.dp))
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -645,7 +1077,15 @@ fun InsertHyperlinkDialog(
                     onClick = {
                         val trimmed = urlText.trim()
                         if (trimmed.isNotBlank()) {
-                            onConfirm(trimmed)
+                            val finalUrl = if (!trimmed.startsWith("http://", ignoreCase = true) &&
+                                !trimmed.startsWith("https://", ignoreCase = true) &&
+                                !trimmed.startsWith("mailto:", ignoreCase = true)
+                            ) {
+                                "https://$trimmed"
+                            } else {
+                                trimmed
+                            }
+                            onConfirm(finalUrl)
                         }
                         onDismiss()
                     },

@@ -1557,6 +1557,19 @@ fun InsertRibbonControls(
         onClick = { viewModel.insertPageBreak() }
     )
 
+    Box(
+        modifier = Modifier
+            .height(20.dp)
+            .width(1.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant)
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.Link,
+        label = "Hyperlink",
+        onClick = onOpenLinkDialog
+    )
+
     RibbonActionButton(
         icon = Icons.Default.VerticalSplit,
         label = "Header & Footer",
@@ -1567,6 +1580,13 @@ fun InsertRibbonControls(
         icon = Icons.Default.FormatListNumbered,
         label = "Page Numbers",
         onClick = onOpenPageNumberDialog
+    )
+
+    Box(
+        modifier = Modifier
+            .height(20.dp)
+            .width(1.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant)
     )
 
     val dateFormat = remember { SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()) }
@@ -1588,17 +1608,20 @@ fun ViewRibbonControls(
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
 
-    FilterChip(
-        selected = currentViewMode == EditorViewMode.PAGINATED_A4,
+    RibbonToggleButton(
+        icon = Icons.Default.Description,
+        label = "Page View",
+        isSelected = currentViewMode == EditorViewMode.PAGINATED_A4,
         onClick = { viewModel.setViewMode(EditorViewMode.PAGINATED_A4) },
-        label = { Text("Page View", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
-        modifier = Modifier.testTag("view_mode_a4")
+        tag = "view_mode_a4"
     )
-    FilterChip(
-        selected = currentViewMode == EditorViewMode.CONTINUOUS_MOBILE,
+
+    RibbonToggleButton(
+        icon = Icons.Default.PhoneAndroid,
+        label = "Mobile Continuous",
+        isSelected = currentViewMode == EditorViewMode.CONTINUOUS_MOBILE,
         onClick = { viewModel.setViewMode(EditorViewMode.CONTINUOUS_MOBILE) },
-        label = { Text("Mobile Continuous", fontSize = 11.sp) },
-        modifier = Modifier.testTag("view_mode_mobile")
+        tag = "view_mode_mobile"
     )
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -1611,18 +1634,54 @@ fun ViewRibbonControls(
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
-    IconButton(
-        onClick = { viewModel.setZoomPercent(zoomPercent - 10) },
-        modifier = Modifier.minimumInteractiveComponentSize().size(36.dp).testTag("zoom_out_button")
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.height(34.dp)
     ) {
-        Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out")
-    }
-    Text("$zoomPercent%", fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("zoom_percent_text"))
-    IconButton(
-        onClick = { viewModel.setZoomPercent(zoomPercent + 10) },
-        modifier = Modifier.minimumInteractiveComponentSize().size(36.dp).testTag("zoom_in_button")
-    ) {
-        Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable { viewModel.setZoomPercent(zoomPercent - 10) }
+                    .testTag("zoom_out_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ZoomOut,
+                    contentDescription = "Zoom Out",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Text(
+                text = "$zoomPercent%",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .padding(horizontal = 6.dp)
+                    .testTag("zoom_percent_text")
+            )
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable { viewModel.setZoomPercent(zoomPercent + 10) }
+                    .testTag("zoom_in_button"),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ZoomIn,
+                    contentDescription = "Zoom In",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 }
 
@@ -1634,16 +1693,70 @@ fun RibbonActionButton(
 ) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.clickable(onClick = onClick)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .height(34.dp)
+            .clickable(onClick = onClick)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+            modifier = Modifier.padding(horizontal = 10.dp)
         ) {
-            Icon(imageVector = icon, contentDescription = label, modifier = Modifier.size(16.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurface
+            )
             Spacer(modifier = Modifier.width(6.dp))
-            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+fun RibbonToggleButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    tag: String = ""
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        border = androidx.compose.foundation.BorderStroke(
+            if (isSelected) 1.dp else 0.5.dp,
+            if (isSelected) WordPrimary else MaterialTheme.colorScheme.outlineVariant
+        ),
+        modifier = Modifier
+            .height(34.dp)
+            .clickable(onClick = onClick)
+            .testTag(tag)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                modifier = Modifier.size(16.dp),
+                tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

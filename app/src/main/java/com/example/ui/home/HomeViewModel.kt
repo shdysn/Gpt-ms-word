@@ -161,6 +161,15 @@ class HomeViewModel(
         viewModelScope.launch {
             repository.initializeDefaultDocumentsIfEmpty()
         }
+        viewModelScope.launch {
+            preferencesManager.sortOrder.collect { orderName ->
+                try {
+                    _sortOrder.value = DocumentSortOrder.valueOf(orderName)
+                } catch (e: Exception) {
+                    _sortOrder.value = DocumentSortOrder.MODIFIED_DESC
+                }
+            }
+        }
     }
 
     fun onSearchQueryChanged(query: String) {
@@ -173,6 +182,9 @@ class HomeViewModel(
 
     fun onSortOrderChanged(order: DocumentSortOrder) {
         _sortOrder.value = order
+        viewModelScope.launch {
+            preferencesManager.setSortOrder(order.name)
+        }
     }
 
     fun toggleViewMode() {
