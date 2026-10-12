@@ -409,6 +409,31 @@ class EditorViewModel(
         _selection.value = newSelection
     }
 
+    private var typingBaseDoc: RichDocument? = null
+    private var lastTypingTimestamp: Long = 0L
+
+    private fun registerTypingUndoCheckpoint(currentDoc: RichDocument, newDoc: RichDocument, newText: String) {
+        val now = System.currentTimeMillis()
+        if (typingBaseDoc == null) {
+            typingBaseDoc = currentDoc
+        }
+        val isWordBoundary = newText.endsWith(" ") || newText.endsWith("\n") || (now - lastTypingTimestamp > 700L)
+        lastTypingTimestamp = now
+        if (isWordBoundary && typingBaseDoc != null && typingBaseDoc != newDoc) {
+            val base = typingBaseDoc!!
+            undoRedoManager.execute(
+                object : com.example.editor.engine.EditorCommand {
+                    override val description: String = "Typing"
+                    override fun apply(document: RichDocument): RichDocument = newDoc
+                    override fun revert(document: RichDocument): RichDocument = base
+                },
+                base
+            )
+            typingBaseDoc = newDoc
+            updateUndoRedoStates()
+        }
+    }
+
     /**
      * Unified Text Canvas editing handler: updates the full continuous document text,
      * allowing characters to be added or deleted smoothly across the entire page.
@@ -433,9 +458,19 @@ class EditorViewModel(
                 blocks = listOf(emptyBlock),
                 updatedAt = System.currentTimeMillis()
             )
+            undoRedoManager.execute(
+                object : com.example.editor.engine.EditorCommand {
+                    override val description: String = "Clear All Text"
+                    override fun apply(document: RichDocument): RichDocument = updatedDoc
+                    override fun revert(document: RichDocument): RichDocument = currentDoc
+                },
+                currentDoc
+            )
+            typingBaseDoc = null
             _document.value = updatedDoc
             _activeBlockIndex.value = 0
             _selection.value = androidx.compose.ui.text.TextRange.Zero
+            updateUndoRedoStates()
             scheduleDocumentAutosave()
             return
         }
@@ -486,6 +521,7 @@ class EditorViewModel(
             blocks = newBlocks,
             updatedAt = System.currentTimeMillis()
         )
+        registerTypingUndoCheckpoint(currentDoc, updatedDoc, newFullText)
         _document.value = updatedDoc
         _activeBlockIndex.value = 0
         _selection.value = newSelection
@@ -680,7 +716,7 @@ class EditorViewModel(
         )
     }
 
-    fun setTextColor(colorHex: String) {
+    fun setTextColor(colorHex: String?) {
         applyStyleToSelectionOrPending(
             onSelection = { spans, s, e, len ->
                 com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->

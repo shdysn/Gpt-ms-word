@@ -50,7 +50,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FindReplace
+import androidx.compose.material.icons.filled.FormatBold
+import androidx.compose.material.icons.filled.FormatColorText
+import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.FormatStrikethrough
+import androidx.compose.material.icons.filled.FormatUnderlined
+import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Link
@@ -607,6 +613,99 @@ fun EditorScreen(
                         onEditImageProperties = { img -> selectedImageForProperties = img },
                         onOpenPageLayoutDialog = { showLayoutDialog = true }
                     )
+                }
+
+                // Floating Contextual Quick-Formatting Bar for Selection
+                val selection by viewModel.selection.collectAsStateWithLifecycle()
+                val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = !selection.collapsed && selection.min < selection.max,
+                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it }),
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it }),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shadowElevation = 6.dp,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.toggleBold() },
+                                modifier = Modifier.size(36.dp).testTag("quick_format_bold")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatBold,
+                                    contentDescription = "Bold",
+                                    tint = if (activeFormatting.isBold) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.toggleItalic() },
+                                modifier = Modifier.size(36.dp).testTag("quick_format_italic")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatItalic,
+                                    contentDescription = "Italic",
+                                    tint = if (activeFormatting.isItalic) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.toggleUnderline() },
+                                modifier = Modifier.size(36.dp).testTag("quick_format_underline")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatUnderlined,
+                                    contentDescription = "Underline",
+                                    tint = if (activeFormatting.isUnderline) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.toggleStrikethrough() },
+                                modifier = Modifier.size(36.dp).testTag("quick_format_strikethrough")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatStrikethrough,
+                                    contentDescription = "Strikethrough",
+                                    tint = if (activeFormatting.isStrikethrough) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
+                                    else viewModel.setHighlightColor("#FEF08A")
+                                },
+                                modifier = Modifier.size(36.dp).testTag("quick_format_highlight")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Highlight,
+                                    contentDescription = "Highlight",
+                                    tint = if (activeFormatting.highlightColorHex != null) Color(0xFFEAB308) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
+                                    else viewModel.setTextColor("#185ABD")
+                                },
+                                modifier = Modifier.size(36.dp).testTag("quick_format_color")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FormatColorText,
+                                    contentDescription = "Color",
+                                    tint = if (activeFormatting.textColorHex != null) Color(0xFF185ABD) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1805,6 +1904,43 @@ fun DocumentCanvas(
                                 onSelectionChanged = onSelectionChanged,
                                 onUpdateUnifiedText = onUpdateUnifiedText
                             )
+
+                            // Soft Visual Page Guideline when content spans across multiple printable pages
+                            if (document.estimatedPageCount > 1) {
+                                Spacer(modifier = Modifier.height(20.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.weight(1f),
+                                        color = if (isDarkPage) Color(0xFF334155) else Color(0xFFCBD5E1),
+                                        thickness = 1.dp
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0)),
+                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = " PAGE 2 GUIDE • ${document.estimatedPageCount} PAGES TOTAL ",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isDarkPage) Color(0xFF94A3B8) else Color(0xFF64748B),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    HorizontalDivider(
+                                        modifier = Modifier.weight(1f),
+                                        color = if (isDarkPage) Color(0xFF334155) else Color(0xFFCBD5E1),
+                                        thickness = 1.dp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                         } else {
                             page.items.forEach { pageItem ->
                                 when (pageItem) {
