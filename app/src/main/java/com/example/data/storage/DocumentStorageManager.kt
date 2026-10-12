@@ -492,7 +492,7 @@ class DocumentStorageManager(private val context: Context) {
                 showHeader = lObj.optBoolean("showHeader", true),
                 showFooter = lObj.optBoolean("showFooter", true),
                 headerText = lObj.optString("headerText", ""),
-                footerText = lObj.optString("footerText", "Page {page} of {pages}"),
+                footerText = lObj.optString("footerText", ""),
                 headerAlignment = headerAlign,
                 footerAlignment = footerAlign,
                 pageBackgroundHex = lObj.optString("pageBackgroundHex", "#FFFFFF"),

@@ -1,6 +1,7 @@
 package com.example.core.layout
 
 import com.example.data.model.TextAlignment
+import java.util.Locale
 
 /**
  * Standard page size specifications with ISO and ANSI dimensions.
@@ -16,7 +17,35 @@ enum class PageSize(
     LETTER("US Letter (8.5 × 11 in)", 215.9f, 279.4f, 612, 792),
     LEGAL("US Legal (8.5 × 14 in)", 215.9f, 355.6f, 612, 1008),
     A5("A5 (148 × 210 mm)", 148f, 210f, 420, 595),
-    EXECUTIVE("Executive (7.25 × 10.5 in)", 184.1f, 266.7f, 522, 756)
+    EXECUTIVE("Executive (7.25 × 10.5 in)", 184.1f, 266.7f, 522, 756);
+
+    val widthInches: Float get() = widthMm / 25.4f
+    val heightInches: Float get() = heightMm / 25.4f
+
+    /**
+     * Formatted millimeter dimensions (e.g. "210 × 297 mm").
+     */
+    fun formattedDimensionsMm(orientation: PageOrientation = PageOrientation.PORTRAIT): String {
+        val w = if (orientation == PageOrientation.PORTRAIT) widthMm else heightMm
+        val h = if (orientation == PageOrientation.PORTRAIT) heightMm else widthMm
+        return "${"%.1f".format(Locale.US, w).removeSuffix(".0")} × ${"%.1f".format(Locale.US, h).removeSuffix(".0")} mm"
+    }
+
+    /**
+     * Formatted inch dimensions (e.g. "8.5 × 11.0 in").
+     */
+    fun formattedDimensionsInches(orientation: PageOrientation = PageOrientation.PORTRAIT): String {
+        val w = if (orientation == PageOrientation.PORTRAIT) widthInches else heightInches
+        val h = if (orientation == PageOrientation.PORTRAIT) heightInches else widthInches
+        return "${"%.1f".format(Locale.US, w)} × ${"%.1f".format(Locale.US, h)} in"
+    }
+
+    /**
+     * Full dual-unit dimension label (e.g. "210 × 297 mm (8.3 × 11.7 in)").
+     */
+    fun fullDimensionsText(orientation: PageOrientation = PageOrientation.PORTRAIT): String {
+        return "${formattedDimensionsMm(orientation)} • ${formattedDimensionsInches(orientation)}"
+    }
 }
 
 /**
@@ -92,7 +121,7 @@ data class PageLayoutConfig(
     val showHeader: Boolean = true,
     val showFooter: Boolean = true,
     val headerText: String = "",
-    val footerText: String = "Page {page} of {pages}",
+    val footerText: String = "",
     val headerAlignment: TextAlignment = TextAlignment.START,
     val footerAlignment: TextAlignment = TextAlignment.CENTER,
     val pageBackgroundHex: String = "#FFFFFF",
@@ -119,6 +148,30 @@ data class PageLayoutConfig(
      */
     val aspectRatio: Float
         get() = pageWidthPt.toFloat() / pageHeightPt.toFloat()
+
+    /**
+     * Formatted dimension summary (e.g. "210 × 297 mm • 8.3 × 11.7 in").
+     */
+    val formattedDimensions: String
+        get() = pageSize.fullDimensionsText(orientation)
+
+    /**
+     * Short paper size and dimension label (e.g. "A4 (210 × 297 mm)").
+     */
+    val shortDimensionsLabel: String
+        get() = "${pageSize.name} (${pageSize.formattedDimensionsMm(orientation)})"
+
+    /**
+     * Human-readable orientation string (e.g. "Portrait" / "Landscape").
+     */
+    val orientationLabel: String
+        get() = orientation.name.lowercase().replaceFirstChar { it.uppercase() }
+
+    /**
+     * Comprehensive layout summary.
+     */
+    val fullSpecificationSummary: String
+        get() = "${pageSize.displayName.substringBefore(" (")} • $formattedDimensions • $orientationLabel"
 
     /**
      * Margins in PostScript points (72 DPI).

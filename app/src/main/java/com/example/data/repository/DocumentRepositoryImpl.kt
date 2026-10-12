@@ -142,9 +142,16 @@ class DocumentRepositoryImpl(
                 title = title.ifBlank { "Untitled Document" },
                 createdAt = now,
                 updatedAt = now,
-                layoutConfig = PageLayoutConfig(pageSize = PageSize.A4),
+                layoutConfig = PageLayoutConfig(
+                    pageSize = PageSize.A4,
+                    showHeader = false,
+                    showFooter = false,
+                    headerText = "",
+                    footerText = "",
+                    borderStyle = com.example.core.layout.PageBorderStyle.NONE
+                ),
                 blocks = listOf(
-                    ParagraphBlock(text = "Start typing your document here...")
+                    ParagraphBlock(text = "")
                 )
             )
 
@@ -298,11 +305,8 @@ class DocumentRepositoryImpl(
     override suspend fun initializeDefaultDocumentsIfEmpty() = withContext(Dispatchers.IO) {
         val count = documentDao.getDocumentCount()
         if (count == 0) {
-            // Seed professional starter documents covering short, medium, and multi-page pagination
-            createDocument("Official Business Letter", TemplateType.BUSINESS_LETTER)
-            createDocument("Executive Project Proposal", TemplateType.PROJECT_REPORT)
-            createDocument("Multi-Page Architecture Specification", TemplateType.PAGINATION_SHOWCASE)
-            createDocument("اردو شاعری اور مقالہ (Urdu Article)", TemplateType.URDU_DOCUMENT)
+            // Seed a pristine blank document ready for typing
+            createDocument("Untitled Document", TemplateType.BLANK)
         }
     }
 
@@ -729,13 +733,13 @@ class DocumentRepositoryImpl(
                 pageSize = PageSize.A4,
                 orientation = PageOrientation.PORTRAIT,
                 marginPreset = MarginPreset.NORMAL,
-                showHeader = true,
-                showFooter = true,
-                headerText = "Smart Word Processor • Technical Whitepaper",
-                footerText = "Page {page} of {pages}",
-                differentFirstPage = true,
+                showHeader = false,
+                showFooter = false,
+                headerText = "",
+                footerText = "",
+                differentFirstPage = false,
                 pageBackgroundHex = "#FFFFFF",
-                borderStyle = com.example.core.layout.PageBorderStyle.SINGLE_THIN,
+                borderStyle = com.example.core.layout.PageBorderStyle.NONE,
                 borderColorHex = "#CBD5E1"
             ),
             blocks = blocks

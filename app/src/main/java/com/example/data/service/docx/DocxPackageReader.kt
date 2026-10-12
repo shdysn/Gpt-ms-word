@@ -186,7 +186,7 @@ class DocxPackageReader(private val context: Context?) {
 
             // 6. Extract header and footer text
             var headerText = ""
-            var footerText = "Page {page} of {pages}"
+            var footerText = ""
 
             for ((_, target) in relMap) {
                 if (target.contains("header", ignoreCase = true)) {

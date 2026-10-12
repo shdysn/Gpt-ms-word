@@ -113,6 +113,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -470,7 +472,8 @@ fun EditorScreen(
                 showWordCount = showWordCount,
                 autosaveStatus = autosaveStatus,
                 zoomPercent = zoomPercent,
-                activeBlock = activeParagraph
+                activeBlock = activeParagraph,
+                onOpenLayoutDialog = { showLayoutDialog = true }
             )
         }
     ) { innerPadding ->
@@ -499,7 +502,8 @@ fun EditorScreen(
                 },
                 onOpenLinkDialog = { showLinkDialog = true },
                 onOpenHeaderFooterDialog = { showHeaderFooterDialog = true },
-                onOpenPageNumberDialog = { showPageNumberDialog = true }
+                onOpenPageNumberDialog = { showPageNumberDialog = true },
+                onOpenLayoutDialog = { showLayoutDialog = true }
             )
 
             // Document Crash/Restart Recovery Notification Banner
@@ -558,6 +562,8 @@ fun EditorScreen(
                 }
             }
 
+
+
             // Document Canvas Surface with Responsive Phone / Tablet Layout
             BoxWithConstraints(
                 modifier = Modifier
@@ -591,7 +597,8 @@ fun EditorScreen(
                         onQuickDeleteTableRow = { id -> viewModel.deleteTableRow(id, -1) },
                         onQuickAddTableCol = { id -> viewModel.addTableColumn(id) },
                         onQuickDeleteTableCol = { id -> viewModel.deleteTableColumn(id, -1) },
-                        onEditImageProperties = { img -> selectedImageForProperties = img }
+                        onEditImageProperties = { img -> selectedImageForProperties = img },
+                        onOpenPageLayoutDialog = { showLayoutDialog = true }
                     )
                 }
             }
@@ -1248,7 +1255,8 @@ fun WordRibbon(
     onOpenPhotoPicker: () -> Unit,
     onOpenLinkDialog: () -> Unit,
     onOpenHeaderFooterDialog: () -> Unit = {},
-    onOpenPageNumberDialog: () -> Unit = {}
+    onOpenPageNumberDialog: () -> Unit = {},
+    onOpenLayoutDialog: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
 
@@ -1389,7 +1397,10 @@ fun WordRibbon(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            ViewRibbonControls(viewModel)
+                            ViewRibbonControls(
+                                viewModel = viewModel,
+                                onOpenLayoutDialog = onOpenLayoutDialog
+                            )
                         }
                     }
                 }
@@ -1461,14 +1472,17 @@ fun InsertRibbonControls(
 }
 
 @Composable
-fun ViewRibbonControls(viewModel: EditorViewModel) {
+fun ViewRibbonControls(
+    viewModel: EditorViewModel,
+    onOpenLayoutDialog: () -> Unit = {}
+) {
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
 
     FilterChip(
         selected = currentViewMode == EditorViewMode.PAGINATED_A4,
         onClick = { viewModel.setViewMode(EditorViewMode.PAGINATED_A4) },
-        label = { Text("A4 Page View", fontSize = 11.sp) },
+        label = { Text("Page View", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
         modifier = Modifier.testTag("view_mode_a4")
     )
     FilterChip(
@@ -1476,6 +1490,14 @@ fun ViewRibbonControls(viewModel: EditorViewModel) {
         onClick = { viewModel.setViewMode(EditorViewMode.CONTINUOUS_MOBILE) },
         label = { Text("Mobile Continuous", fontSize = 11.sp) },
         modifier = Modifier.testTag("view_mode_mobile")
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    RibbonActionButton(
+        icon = Icons.Default.Tune,
+        label = "Page Setup",
+        onClick = onOpenLayoutDialog
     )
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -1548,8 +1570,7 @@ fun DocumentRulerBar(
         color = MaterialTheme.colorScheme.surfaceVariant,
         border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
-            .fillMaxWidth()
-            .widthIn(max = maxSheetWidth)
+            .width(maxSheetWidth)
             .padding(bottom = 8.dp)
             .height(22.dp)
             .testTag("document_ruler_bar")
@@ -1641,7 +1662,8 @@ fun DocumentCanvas(
     onQuickDeleteTableRow: (String) -> Unit = {},
     onQuickAddTableCol: (String) -> Unit = {},
     onQuickDeleteTableCol: (String) -> Unit = {},
-    onEditImageProperties: (ImageBlock) -> Unit = {}
+    onEditImageProperties: (ImageBlock) -> Unit = {},
+    onOpenPageLayoutDialog: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -1675,29 +1697,13 @@ fun DocumentCanvas(
                 paginatedPages
             }
 
-            val baseMaxSheetWidth = if (document.layoutConfig.orientation == PageOrientation.LANDSCAPE) {
-                if (isTabletOrExpanded) 920.dp else 720.dp
-            } else {
-                if (isTabletOrExpanded) 760.dp else 640.dp
-            }
-            val scaledMaxSheetWidth = (baseMaxSheetWidth.value * zoomScale).dp
+            // Proportional physical sheet width based on paper size points (anchored to A4 portrait baseline 595 pt)
+            val a4PortraitReferenceWidth = if (isTabletOrExpanded) 720f else 580f
+            val baseSheetWidth = (document.layoutConfig.pageWidthPt.toFloat() / 595f) * a4PortraitReferenceWidth
+            val scaledMaxSheetWidth = (baseSheetWidth * zoomScale).dp
 
             pagesToDisplay.forEachIndexed { pageIdx, page ->
-                // Page indicator badge above physical sheet
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                    shadowElevation = 1.dp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    Text(
-                        text = "Page ${page.pageNumber} of ${page.totalPages} • ${page.layout.pageSize.name} (${page.layout.orientation.name.lowercase().replaceFirstChar { it.uppercase() }})",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                }
+
 
                 if (showRuler && pageIdx == 0) {
                     DocumentRulerBar(
@@ -1728,15 +1734,14 @@ fun DocumentCanvas(
                 val topMarginDp = ((page.layout.topMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
                 val bottomMarginDp = ((page.layout.bottomMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
 
-                // Physical Paper Sheet Card
-                Card(
+                // Physical Paper Sheet Surface (clean sheet, no rounded card box)
+                Surface(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .widthIn(max = scaledMaxSheetWidth)
+                        .width(scaledMaxSheetWidth)
                         .heightIn(min = sheetHeightDp)
-                        .shadow(6.dp, RoundedCornerShape(2.dp)),
-                    shape = RoundedCornerShape(2.dp),
-                    colors = CardDefaults.cardColors(containerColor = pageBgColor),
+                        .shadow(2.dp, RoundedCornerShape(0.dp)),
+                    shape = RoundedCornerShape(0.dp),
+                    color = pageBgColor,
                     border = borderStroke
                 ) {
                     Column(
@@ -1750,7 +1755,7 @@ fun DocumentCanvas(
                             )
                     ) {
                         // Header Area
-                        if (page.hasHeader) {
+                        if (page.hasHeader && page.formattedHeader.isNotBlank()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = when (page.layout.headerAlignment) {
@@ -1922,8 +1927,8 @@ fun DocumentCanvas(
                             }
                         }
 
-                        // Footer Area with Automatic Page Numbering
-                        if (page.hasFooter) {
+                        // Footer Area (only rendered if footer exists and is non-blank)
+                        if (page.hasFooter && page.formattedFooter.isNotBlank()) {
                             Spacer(modifier = Modifier.height(20.dp))
                             HorizontalDivider(
                                 color = if (isDarkPage) Color(0xFF334155) else Color(0xFFE5E7EB),
@@ -1952,7 +1957,7 @@ fun DocumentCanvas(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         } else {
-            // Continuous Mobile View
+            // Continuous Mobile View (clean seamless sheet, no card box)
             val pageBgColor = try {
                 Color(android.graphics.Color.parseColor(document.layoutConfig.pageBackgroundHex))
             } catch (e: Exception) { Color.White }
@@ -1965,12 +1970,9 @@ fun DocumentCanvas(
                 )
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(1.dp, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = pageBgColor)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = pageBgColor
             ) {
                 Column(
                     modifier = Modifier
@@ -2408,6 +2410,16 @@ fun BlockItemView(
                 mutableStateOf(TextFieldValue(text = block.text, selection = TextRange(block.text.length)))
             }
 
+            val focusRequester = remember { FocusRequester() }
+
+            LaunchedEffect(isActive) {
+                if (isActive) {
+                    try {
+                        focusRequester.requestFocus()
+                    } catch (_: Exception) {}
+                }
+            }
+
             // Sync with external updates (such as undo, redo, find & replace, or slice updates)
             LaunchedEffect(block.text) {
                 if (textFieldValue.text != block.text) {
@@ -2439,12 +2451,7 @@ fun BlockItemView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = indentPadding, top = spaceBeforeDp, bottom = spaceAfterDp)
-                        .clickable(onClick = onFocus)
-                        .background(
-                            if (isActive) WordPrimary.copy(alpha = if (isDarkPage) 0.14f else 0.04f) else Color.Transparent,
-                            RoundedCornerShape(4.dp)
-                        )
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                        .clickable(onClick = onFocus),
                     verticalAlignment = Alignment.Top
                 ) {
                     // List prefix
@@ -2501,6 +2508,7 @@ fun BlockItemView(
                             cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .focusRequester(focusRequester)
                                 .onFocusChanged { focusState ->
                                     if (focusState.isFocused) {
                                         onFocus()
@@ -2508,20 +2516,6 @@ fun BlockItemView(
                                 }
                                 .testTag("paragraph_input_${block.id}")
                         )
-                    }
-
-                    if (isActive && canDeleteBlock && block.text.isEmpty()) {
-                        IconButton(
-                            onClick = onDeleteBlock,
-                            modifier = Modifier.size(22.dp).testTag("delete_paragraph_${block.id}")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete empty paragraph",
-                                tint = if (isDarkPage) Color(0xFF94A3B8) else Color.Gray,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
                     }
                 }
             }
@@ -2619,7 +2613,8 @@ fun EditorStatusBar(
     showWordCount: Boolean = true,
     autosaveStatus: AutosaveStatus,
     zoomPercent: Int,
-    activeBlock: ParagraphBlock?
+    activeBlock: ParagraphBlock?,
+    onOpenLayoutDialog: () -> Unit = {}
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -2639,13 +2634,7 @@ fun EditorStatusBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Page $currentPageNumber of $totalPages",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 if (showWordCount) {
-                    Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     Text(
                         text = "${document?.wordCount ?: 0} words",
                         fontSize = 11.sp,
@@ -2657,8 +2646,8 @@ fun EditorStatusBar(
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 }
-                Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 Text(
                     text = if (activeBlock?.isRtl == true) "Urdu (RTL)" else "English (LTR)",
                     fontSize = 11.sp,

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -226,11 +227,49 @@ fun PageLayoutDialog(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            listOf(PageSize.A4, PageSize.LETTER, PageSize.LEGAL, PageSize.A5).forEach { ps ->
+                            listOf(PageSize.A4, PageSize.LETTER, PageSize.LEGAL, PageSize.A5, PageSize.EXECUTIVE).forEach { ps ->
                                 FilterChip(
                                     selected = selectedPageSize == ps,
-                                    onClick = { selectedPageSize = ps },
-                                    label = { Text(ps.name, fontSize = 11.sp) }
+                                    onClick = {
+                                        selectedPageSize = ps
+                                        onSaveConfig(
+                                            currentLayout.copy(
+                                                pageSize = ps,
+                                                orientation = selectedOrientation,
+                                                marginPreset = selectedMargins
+                                            )
+                                        )
+                                    },
+                                    label = { Text(ps.displayName.substringBefore(" ("), fontSize = 11.sp, fontWeight = if (selectedPageSize == ps) FontWeight.Bold else FontWeight.Normal) }
+                                )
+                            }
+                        }
+
+                        // Dimension Details Card for Selected Size
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = "Selected: ${selectedPageSize.displayName}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Dimensions: ${selectedPageSize.fullDimensionsText(selectedOrientation)}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Print Points (72 DPI): ${if (selectedOrientation == PageOrientation.PORTRAIT) selectedPageSize.widthPt else selectedPageSize.heightPt} × ${if (selectedOrientation == PageOrientation.PORTRAIT) selectedPageSize.heightPt else selectedPageSize.widthPt} pt",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -246,7 +285,16 @@ fun PageLayoutDialog(
                             listOf(PageOrientation.PORTRAIT, PageOrientation.LANDSCAPE).forEach { po ->
                                 FilterChip(
                                     selected = selectedOrientation == po,
-                                    onClick = { selectedOrientation = po },
+                                    onClick = {
+                                        selectedOrientation = po
+                                        onSaveConfig(
+                                            currentLayout.copy(
+                                                pageSize = selectedPageSize,
+                                                orientation = po,
+                                                marginPreset = selectedMargins
+                                            )
+                                        )
+                                    },
                                     label = { Text(po.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 11.sp) }
                                 )
                             }
@@ -535,6 +583,7 @@ fun PageLayoutDialog(
                         pageNumberStart = pageNumberStart
                     )
                     onSaveConfig(updated)
+                    onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary)
             ) {
