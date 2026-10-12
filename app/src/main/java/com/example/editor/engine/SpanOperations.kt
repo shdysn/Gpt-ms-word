@@ -282,6 +282,55 @@ object SpanOperations {
         return normalizeAndMerge(result)
     }
 
+    /**
+     * Performs find and replace across text while accurately shifting all formatting
+     * spans (Bold, Italic, Color, Hyperlinks) so styling remains on the correct characters.
+     */
+    fun replaceTextAndShiftSpans(
+        text: String,
+        spans: List<InlineSpan>,
+        find: String,
+        replace: String,
+        ignoreCase: Boolean = true
+    ): Pair<String, List<InlineSpan>> {
+        if (find.isEmpty() || !text.contains(find, ignoreCase = ignoreCase)) {
+            return Pair(text, spans)
+        }
+
+        val matchIndices = mutableListOf<Int>()
+        var searchIdx = 0
+        while (searchIdx <= text.length - find.length) {
+            val idx = text.indexOf(find, searchIdx, ignoreCase = ignoreCase)
+            if (idx == -1) break
+            matchIndices.add(idx)
+            searchIdx = idx + find.length
+        }
+
+        if (matchIndices.isEmpty()) return Pair(text, spans)
+
+        var currentText = text
+        var currentSpans = spans
+
+        // Process replacements from right-to-left so earlier offsets are not mutated
+        for (i in matchIndices.indices.reversed()) {
+            val matchStart = matchIndices[i]
+            val deletedLen = find.length
+            val insertedLen = replace.length
+
+            currentSpans = shiftSpansOnTextChange(
+                spans = currentSpans,
+                editOffset = matchStart,
+                deletedLength = deletedLen,
+                insertedLength = insertedLen,
+                pendingFormatting = null
+            )
+
+            currentText = currentText.substring(0, matchStart) + replace + currentText.substring(matchStart + deletedLen)
+        }
+
+        return Pair(currentText, currentSpans)
+    }
+
     private fun hasAnyFormatting(f: ActiveFormatting): Boolean {
         return f.isBold || f.isItalic || f.isUnderline || f.isStrikethrough ||
             f.isSuperscript || f.isSubscript || f.fontSizeSp != null ||

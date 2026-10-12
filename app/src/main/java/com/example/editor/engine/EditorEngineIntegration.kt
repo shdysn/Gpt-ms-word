@@ -6,6 +6,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
@@ -15,6 +16,7 @@ import com.example.data.model.InlineSpan
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
 import com.example.data.model.TextAlignment
+
 
 /**
  * Architectural specification and bridge between Jetpack Compose UI

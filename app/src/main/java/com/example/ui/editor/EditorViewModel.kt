@@ -16,6 +16,7 @@ import com.example.data.model.DividerBlock
 import com.example.data.model.HeadingStyle
 import com.example.data.model.ImageBlock
 import com.example.data.model.InlineSpan
+import com.example.data.model.ListType
 import com.example.data.model.PageBreakBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
@@ -352,11 +353,11 @@ class EditorViewModel(
 
     fun updateSelection(newSelection: androidx.compose.ui.text.TextRange) {
         _selection.value = newSelection
-        val currentDoc = _document.value ?: return
-        val activeIdx = findActiveParagraphBlockIndex(currentDoc.blocks, newSelection.start)
-        if (activeIdx != _activeBlockIndex.value) {
-            _activeBlockIndex.value = activeIdx
-        }
+    }
+
+    fun updateSelectionForBlock(blockIndex: Int, newSelection: androidx.compose.ui.text.TextRange) {
+        _activeBlockIndex.value = blockIndex
+        _selection.value = newSelection
     }
 
     fun findActiveParagraphBlockIndex(blocks: List<BlockElement>, offset: Int): Int {
@@ -431,6 +432,49 @@ class EditorViewModel(
             return
         }
 
+        // If user pressed Enter on soft keyboard or pasted text containing newlines:
+        if (newText.contains("\n")) {
+            val lines = newText.split("\n")
+            val firstLine = lines.first()
+            val (editOffset, deletedLen, insertedLen) = calculateEditDelta(oldText, firstLine)
+            val shiftedSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
+                spans = block.spans,
+                editOffset = editOffset,
+                deletedLength = deletedLen,
+                insertedLength = insertedLen,
+                pendingFormatting = if (insertedLen > 0) _pendingFormatting.value else null
+            )
+            val updatedFirst = block.copy(
+                text = firstLine,
+                spans = shiftedSpans.mapNotNull { if (it.start < firstLine.length) it.copy(end = it.end.coerceAtMost(firstLine.length)) else null }
+            )
+
+            val newBlocks = currentDoc.blocks.toMutableList()
+            newBlocks[blockIndex] = updatedFirst
+
+            for (i in 1 until lines.size) {
+                val lineText = lines[i]
+                val newBlock = ParagraphBlock(
+                    id = java.util.UUID.randomUUID().toString(),
+                    text = lineText,
+                    alignment = block.alignment,
+                    isRtl = block.isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(lineText),
+                    headingStyle = if (block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.SUBTITLE) HeadingStyle.NORMAL else block.headingStyle,
+                    listType = if (block.listType == ListType.NUMBERED) ListType.NUMBERED else ListType.NONE,
+                    lineSpacingMultiplier = block.lineSpacingMultiplier
+                )
+                newBlocks.add(blockIndex + i, newBlock)
+            }
+
+            val updatedDoc = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+            _document.value = updatedDoc
+            val finalActiveIndex = blockIndex + lines.size - 1
+            _activeBlockIndex.value = finalActiveIndex
+            _selection.value = androidx.compose.ui.text.TextRange(lines.last().length)
+            scheduleDocumentAutosave()
+            return
+        }
+
         // Calculate edit offset and delta
         val (editOffset, deletedLen, insertedLen) = calculateEditDelta(oldText, newText)
 
@@ -456,6 +500,61 @@ class EditorViewModel(
             )
         )
         _selection.value = newSelection
+    }
+
+    fun splitParagraph(blockIndex: Int, cursorOffset: Int) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(blockIndex) as? ParagraphBlock ?: return
+        val cursor = cursorOffset.coerceIn(0, block.text.length)
+
+        val text1 = block.text.substring(0, cursor)
+        val text2 = block.text.substring(cursor)
+
+        val spans1 = block.spans.mapNotNull { span ->
+            val s = span.start.coerceIn(0, cursor)
+            val e = span.end.coerceIn(0, cursor)
+            if (s < e) span.copy(start = s, end = e) else null
+        }
+        val spans2 = block.spans.mapNotNull { span ->
+            if (span.end > cursor) {
+                val s = (span.start - cursor).coerceAtLeast(0)
+                val e = (span.end - cursor).coerceAtLeast(0)
+                if (s < e) span.copy(start = s, end = e) else null
+            } else null
+        }
+
+        val updatedCurrent = block.copy(
+            text = text1,
+            spans = spans1
+        )
+        val newBlock = ParagraphBlock(
+            id = java.util.UUID.randomUUID().toString(),
+            text = text2,
+            spans = spans2,
+            alignment = block.alignment,
+            isRtl = block.isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(text2),
+            headingStyle = if (block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.SUBTITLE) HeadingStyle.NORMAL else block.headingStyle,
+            listType = if (block.listType == ListType.NUMBERED) ListType.NUMBERED else ListType.NONE,
+            lineSpacingMultiplier = block.lineSpacingMultiplier
+        )
+
+        val newBlocks = currentDoc.blocks.toMutableList()
+        newBlocks[blockIndex] = updatedCurrent
+        newBlocks.add(blockIndex + 1, newBlock)
+
+        val updatedDoc = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+        undoRedoManager.execute(
+            object : com.example.editor.engine.EditorCommand {
+                override val description: String = "Split Paragraph"
+                override fun apply(document: RichDocument): RichDocument = updatedDoc
+                override fun revert(document: RichDocument): RichDocument = currentDoc
+            },
+            currentDoc
+        )
+        _document.value = updatedDoc
+        _activeBlockIndex.value = blockIndex + 1
+        _selection.value = androidx.compose.ui.text.TextRange.Zero
+        scheduleDocumentAutosave()
     }
 
     private var typingBaseDoc: RichDocument? = null
@@ -750,33 +849,16 @@ class EditorViewModel(
 
     fun setAlignment(alignment: TextAlignment) {
         val currentDoc = _document.value ?: return
-        val sel = _selection.value
-        val targetIndices = findParagraphBlockIndicesForRange(currentDoc.blocks, sel.min, sel.max)
+        val targetIdx = _activeBlockIndex.value.coerceIn(0, (currentDoc.blocks.size - 1).coerceAtLeast(0))
+        val block = currentDoc.blocks.getOrNull(targetIdx) as? ParagraphBlock ?: return
 
-        if (targetIndices.size <= 1) {
-            val targetIdx = targetIndices.firstOrNull() ?: _activeBlockIndex.value
-            val block = currentDoc.blocks.getOrNull(targetIdx) as? ParagraphBlock ?: return
-
-            executeCommand(
-                ChangeAlignmentCommand(
-                    blockId = block.id,
-                    oldAlignment = block.alignment,
-                    newAlignment = alignment
-                )
+        executeCommand(
+            ChangeAlignmentCommand(
+                blockId = block.id,
+                oldAlignment = block.alignment,
+                newAlignment = alignment
             )
-        } else {
-            val affectedBlocks = targetIndices.mapNotNull { idx ->
-                currentDoc.blocks.getOrNull(idx) as? ParagraphBlock
-            }
-            val oldMap = affectedBlocks.associate { it.id to it.alignment }
-            executeCommand(
-                ChangeMultipleParagraphsAlignmentCommand(
-                    blockIds = affectedBlocks.map { it.id },
-                    oldAlignments = oldMap,
-                    newAlignment = alignment
-                )
-            )
-        }
+        )
     }
 
     fun setHeadingStyle(heading: HeadingStyle) {
@@ -1022,9 +1104,15 @@ class EditorViewModel(
         var count = 0
         val newBlocks = doc.blocks.map { block ->
             if (block is ParagraphBlock && block.text.contains(find, ignoreCase = true)) {
-                val replacedText = block.text.replace(find, replace, ignoreCase = true)
-                count += (block.text.length - replacedText.length).coerceAtLeast(1)
-                block.copy(text = replacedText)
+                val (replacedText, shiftedSpans) = com.example.editor.engine.SpanOperations.replaceTextAndShiftSpans(
+                    text = block.text,
+                    spans = block.spans,
+                    find = find,
+                    replace = replace,
+                    ignoreCase = true
+                )
+                count += 1
+                block.copy(text = replacedText, spans = shiftedSpans)
             } else block
         }
 
@@ -1042,17 +1130,31 @@ class EditorViewModel(
         }
     }
 
+
     // ----------------------------------------------------
     // Insert Operations
     // ----------------------------------------------------
 
     fun insertParagraph() {
         val currentDoc = _document.value ?: return
-        val fullText = currentDoc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
-        val sel = _selection.value
-        val pos = sel.start.coerceIn(0, fullText.length)
-        val newText = fullText.substring(0, pos) + "\n" + fullText.substring(pos)
-        updateUnifiedDocumentText(newText, androidx.compose.ui.text.TextRange(pos + 1))
+        val activeIdx = _activeBlockIndex.value.coerceIn(0, (currentDoc.blocks.size - 1).coerceAtLeast(0))
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock
+        if (block != null) {
+            val sel = _selection.value
+            val cursor = sel.start.coerceIn(0, block.text.length)
+            splitParagraph(activeIdx, cursor)
+        } else {
+            val newBlock = ParagraphBlock(
+                alignment = if (defaultRtl.value) TextAlignment.END else TextAlignment.START,
+                isRtl = defaultRtl.value
+            )
+            val newBlocks = currentDoc.blocks.toMutableList()
+            newBlocks.add(activeIdx + 1, newBlock)
+            _document.value = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+            _activeBlockIndex.value = activeIdx + 1
+            _selection.value = androidx.compose.ui.text.TextRange.Zero
+            scheduleDocumentAutosave()
+        }
     }
 
     fun insertDivider() {

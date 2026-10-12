@@ -347,6 +347,68 @@ class RichTextEngineUnitTest {
         // Only second paragraph should be CENTER
         assertEquals(TextAlignment.CENTER, r2.alignment)
     }
+
+    @Test
+    fun testMultiParagraphIndependentAlignments() {
+        val p1 = ParagraphBlock(id = "p1", text = "Left Aligned Line", alignment = TextAlignment.START)
+        val p2 = ParagraphBlock(id = "p2", text = "Center Aligned Line", alignment = TextAlignment.CENTER)
+        val p3 = ParagraphBlock(id = "p3", text = "Right Aligned Line", alignment = TextAlignment.END)
+        val doc = RichDocument(blocks = listOf(p1, p2, p3))
+
+        val manager = UndoRedoManager()
+        // Change p1 to JUSTIFY
+        val docAfterP1 = manager.execute(
+            ChangeAlignmentCommand(blockId = "p1", oldAlignment = p1.alignment, newAlignment = TextAlignment.JUSTIFY),
+            doc
+        )
+
+        val res1 = docAfterP1.blocks[0] as ParagraphBlock
+        val res2 = docAfterP1.blocks[1] as ParagraphBlock
+        val res3 = docAfterP1.blocks[2] as ParagraphBlock
+
+        // p1 changed to JUSTIFY
+        assertEquals(TextAlignment.JUSTIFY, res1.alignment)
+        // p2 is still CENTER
+        assertEquals(TextAlignment.CENTER, res2.alignment)
+        // p3 is still END
+        assertEquals(TextAlignment.END, res3.alignment)
+    }
+
+    @Test
+    fun testParagraphSplittingSpansShiftCorrectly() {
+        // "Hello Beautiful World" where "Beautiful" (indices 6..15) is bold
+        val p = ParagraphBlock(
+            id = "p1",
+            text = "Hello Beautiful World",
+            alignment = TextAlignment.CENTER,
+            spans = listOf(InlineSpan(start = 6, end = 15, isBold = true))
+        )
+        // Split at cursor index 6 (right before "Beautiful")
+        val cursor = 6
+        val text1 = p.text.substring(0, cursor)
+        val text2 = p.text.substring(cursor)
+
+        val spans1 = p.spans.mapNotNull { span ->
+            val s = span.start.coerceIn(0, cursor)
+            val e = span.end.coerceIn(0, cursor)
+            if (s < e) span.copy(start = s, end = e) else null
+        }
+        val spans2 = p.spans.mapNotNull { span ->
+            if (span.end > cursor) {
+                val s = (span.start - cursor).coerceAtLeast(0)
+                val e = (span.end - cursor).coerceAtLeast(0)
+                if (s < e) span.copy(start = s, end = e) else null
+            } else null
+        }
+
+        assertEquals("Hello ", text1)
+        assertEquals("Beautiful World", text2)
+        assertEquals(0, spans1.size)
+        assertEquals(1, spans2.size)
+        assertEquals(0, spans2[0].start)
+        assertEquals(9, spans2[0].end) // "Beautiful" length is 9
+        assertTrue(spans2[0].isBold)
+    }
 }
 
 

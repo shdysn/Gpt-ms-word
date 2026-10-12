@@ -125,6 +125,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -599,6 +600,8 @@ fun EditorScreen(
                             viewModel.updateParagraphSubSliceText(index, startChar, endChar, text, sel)
                         },
                         onSelectionChanged = viewModel::updateSelection,
+                        onSelectionChangedForBlock = viewModel::updateSelectionForBlock,
+                        onSplitParagraph = viewModel::splitParagraph,
                         onInsertParagraph = viewModel::insertParagraph,
                         onDeleteCurrentBlock = viewModel::deleteCurrentBlock,
                         onDeleteBlockById = viewModel::deleteBlockById,
@@ -1771,7 +1774,9 @@ fun DocumentCanvas(
     onQuickAddTableCol: (String) -> Unit = {},
     onQuickDeleteTableCol: (String) -> Unit = {},
     onEditImageProperties: (ImageBlock) -> Unit = {},
-    onOpenPageLayoutDialog: () -> Unit = {}
+    onOpenPageLayoutDialog: () -> Unit = {},
+    onSelectionChangedForBlock: (Int, TextRange) -> Unit = { _, _ -> },
+    onSplitParagraph: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -1895,52 +1900,23 @@ fun DocumentCanvas(
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Content items: Pure text documents ALWAYS render UnifiedTextCanvas (no blocks)
-                        if (hasOnlyParagraphs) {
-                            UnifiedTextCanvas(
-                                document = document,
-                                zoomScale = zoomScale,
+                        // Content items: Each paragraph and block rendered with its own formatting and alignment
+                        if (page.items.isEmpty()) {
+                            val dummyBlock = document.blocks.firstOrNull() as? ParagraphBlock ?: ParagraphBlock()
+                            BlockItemView(
+                                block = dummyBlock,
+                                itemNumber = null,
+                                isActive = true,
                                 isDarkPage = isDarkPage,
-                                onSelectionChanged = onSelectionChanged,
-                                onUpdateUnifiedText = onUpdateUnifiedText
+                                zoomScale = zoomScale,
+                                canDeleteBlock = false,
+                                onFocus = { onBlockSelected(0) },
+                                onSelectionChanged = { sel -> onSelectionChangedForBlock(0, sel) },
+                                onTextChanged = { newText, sel -> onUpdateBlockText(0, newText, sel) },
+                                onEnterPressed = { cursorOffset -> onSplitParagraph(0, cursorOffset) },
+                                onDeleteBlock = {},
+                                onDeleteOrMergeWithPrevious = {}
                             )
-
-                            // Soft Visual Page Guideline when content spans across multiple printable pages
-                            if (document.estimatedPageCount > 1) {
-                                Spacer(modifier = Modifier.height(20.dp))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    HorizontalDivider(
-                                        modifier = Modifier.weight(1f),
-                                        color = if (isDarkPage) Color(0xFF334155) else Color(0xFFCBD5E1),
-                                        thickness = 1.dp
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFF1F5F9),
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0)),
-                                        modifier = Modifier.padding(horizontal = 8.dp)
-                                    ) {
-                                        Text(
-                                            text = " PAGE 2 GUIDE • ${document.estimatedPageCount} PAGES TOTAL ",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isDarkPage) Color(0xFF94A3B8) else Color(0xFF64748B),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                    HorizontalDivider(
-                                        modifier = Modifier.weight(1f),
-                                        color = if (isDarkPage) Color(0xFF334155) else Color(0xFFCBD5E1),
-                                        thickness = 1.dp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
                         } else {
                             page.items.forEach { pageItem ->
                                 when (pageItem) {
@@ -1982,7 +1958,8 @@ fun DocumentCanvas(
                                             canDeleteBlock = document.blocks.size > 1,
                                             onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
                                             onSelectionChanged = { sel ->
-                                                onSelectionChanged(
+                                                onSelectionChangedForBlock(
+                                                    pageItem.originalBlockIndex,
                                                     TextRange(
                                                         (sliceStart + sel.start).coerceIn(0, block.text.length),
                                                         (sliceStart + sel.end).coerceIn(0, block.text.length)
@@ -1996,7 +1973,9 @@ fun DocumentCanvas(
                                                     onUpdateBlockText(pageItem.originalBlockIndex, newText, sel)
                                                 }
                                             },
-                                            onEnterPressed = onInsertParagraph,
+                                            onEnterPressed = { cursorOffset ->
+                                                onSplitParagraph(pageItem.originalBlockIndex, sliceStart + cursorOffset)
+                                            },
                                             onDeleteBlock = { onDeleteBlockById(block.id) },
                                             onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(pageItem.originalBlockIndex) }
                                         )
@@ -2144,46 +2123,35 @@ fun DocumentCanvas(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    val hasOnlyParagraphs = document.blocks.all { it is ParagraphBlock }
-                    if (hasOnlyParagraphs) {
-                        UnifiedTextCanvas(
-                            document = document,
-                            zoomScale = zoomScale,
-                            isDarkPage = isDarkPage,
-                            onSelectionChanged = onSelectionChanged,
-                            onUpdateUnifiedText = onUpdateUnifiedText
-                        )
-                    } else {
-                        document.blocks.forEachIndexed { index, block ->
-                            val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
-                                globalListNumbers[index] ?: 1
-                            } else {
-                                null
-                            }
-
-                            BlockItemView(
-                                block = block,
-                                itemNumber = itemNumber,
-                                isActive = index == activeBlockIndex,
-                                isDarkPage = isDarkPage,
-                                zoomScale = zoomScale,
-                                canDeleteBlock = document.blocks.size > 1,
-                                onFocus = { onBlockSelected(index) },
-                                onSelectionChanged = onSelectionChanged,
-                                onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
-                                onEnterPressed = onInsertParagraph,
-                                onDeleteBlock = { onDeleteBlockById(block.id) },
-                                onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(index) },
-                                onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
-                                onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
-                                onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
-                                onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
-                                onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
-                                onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
-                                onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) }
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
+                    document.blocks.forEachIndexed { index, block ->
+                        val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
+                            globalListNumbers[index] ?: 1
+                        } else {
+                            null
                         }
+
+                        BlockItemView(
+                            block = block,
+                            itemNumber = itemNumber,
+                            isActive = index == activeBlockIndex,
+                            isDarkPage = isDarkPage,
+                            zoomScale = zoomScale,
+                            canDeleteBlock = document.blocks.size > 1,
+                            onFocus = { onBlockSelected(index) },
+                            onSelectionChanged = { sel -> onSelectionChangedForBlock(index, sel) },
+                            onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
+                            onEnterPressed = { cursorOffset -> onSplitParagraph(index, cursorOffset) },
+                            onDeleteBlock = { onDeleteBlockById(block.id) },
+                            onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(index) },
+                            onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
+                            onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
+                            onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
+                            onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
+                            onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
+                            onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
+                            onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
@@ -2665,7 +2633,7 @@ fun BlockItemView(
     onFocus: () -> Unit,
     onSelectionChanged: (TextRange) -> Unit,
     onTextChanged: (String, TextRange) -> Unit,
-    onEnterPressed: () -> Unit,
+    onEnterPressed: (Int) -> Unit = {},
     onDeleteBlock: () -> Unit = {},
     onDeleteOrMergeWithPrevious: () -> Unit = {},
     onEditTableProperties: () -> Unit = {},
@@ -2822,6 +2790,13 @@ fun BlockItemView(
                                         } else {
                                             false
                                         }
+                                    } else if (event.type == KeyEventType.KeyDown && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
+                                        if (!event.isShiftPressed) {
+                                            onEnterPressed(textFieldValue.selection.start)
+                                            true
+                                        } else {
+                                            false
+                                        }
                                     } else {
                                         false
                                     }
@@ -2831,7 +2806,24 @@ fun BlockItemView(
                                         onFocus()
                                     }
                                 }
-                                .testTag("paragraph_input_${block.id}")
+                                .testTag("paragraph_input_${block.id}"),
+                            decorationBox = { innerTextField ->
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    if (textFieldValue.text.isEmpty() && !canDeleteBlock) {
+                                        Text(
+                                            text = "Start typing...",
+                                            style = TextStyle(
+                                                fontSize = baseFontSize,
+                                                fontFamily = effectiveFontFamily,
+                                                color = if (isDarkPage) Color(0xFF64748B) else Color(0xFF94A3B8),
+                                                textAlign = align,
+                                                textDirection = textDirection
+                                            )
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
                     }
                 }
