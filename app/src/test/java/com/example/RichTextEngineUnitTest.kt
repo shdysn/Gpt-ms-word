@@ -409,6 +409,28 @@ class RichTextEngineUnitTest {
         assertEquals(9, spans2[0].end) // "Beautiful" length is 9
         assertTrue(spans2[0].isBold)
     }
+
+    @Test
+    fun testAnnotatedTextGuaranteesExactLength() {
+        val spans = listOf(
+            InlineSpan(start = 0, end = 5, isBold = true),
+            InlineSpan(start = 10, end = 25, isItalic = true)
+        )
+        // Shorter input text than spans
+        val shortText = "Hi"
+        val annotatedShort = EditorEngineIntegration.buildAnnotatedText(shortText, spans, isRtl = false)
+        assertEquals(shortText.length, annotatedShort.length)
+
+        // Longer input text than spans
+        val longText = "This is a much longer text that exceeds the span definitions completely."
+        val annotatedLong = EditorEngineIntegration.buildAnnotatedText(longText, spans, isRtl = false)
+        assertEquals(longText.length, annotatedLong.length)
+
+        // Empty text
+        val emptyText = ""
+        val annotatedEmpty = EditorEngineIntegration.buildAnnotatedText(emptyText, spans, isRtl = false)
+        assertEquals(0, annotatedEmpty.length)
+    }
 }
 
 

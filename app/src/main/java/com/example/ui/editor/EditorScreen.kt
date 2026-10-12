@@ -1917,19 +1917,10 @@ fun DocumentCanvas(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (viewMode == EditorViewMode.PAGINATED_A4) {
-            val hasOnlyParagraphs = document.blocks.all { it is ParagraphBlock }
-            val pagesToDisplay = if (hasOnlyParagraphs) {
-                listOf(com.example.core.layout.DocumentPage(
-                    pageIndex = 0,
-                    pageNumber = 1,
-                    totalPages = 1,
-                    layout = document.layoutConfig,
-                    items = emptyList()
-                ))
-            } else if (paginatedPages.isEmpty()) {
-                com.example.core.layout.PaginationEngine.paginate(document)
-            } else {
+            val pagesToDisplay = if (paginatedPages.isNotEmpty()) {
                 paginatedPages
+            } else {
+                com.example.core.layout.PaginationEngine.paginate(document)
             }
 
             // Proportional physical sheet width based on paper size points (anchored to A4 portrait baseline 595 pt)
@@ -2034,7 +2025,7 @@ fun DocumentCanvas(
                             page.items.forEach { pageItem ->
                                 when (pageItem) {
                                     is com.example.core.layout.ParagraphPageItem -> {
-                                        val block = pageItem.originalBlock
+                                        val block = (document.blocks.getOrNull(pageItem.originalBlockIndex) as? ParagraphBlock) ?: pageItem.originalBlock
                                         val isSplitSlice = pageItem.startChar > 0 || (pageItem.endChar > 0 && pageItem.endChar < block.text.length)
                                         val sliceStart = if (isSplitSlice) pageItem.startChar.coerceIn(0, block.text.length) else 0
                                         val sliceEnd = if (isSplitSlice) pageItem.endChar.coerceIn(sliceStart, block.text.length) else block.text.length
@@ -2796,6 +2787,16 @@ fun BlockItemView(
                 mutableStateOf(TextFieldValue(text = block.text, selection = TextRange(block.text.length)))
             }
 
+            // Keep textFieldValue in sync synchronously if block.text changed externally or on block split
+            if (textFieldValue.text != block.text) {
+                val safeStart = textFieldValue.selection.start.coerceIn(0, block.text.length)
+                val safeEnd = textFieldValue.selection.end.coerceIn(safeStart, block.text.length)
+                textFieldValue = textFieldValue.copy(
+                    text = block.text,
+                    selection = TextRange(safeStart, safeEnd)
+                )
+            }
+
             val focusRequester = remember { FocusRequester() }
 
             LaunchedEffect(isActive) {
@@ -2810,7 +2811,7 @@ fun BlockItemView(
             LaunchedEffect(block.text) {
                 if (textFieldValue.text != block.text) {
                     val safeStart = textFieldValue.selection.start.coerceIn(0, block.text.length)
-                    val safeEnd = textFieldValue.selection.end.coerceIn(0, block.text.length)
+                    val safeEnd = textFieldValue.selection.end.coerceIn(safeStart, block.text.length)
                     textFieldValue = textFieldValue.copy(
                         text = block.text,
                         selection = TextRange(safeStart, safeEnd)
@@ -2819,9 +2820,15 @@ fun BlockItemView(
             }
 
             // VisualTransformation applying rich text styles from block.spans
-            val richTransformation = remember(block.text, block.spans, block.headingStyle) {
-                VisualTransformation { _ ->
-                    val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedParagraph(block)
+            // Uses inputAnnotated.text to guarantee exact character length alignment with TextField
+            val richTransformation = remember(block.spans, block.isRtl, zoomScale) {
+                VisualTransformation { inputAnnotated ->
+                    val annotated = com.example.editor.engine.EditorEngineIntegration.buildAnnotatedText(
+                        inputText = inputAnnotated.text,
+                        spans = block.spans,
+                        isRtl = block.isRtl,
+                        zoomScale = zoomScale
+                    )
                     TransformedText(annotated, OffsetMapping.Identity)
                 }
             }
@@ -2874,10 +2881,21 @@ fun BlockItemView(
                         BasicTextField(
                             value = textFieldValue,
                             onValueChange = { newTfv ->
-                                textFieldValue = newTfv
-                                onSelectionChanged(newTfv.selection)
-                                if (newTfv.text != block.text) {
-                                    onTextChanged(newTfv.text, newTfv.selection)
+                                if (newTfv.text.contains("\n")) {
+                                    // User pressed Enter on the virtual keyboard!
+                                    val newlineIndex = newTfv.text.indexOf('\n')
+                                    val textBefore = newTfv.text.substring(0, newlineIndex)
+                                    textFieldValue = TextFieldValue(
+                                        text = textBefore,
+                                        selection = TextRange(textBefore.length)
+                                    )
+                                    onEnterPressed(newlineIndex)
+                                } else {
+                                    textFieldValue = newTfv
+                                    onSelectionChanged(newTfv.selection)
+                                    if (newTfv.text != block.text) {
+                                        onTextChanged(newTfv.text, newTfv.selection)
+                                    }
                                 }
                             },
                             visualTransformation = richTransformation,
@@ -2905,7 +2923,10 @@ fun BlockItemView(
                                         }
                                     } else if (event.type == KeyEventType.KeyDown && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
                                         if (!event.isShiftPressed) {
-                                            onEnterPressed(textFieldValue.selection.start)
+                                            val cursor = textFieldValue.selection.start.coerceIn(0, block.text.length)
+                                            val textBefore = block.text.substring(0, cursor)
+                                            textFieldValue = TextFieldValue(text = textBefore, selection = TextRange(cursor))
+                                            onEnterPressed(cursor)
                                             true
                                         } else {
                                             false

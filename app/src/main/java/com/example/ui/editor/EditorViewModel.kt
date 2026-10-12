@@ -435,6 +435,12 @@ class EditorViewModel(
         // If user pressed Enter on soft keyboard or pasted text containing newlines:
         if (newText.contains("\n")) {
             val lines = newText.split("\n")
+            if (lines.size == 2) {
+                val splitOffset = lines[0].length
+                splitParagraph(blockIndex, splitOffset)
+                return
+            }
+
             val firstLine = lines.first()
             val (editOffset, deletedLen, insertedLen) = calculateEditDelta(oldText, firstLine)
             val shiftedSpans = com.example.editor.engine.SpanOperations.shiftSpansOnTextChange(
@@ -467,6 +473,14 @@ class EditorViewModel(
             }
 
             val updatedDoc = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+            undoRedoManager.execute(
+                object : com.example.editor.engine.EditorCommand {
+                    override val description: String = "Paste / Newlines"
+                    override fun apply(document: RichDocument): RichDocument = updatedDoc
+                    override fun revert(document: RichDocument): RichDocument = currentDoc
+                },
+                currentDoc
+            )
             _document.value = updatedDoc
             val finalActiveIndex = blockIndex + lines.size - 1
             _activeBlockIndex.value = finalActiveIndex

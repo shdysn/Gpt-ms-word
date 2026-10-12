@@ -40,20 +40,25 @@ import com.example.data.model.TextAlignment
 object EditorEngineIntegration {
 
     /**
-     * Converts a domain ParagraphBlock model into a Jetpack Compose AnnotatedString,
-     * applying all inline styling spans (Bold, Italic, Underline, Colors, Spans).
+     * Converts raw text and inline spans into a Jetpack Compose AnnotatedString,
+     * guaranteeing exact length alignment with input text for VisualTransformation.
      */
-    fun buildAnnotatedParagraph(paragraph: ParagraphBlock, zoomScale: Float = 1f): AnnotatedString {
+    fun buildAnnotatedText(
+        inputText: String,
+        spans: List<InlineSpan>,
+        isRtl: Boolean,
+        zoomScale: Float = 1f
+    ): AnnotatedString {
         return buildAnnotatedString {
-            append(paragraph.text)
+            append(inputText)
 
-            for (span in paragraph.spans) {
-                val safeStart = span.start.coerceIn(0, paragraph.text.length)
-                val safeEnd = span.end.coerceIn(safeStart, paragraph.text.length)
+            for (span in spans) {
+                val safeStart = span.start.coerceIn(0, inputText.length)
+                val safeEnd = span.end.coerceIn(safeStart, inputText.length)
                 if (safeStart >= safeEnd) continue
 
                 val fontFamily = span.fontFamilyName?.let {
-                    com.example.core.typography.DocumentFontManager.getFontFamily(it, paragraph.isRtl)
+                    com.example.core.typography.DocumentFontManager.getFontFamily(it, isRtl)
                 }
 
                 val baselineShift = when {
@@ -95,6 +100,19 @@ object EditorEngineIntegration {
                 }
             }
         }
+    }
+
+    /**
+     * Converts a domain ParagraphBlock model into a Jetpack Compose AnnotatedString,
+     * applying all inline styling spans (Bold, Italic, Underline, Colors, Spans).
+     */
+    fun buildAnnotatedParagraph(paragraph: ParagraphBlock, zoomScale: Float = 1f): AnnotatedString {
+        return buildAnnotatedText(
+            inputText = paragraph.text,
+            spans = paragraph.spans,
+            isRtl = paragraph.isRtl,
+            zoomScale = zoomScale
+        )
     }
 
     /**
