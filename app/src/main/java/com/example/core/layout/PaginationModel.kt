@@ -67,11 +67,22 @@ data class PageBreakPageItem(
 ) : PageItem
 
 /**
+ * Resolved heading entry for Table of Contents navigation.
+ */
+data class TocHeadingEntry(
+    val blockId: String,
+    val title: String,
+    val headingStyle: com.example.data.model.HeadingStyle,
+    val pageNumber: Int
+)
+
+/**
  * Table of Contents rendered on a page.
  */
 data class TableOfContentsPageItem(
     override val originalBlockIndex: Int,
     val originalBlock: com.example.data.model.TableOfContentsBlock,
+    val resolvedEntries: List<TocHeadingEntry> = emptyList(),
     override val heightPt: Float = 120f
 ) : PageItem
 

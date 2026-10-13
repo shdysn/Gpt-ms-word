@@ -74,4 +74,12 @@ interface DocumentRepository {
     suspend fun clearRecoveryDraft(id: String): DocumentResult<Unit>
 
     suspend fun initializeDefaultDocumentsIfEmpty()
+
+    fun getSnapshots(documentId: String): Flow<List<com.example.data.model.DocumentRevisionSnapshot>>
+
+    suspend fun saveSnapshot(documentId: String, snapshot: com.example.data.model.DocumentRevisionSnapshot): DocumentResult<Unit>
+
+    suspend fun getSnapshot(snapshotId: String): DocumentResult<com.example.data.model.DocumentRevisionSnapshot>
+
+    suspend fun deleteSnapshot(snapshotId: String): DocumentResult<Unit>
 }

@@ -244,6 +244,7 @@ class EditorViewModel(
 
     init {
         loadDocument()
+        observeSnapshots()
     }
 
     private fun scheduleDocumentAutosave() {
@@ -287,6 +288,14 @@ class EditorViewModel(
                 is DocumentResult.Failure -> {
                     _statusMessage.value = "Failed to load document: ${res.error.message}"
                 }
+            }
+        }
+    }
+
+    private fun observeSnapshots() {
+        viewModelScope.launch {
+            repository.getSnapshots(documentId).collect { list ->
+                _revisionSnapshots.value = list
             }
         }
     }
@@ -1796,6 +1805,11 @@ class EditorViewModel(
 
     fun exportToPdf(context: Context, onComplete: (File?) -> Unit) {
         val doc = _document.value ?: return
+        if (_isDocumentLocked.value) {
+            _statusMessage.value = "Document is locked. Enter PIN to export."
+            onComplete(null)
+            return
+        }
         viewModelScope.launch {
             val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
             val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
@@ -1815,6 +1829,11 @@ class EditorViewModel(
 
     fun exportToPlainText(context: Context, onComplete: (File?) -> Unit) {
         val doc = _document.value ?: return
+        if (_isDocumentLocked.value) {
+            _statusMessage.value = "Document is locked. Enter PIN to export."
+            onComplete(null)
+            return
+        }
         viewModelScope.launch {
             val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
             val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
@@ -1834,6 +1853,11 @@ class EditorViewModel(
 
     fun exportToDocx(context: Context, onComplete: (File?) -> Unit) {
         val doc = _document.value ?: return
+        if (_isDocumentLocked.value) {
+            _statusMessage.value = "Document is locked. Enter PIN to export."
+            onComplete(null)
+            return
+        }
         viewModelScope.launch {
             val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
             val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
@@ -1853,6 +1877,10 @@ class EditorViewModel(
 
     fun exportDocxToSafUri(context: Context, uri: Uri) {
         val doc = _document.value ?: return
+        if (_isDocumentLocked.value) {
+            _statusMessage.value = "Document is locked. Enter PIN to export."
+            return
+        }
         viewModelScope.launch {
             when (val res = repository.exportDocxToUri(context, doc, uri)) {
                 is DocumentResult.Success -> {
@@ -1867,6 +1895,10 @@ class EditorViewModel(
 
     fun exportPdfToSafUri(context: Context, uri: Uri) {
         val doc = _document.value ?: return
+        if (_isDocumentLocked.value) {
+            _statusMessage.value = "Document is locked. Enter PIN to export."
+            return
+        }
         viewModelScope.launch {
             when (val res = repository.exportPdfToUri(context, doc, uri)) {
                 is DocumentResult.Success -> {
@@ -2021,7 +2053,7 @@ class EditorViewModel(
 
     fun createNamedSnapshot(label: String = "Manual Snapshot") {
         val doc = _document.value ?: return
-        val snapshot = DocumentRevisionSnapshot(
+        val snapshot = com.example.data.model.DocumentRevisionSnapshot(
             id = java.util.UUID.randomUUID().toString(),
             timestamp = System.currentTimeMillis(),
             label = label.ifBlank { "Snapshot" },
@@ -2030,17 +2062,35 @@ class EditorViewModel(
             snippet = doc.plainTextSnippet,
             snapshotDoc = doc.copy()
         )
-        _revisionSnapshots.value = listOf(snapshot) + _revisionSnapshots.value.take(9)
-        _statusMessage.value = "Revision snapshot '$label' saved"
+        viewModelScope.launch {
+            when (repository.saveSnapshot(documentId, snapshot)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "Revision snapshot '$label' saved"
+                }
+                is DocumentResult.Failure -> {
+                    _revisionSnapshots.value = listOf(snapshot) + _revisionSnapshots.value.take(9)
+                    _statusMessage.value = "Revision snapshot '$label' saved locally"
+                }
+            }
+        }
     }
 
     fun restoreRevisionSnapshot(snapshotId: String) {
-        val snap = _revisionSnapshots.value.firstOrNull { it.id == snapshotId } ?: return
-        snap.snapshotDoc?.let { restoredDoc ->
-            _document.value = restoredDoc.copy(updatedAt = System.currentTimeMillis())
-            scheduleDocumentAutosave()
+        viewModelScope.launch {
+            val snap = _revisionSnapshots.value.firstOrNull { it.id == snapshotId }
+            val docToRestore = snap?.snapshotDoc ?: run {
+                when (val res = repository.getSnapshot(snapshotId)) {
+                    is DocumentResult.Success -> res.data.snapshotDoc
+                    else -> null
+                }
+            }
+            if (docToRestore != null) {
+                _document.value = docToRestore.copy(updatedAt = System.currentTimeMillis())
+                scheduleDocumentAutosave()
+                val timeStr = java.text.SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snap?.timestamp ?: System.currentTimeMillis()))
+                _statusMessage.value = "Restored snapshot from $timeStr"
+            }
         }
-        _statusMessage.value = "Restored snapshot from ${java.text.SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snap.timestamp))}"
     }
 
     fun cycleSpeechRate() {

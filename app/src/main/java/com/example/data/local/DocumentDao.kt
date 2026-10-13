@@ -55,4 +55,23 @@ interface DocumentDao {
 
     @Query("SELECT COUNT(*) FROM documents")
     suspend fun getDocumentCount(): Int
+
+    // ----------------------------------------------------
+    // Document Revision Snapshots
+    // ----------------------------------------------------
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSnapshot(snapshot: com.example.data.model.DocumentSnapshotEntity)
+
+    @Query("SELECT * FROM document_snapshots WHERE documentId = :documentId ORDER BY timestamp DESC")
+    fun getSnapshotsForDocument(documentId: String): Flow<List<com.example.data.model.DocumentSnapshotEntity>>
+
+    @Query("SELECT * FROM document_snapshots WHERE id = :snapshotId")
+    suspend fun getSnapshotById(snapshotId: String): com.example.data.model.DocumentSnapshotEntity?
+
+    @Query("DELETE FROM document_snapshots WHERE id = :snapshotId")
+    suspend fun deleteSnapshotById(snapshotId: String)
+
+    @Query("DELETE FROM document_snapshots WHERE documentId = :documentId")
+    suspend fun deleteSnapshotsForDocument(documentId: String)
 }

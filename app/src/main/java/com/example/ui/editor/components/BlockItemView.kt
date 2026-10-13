@@ -592,19 +592,62 @@ fun BlockItemView(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    // Signature Cursive Line
-                    Text(
-                        text = block.signerName.ifBlank { "Authorized Signature" },
-                        fontSize = (20f * zoomScale).sp,
-                        fontStyle = FontStyle.Italic,
-                        fontWeight = FontWeight.Medium,
-                        color = try { Color(android.graphics.Color.parseColor(block.strokeColorHex)) } catch (_: Exception) { Color(0xFF0F172A) }
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    val inkColor = try {
+                        Color(android.graphics.Color.parseColor(block.strokeColorHex))
+                    } catch (_: Exception) {
+                        Color(0xFF0F172A)
+                    }
+
+                    val decodedStrokes = remember(block.svgPoints) {
+                        com.example.core.typography.SignatureUtils.decodeNormalizedStrokes(
+                            encoded = block.svgPoints,
+                            targetWidth = 240f,
+                            targetHeight = 65f
+                        )
+                    }
+
+                    if (decodedStrokes.isNotEmpty()) {
+                        androidx.compose.foundation.Canvas(
+                            modifier = Modifier
+                                .width((240f * zoomScale).dp)
+                                .height((65f * zoomScale).dp)
+                                .padding(vertical = 2.dp)
+                        ) {
+                            for (stroke in decodedStrokes) {
+                                if (stroke.size > 1) {
+                                    val path = androidx.compose.ui.graphics.Path().apply {
+                                        moveTo(stroke.first().first * zoomScale, stroke.first().second * zoomScale)
+                                        for (i in 1 until stroke.size) {
+                                            lineTo(stroke[i].first * zoomScale, stroke[i].second * zoomScale)
+                                        }
+                                    }
+                                    drawPath(
+                                        path = path,
+                                        color = inkColor,
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                            width = 3.5f * zoomScale,
+                                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                            join = androidx.compose.ui.graphics.StrokeJoin.Round
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Signature Cursive Line fallback
+                        Text(
+                            text = block.signerName.ifBlank { "Authorized Signature" },
+                            fontSize = (20f * zoomScale).sp,
+                            fontStyle = FontStyle.Italic,
+                            fontWeight = FontWeight.Medium,
+                            color = inkColor
+                        )
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     HorizontalDivider(
                         thickness = 1.5.dp,
-                        color = try { Color(android.graphics.Color.parseColor(block.strokeColorHex)) } catch (_: Exception) { Color(0xFF0F172A) },
+                        color = inkColor,
                         modifier = Modifier.width(220.dp)
                     )
                     Spacer(modifier = Modifier.height(6.dp))

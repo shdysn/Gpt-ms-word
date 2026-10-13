@@ -89,6 +89,9 @@ fun DigitalSignatureDialog(
     val strokes = remember { mutableStateListOf<List<Offset>>() }
     var currentStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
 
+    var canvasWidth by remember { mutableStateOf(300f) }
+    var canvasHeight by remember { mutableStateOf(160f) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -133,6 +136,9 @@ fun DigitalSignatureDialog(
                         .testTag("signature_canvas")
                 ) {
                     Canvas(modifier = Modifier.fillMaxWidth().height(160.dp)) {
+                        canvasWidth = size.width
+                        canvasHeight = size.height
+
                         val inkColor = try {
                             Color(android.graphics.Color.parseColor(selectedInkHex))
                         } catch (_: Exception) { Color(0xFF0F172A) }
@@ -231,11 +237,19 @@ fun DigitalSignatureDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    val strokesData = strokes.map { stroke ->
+                        stroke.map { Pair(it.x, it.y) }
+                    }
+                    val encodedPoints = com.example.core.typography.SignatureUtils.encodeNormalizedStrokes(
+                        strokes = strokesData,
+                        canvasWidth = if (canvasWidth > 0f) canvasWidth else 300f,
+                        canvasHeight = if (canvasHeight > 0f) canvasHeight else 160f
+                    )
                     onConfirm(
                         signerName.trim(),
                         signerTitle.trim().ifBlank { "Authorized Signatory" },
                         selectedInkHex,
-                        "${strokes.size}_strokes"
+                        encodedPoints
                     )
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
@@ -556,15 +570,7 @@ fun DocumentPasswordDialog(
 /**
  * Model representing a saved revision snapshot.
  */
-data class DocumentRevisionSnapshot(
-    val id: String,
-    val timestamp: Long,
-    val label: String,
-    val wordCount: Int,
-    val characterCount: Int,
-    val snippet: String,
-    val snapshotDoc: com.example.data.model.RichDocument? = null
-)
+typealias DocumentRevisionSnapshot = com.example.data.model.DocumentRevisionSnapshot
 
 /**
  * Dialog for browsing and restoring document revision snapshots.

@@ -24,6 +24,7 @@ import com.example.data.service.DocumentImportService
 import com.example.data.storage.DocumentStorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
@@ -745,5 +746,77 @@ class DocumentRepositoryImpl(
             ),
             blocks = blocks
         )
+    }
+
+    override fun getSnapshots(documentId: String): Flow<List<com.example.data.model.DocumentRevisionSnapshot>> {
+        return documentDao.getSnapshotsForDocument(documentId).map { entities ->
+            entities.map { entity ->
+                val doc = try {
+                    storageManager.deserializeFromJson(entity.documentJson)
+                } catch (_: Exception) {
+                    null
+                }
+                com.example.data.model.DocumentRevisionSnapshot(
+                    id = entity.id,
+                    timestamp = entity.timestamp,
+                    label = entity.label,
+                    wordCount = entity.wordCount,
+                    characterCount = entity.characterCount,
+                    snippet = entity.snippet,
+                    snapshotDoc = doc
+                )
+            }
+        }
+    }
+
+    override suspend fun saveSnapshot(
+        documentId: String,
+        snapshot: com.example.data.model.DocumentRevisionSnapshot
+    ): DocumentResult<Unit> = withContext(Dispatchers.IO) {
+        val snapDoc = snapshot.snapshotDoc ?: run {
+            when (val res = getDocument(documentId)) {
+                is DocumentResult.Success -> res.data
+                is DocumentResult.Failure -> return@withContext DocumentResult.Failure(res.error)
+            }
+        }
+        val jsonStr = storageManager.serializeToJson(snapDoc)
+        val entity = com.example.data.model.DocumentSnapshotEntity(
+            id = snapshot.id,
+            documentId = documentId,
+            timestamp = snapshot.timestamp,
+            label = snapshot.label,
+            wordCount = snapshot.wordCount,
+            characterCount = snapshot.characterCount,
+            snippet = snapshot.snippet,
+            documentJson = jsonStr
+        )
+        documentDao.insertSnapshot(entity)
+        DocumentResult.Success(Unit)
+    }
+
+    override suspend fun getSnapshot(snapshotId: String): DocumentResult<com.example.data.model.DocumentRevisionSnapshot> = withContext(Dispatchers.IO) {
+        val entity = documentDao.getSnapshotById(snapshotId)
+            ?: return@withContext DocumentResult.Failure(DocumentError.DocumentNotFound(snapshotId))
+        val doc = try {
+            storageManager.deserializeFromJson(entity.documentJson)
+        } catch (e: Exception) {
+            return@withContext DocumentResult.Failure(DocumentError.CorruptDocumentError("Failed to decode snapshot document: ${e.message}"))
+        }
+        DocumentResult.Success(
+            com.example.data.model.DocumentRevisionSnapshot(
+                id = entity.id,
+                timestamp = entity.timestamp,
+                label = entity.label,
+                wordCount = entity.wordCount,
+                characterCount = entity.characterCount,
+                snippet = entity.snippet,
+                snapshotDoc = doc
+            )
+        )
+    }
+
+    override suspend fun deleteSnapshot(snapshotId: String): DocumentResult<Unit> = withContext(Dispatchers.IO) {
+        documentDao.deleteSnapshotById(snapshotId)
+        DocumentResult.Success(Unit)
     }
 }

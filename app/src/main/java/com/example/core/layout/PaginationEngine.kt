@@ -366,7 +366,7 @@ object PaginationEngine {
         }
 
         val totalPages = rawPages.size
-        return rawPages.mapIndexed { index, items ->
+        val pages = rawPages.mapIndexed { index, items ->
             val pageNumber = index + 1
             val isFirstPage = index == 0
             val skipHeaderFooter = layout.differentFirstPage && isFirstPage
@@ -398,6 +398,57 @@ object PaginationEngine {
                 availableContentHeightPt = printableHeightPt
             )
         }
+
+        // Post-process Table of Contents items with exact page numbers
+        val headingMap = mutableMapOf<String, Int>()
+        pages.forEach { page ->
+            page.items.forEach { item ->
+                if (item is ParagraphPageItem && item.originalBlock.headingStyle != HeadingStyle.NORMAL) {
+                    headingMap.putIfAbsent(item.originalBlock.id, page.pageNumber)
+                }
+            }
+        }
+
+        val resolvedTocEntries = document.blocks.filterIsInstance<ParagraphBlock>()
+            .filter { it.headingStyle != HeadingStyle.NORMAL && it.text.isNotBlank() }
+            .map { hBlock ->
+                TocHeadingEntry(
+                    blockId = hBlock.id,
+                    title = hBlock.text.trim(),
+                    headingStyle = hBlock.headingStyle,
+                    pageNumber = headingMap[hBlock.id] ?: 1
+                )
+            }
+
+        return pages.map { page ->
+            val hasToc = page.items.any { it is TableOfContentsPageItem }
+            if (hasToc) {
+                val updatedItems = page.items.map { item ->
+                    if (item is TableOfContentsPageItem) {
+                        item.copy(resolvedEntries = resolvedTocEntries)
+                    } else item
+                }
+                page.copy(items = updatedItems)
+            } else {
+                page
+            }
+        }
+    }
+
+    /**
+     * Computes a map of heading block IDs to their accurate 1-based page numbers.
+     */
+    fun computeHeadingPageMap(document: RichDocument): Map<String, Int> {
+        val pages = paginate(document)
+        val map = mutableMapOf<String, Int>()
+        pages.forEach { page ->
+            page.items.forEach { item ->
+                if (item is ParagraphPageItem && item.originalBlock.headingStyle != HeadingStyle.NORMAL) {
+                    map.putIfAbsent(item.originalBlock.id, page.pageNumber)
+                }
+            }
+        }
+        return map
     }
 
     private fun paginateParagraphAcrossPages(

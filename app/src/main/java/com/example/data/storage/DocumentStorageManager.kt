@@ -322,7 +322,7 @@ class DocumentStorageManager(private val context: Context) {
     // JSON Serialization & Deserialization
     // ----------------------------------------------------
 
-    private fun serializeToJson(doc: RichDocument): String {
+    fun serializeToJson(doc: RichDocument): String {
         val root = JSONObject().apply {
             put("id", doc.id)
             put("title", doc.title)
@@ -519,7 +519,7 @@ class DocumentStorageManager(private val context: Context) {
         return root.toString(2)
     }
 
-    private fun deserializeFromJson(jsonStr: String): RichDocument {
+    fun deserializeFromJson(jsonStr: String): RichDocument {
         val root = JSONObject(jsonStr)
         val id = root.optString("id", "")
         val title = root.optString("title", "Untitled Document")

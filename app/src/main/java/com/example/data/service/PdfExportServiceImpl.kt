@@ -783,30 +783,48 @@ class PdfExportServiceImpl : DocumentExportService {
                             color = Color.rgb(148, 163, 184)
                         }
 
-                        // Collect headings from document
-                        var headingCount = 0
-                        for ((bIdx, b) in document.blocks.withIndex()) {
-                            if (b is ParagraphBlock && b.headingStyle != HeadingStyle.NORMAL && b.text.isNotBlank()) {
-                                if (headingCount >= 5) break
-                                val indent = when (b.headingStyle) {
-                                    HeadingStyle.TITLE, HeadingStyle.HEADING_1 -> 0f
-                                    HeadingStyle.HEADING_2 -> 14f
-                                    else -> 24f
-                                }
-                                val titleText = b.text.take(45)
-                                canvas.drawText(titleText, leftMargin + indent, cursorY + 10f, entryPaint)
-                                val textWidth = entryPaint.measureText(titleText)
-                                val pageNumStr = "1"
-                                val pageNumWidth = entryPaint.measureText(pageNumStr)
-                                val leaderStartX = leftMargin + indent + textWidth + 8f
-                                val leaderEndX = pageWidth - rightMargin - pageNumWidth - 8f
-                                if (leaderEndX > leaderStartX) {
-                                    canvas.drawText(". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .", leaderStartX, cursorY + 10f, leaderPaint)
-                                }
-                                canvas.drawText(pageNumStr, pageWidth - rightMargin - pageNumWidth, cursorY + 10f, entryPaint)
-                                cursorY += 18f
-                                headingCount++
+                        // Collect headings from document with accurate page numbers
+                        val entries = if (item.resolvedEntries.isNotEmpty()) {
+                            item.resolvedEntries
+                        } else {
+                            val headingPageMap = try {
+                                PaginationEngine.computeHeadingPageMap(document)
+                            } catch (_: Exception) {
+                                emptyMap<String, Int>()
                             }
+                            document.blocks.filterIsInstance<ParagraphBlock>()
+                                .filter { it.headingStyle != HeadingStyle.NORMAL && it.text.isNotBlank() }
+                                .map {
+                                    com.example.core.layout.TocHeadingEntry(
+                                        blockId = it.id,
+                                        title = it.text.trim(),
+                                        headingStyle = it.headingStyle,
+                                        pageNumber = headingPageMap[it.id] ?: 1
+                                    )
+                                }
+                        }
+
+                        var headingCount = 0
+                        for (entry in entries) {
+                            if (headingCount >= 10) break
+                            val indent = when (entry.headingStyle) {
+                                HeadingStyle.TITLE, HeadingStyle.HEADING_1 -> 0f
+                                HeadingStyle.HEADING_2 -> 14f
+                                else -> 24f
+                            }
+                            val titleText = entry.title.take(45)
+                            canvas.drawText(titleText, leftMargin + indent, cursorY + 10f, entryPaint)
+                            val textWidth = entryPaint.measureText(titleText)
+                            val pageNumStr = entry.pageNumber.toString()
+                            val pageNumWidth = entryPaint.measureText(pageNumStr)
+                            val leaderStartX = leftMargin + indent + textWidth + 8f
+                            val leaderEndX = pageWidth - rightMargin - pageNumWidth - 8f
+                            if (leaderEndX > leaderStartX) {
+                                canvas.drawText(". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .", leaderStartX, cursorY + 10f, leaderPaint)
+                            }
+                            canvas.drawText(pageNumStr, pageWidth - rightMargin - pageNumWidth, cursorY + 10f, entryPaint)
+                            cursorY += 18f
+                            headingCount++
                         }
                         if (headingCount == 0) {
                             entryPaint.color = Color.GRAY
@@ -819,40 +837,84 @@ class PdfExportServiceImpl : DocumentExportService {
                     is com.example.core.layout.SignaturePageItem -> {
                         val sig = item.originalBlock
                         val sigBoxWidth = 200f
+                        val sigBoxHeight = 45f
                         val sigStartX = when (sig.alignment) {
                             TextAlignment.END -> pageWidth - rightMargin - sigBoxWidth
                             TextAlignment.CENTER -> leftMargin + (contentWidth - sigBoxWidth) / 2f
                             else -> leftMargin
                         }
 
-                        // Draw digital signature line
+                        val inkColor = try {
+                            Color.parseColor(sig.strokeColorHex)
+                        } catch (_: Exception) {
+                            Color.rgb(15, 23, 42)
+                        }
+
+                        // Verified badge header
+                        val badgePaint = Paint().apply {
+                            isAntiAlias = true
+                            color = Color.rgb(30, 64, 175)
+                            textSize = 7.5f
+                            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                        }
+                        canvas.drawText("✓ VERIFIED DIGITAL SIGNATURE", sigStartX, cursorY + 10f, badgePaint)
+
+                        // Draw vector strokes if captured
+                        val decodedStrokes = com.example.core.typography.SignatureUtils.decodeNormalizedStrokes(
+                            encoded = sig.svgPoints,
+                            targetWidth = sigBoxWidth,
+                            targetHeight = sigBoxHeight
+                        )
+
+                        if (decodedStrokes.isNotEmpty()) {
+                            val strokePaint = Paint().apply {
+                                isAntiAlias = true
+                                color = inkColor
+                                style = Paint.Style.STROKE
+                                strokeWidth = 2.0f
+                                strokeCap = Paint.Cap.ROUND
+                                strokeJoin = Paint.Join.ROUND
+                            }
+                            for (stroke in decodedStrokes) {
+                                if (stroke.size > 1) {
+                                    val path = android.graphics.Path()
+                                    path.moveTo(sigStartX + stroke.first().first, cursorY + 15f + stroke.first().second)
+                                    for (i in 1 until stroke.size) {
+                                        path.lineTo(sigStartX + stroke[i].first, cursorY + 15f + stroke[i].second)
+                                    }
+                                    canvas.drawPath(path, strokePaint)
+                                }
+                            }
+                        } else {
+                            // Cursive fallback
+                            val penPaint = Paint().apply {
+                                isAntiAlias = true
+                                color = inkColor
+                                textSize = 18f
+                                typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
+                            }
+                            val signName = sig.signerName.ifBlank { "Authorized Signature" }
+                            canvas.drawText(signName, sigStartX + 8f, cursorY + 45f, penPaint)
+                        }
+
+                        // Draw digital signature baseline
                         val linePaint = Paint().apply {
-                            color = Color.rgb(15, 23, 42)
+                            color = inkColor
                             strokeWidth = 1.2f
                         }
-                        canvas.drawLine(sigStartX, cursorY + 45f, sigStartX + sigBoxWidth, cursorY + 45f, linePaint)
+                        canvas.drawLine(sigStartX, cursorY + 65f, sigStartX + sigBoxWidth, cursorY + 65f, linePaint)
 
-                        // Draw digital cursive / pen signature text
-                        val penPaint = Paint().apply {
-                            isAntiAlias = true
-                            color = try { Color.parseColor(sig.strokeColorHex) } catch (_: Exception) { Color.rgb(15, 23, 42) }
-                            textSize = 18f
-                            typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
-                        }
-                        val signName = sig.signerName.ifBlank { "Authorized Signature" }
-                        canvas.drawText(signName, sigStartX + 8f, cursorY + 36f, penPaint)
-
-                        // Draw Title and Date below line
+                        // Draw Signer Title and Date below line
                         val infoPaint = Paint().apply {
                             isAntiAlias = true
                             color = Color.rgb(71, 85, 105)
                             textSize = 8.5f
                         }
-                        canvas.drawText(sig.signerTitle, sigStartX, cursorY + 58f, infoPaint)
+                        canvas.drawText(sig.signerTitle, sigStartX, cursorY + 77f, infoPaint)
                         if (sig.signedDate.isNotBlank()) {
-                            canvas.drawText("Date: ${sig.signedDate}", sigStartX, cursorY + 69f, infoPaint)
+                            canvas.drawText("Date: ${sig.signedDate}", sigStartX, cursorY + 88f, infoPaint)
                         }
-                        cursorY += 80f
+                        cursorY += 98f
                     }
 
                     is com.example.core.layout.ShapePageItem -> {

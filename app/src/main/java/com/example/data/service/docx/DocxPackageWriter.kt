@@ -534,6 +534,12 @@ class DocxPackageWriter(private val context: Context?) {
         images: List<EmbeddedImage>,
         hyperlinks: Map<String, String> = emptyMap()
     ): String {
+        val headingPageMap = try {
+            com.example.core.layout.PaginationEngine.computeHeadingPageMap(document)
+        } catch (_: Exception) {
+            emptyMap<String, Int>()
+        }
+
         val sb = StringBuilder()
         sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
         sb.append("""<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" """)
@@ -566,18 +572,21 @@ class DocxPackageWriter(private val context: Context?) {
                     sb.append("""<w:p><w:r><w:br w:type="page"/></w:r></w:p>""")
                 }
                 is com.example.data.model.TableOfContentsBlock -> {
-                    sb.append("""<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>${block.title}</w:t></w:r></w:p>""")
+                    sb.append("""<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/><w:color w:val="0F172A"/></w:rPr><w:t>${escapeXml(block.title)}</w:t></w:r></w:p>""")
                     for (b in document.blocks) {
                         if (b is ParagraphBlock && b.headingStyle != HeadingStyle.NORMAL && b.text.isNotBlank()) {
                             val indent = if (b.headingStyle == HeadingStyle.HEADING_2) 360 else if (b.headingStyle == HeadingStyle.HEADING_3) 720 else 0
-                            sb.append("""<w:p><w:pPr><w:ind w:left="$indent"/><w:spacing w:after="80"/></w:pPr><w:r><w:t>${b.text.replace("<", "&lt;").replace(">", "&gt;")}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>1</w:t></w:r></w:p>""")
+                            val pageNum = headingPageMap[b.id] ?: 1
+                            sb.append("""<w:p><w:pPr><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="9360"/></w:tabs><w:ind w:left="$indent"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:sz w:val="22"/><w:color w:val="1E293B"/></w:rPr><w:t>${escapeXml(b.text)}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="475569"/></w:rPr><w:t>$pageNum</w:t></w:r></w:p>""")
                         }
                     }
                 }
                 is com.example.data.model.SignatureBlock -> {
-                    sb.append("""<w:p><w:pPr><w:spacing w:before="360" w:after="80"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="28"/><w:color w:val="0F172A"/></w:rPr><w:t>${block.signerName.ifBlank { "Authorized Signature" }}</w:t></w:r></w:p>""")
-                    sb.append("""<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="1" w:color="0F172A"/></w:pBdr><w:spacing w:after="120"/></w:pPr></w:p>""")
-                    sb.append("""<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>${block.signerTitle} ${if (block.signedDate.isNotBlank()) "• Date: " + block.signedDate else ""}</w:t></w:r></w:p>""")
+                    val cleanColor = block.strokeColorHex.removePrefix("#")
+                    sb.append("""<w:p><w:pPr><w:spacing w:before="360" w:after="60"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="1E40AF"/></w:rPr><w:t>✓ VERIFIED DIGITAL SIGNATURE</w:t></w:r></w:p>""")
+                    sb.append("""<w:p><w:pPr><w:spacing w:before="60" w:after="60"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="32"/><w:color w:val="$cleanColor"/></w:rPr><w:t>${escapeXml(block.signerName.ifBlank { "Authorized Signature" })}</w:t></w:r></w:p>""")
+                    sb.append("""<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="1" w:color="$cleanColor"/></w:pBdr><w:spacing w:after="100"/></w:pPr></w:p>""")
+                    sb.append("""<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="334155"/></w:rPr><w:t>${escapeXml(block.signerTitle)}</w:t></w:r>${if (block.signedDate.isNotBlank()) """<w:r><w:rPr><w:sz w:val="16"/><w:color w:val="64748B"/></w:rPr><w:t>  •  Date: ${escapeXml(block.signedDate)}</w:t></w:r>""" else ""}</w:p>""")
                 }
                 is com.example.data.model.ShapeBlock -> {
                     sb.append("""<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="4" w:color="3B82F6"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="EFF6FF"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1E40AF"/></w:rPr><w:t>${block.title}</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>${block.content.replace("<", "&lt;").replace(">", "&gt;")}</w:t></w:r></w:p>""")
@@ -911,7 +920,7 @@ $bordersXml
         sb.append("""<w:pgMar w:top="$topTwips" w:right="$rightTwips" w:bottom="$bottomTwips" w:left="$leftTwips" w:header="720" w:footer="720" w:gutter="0"/>""")
 
         if (layout.columnCount > 1) {
-            sb.append("""<w:cols w:num="${layout.columnCount}" w:space="720"/>""")
+            sb.append("""<w:cols w:num="${layout.columnCount}" w:space="720" w:equalWidth="1"/>""")
         }
 
         if (layout.borderStyle != com.example.core.layout.PageBorderStyle.NONE) {
