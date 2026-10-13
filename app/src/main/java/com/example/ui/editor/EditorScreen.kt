@@ -1,5 +1,8 @@
 package com.example.ui.editor
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -11,51 +14,26 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Redo
-import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.FormatItalic
-import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Highlight
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,10 +41,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -80,10 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -91,44 +62,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ImageBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.TableBlock
-import com.example.ui.editor.components.AutosaveChip
-import com.example.ui.editor.components.DiscardChangesDialog
 import com.example.ui.editor.components.DocumentCanvas
-import com.example.ui.editor.components.DocumentStatisticsDialog
-import com.example.ui.editor.components.EditTitleDialog
+import com.example.ui.editor.components.EditorDialogsHost
+import com.example.ui.editor.components.EditorRecoveryBanner
 import com.example.ui.editor.components.EditorStatusBar
-import com.example.ui.editor.components.ExportOptionsDialog
-import com.example.ui.editor.components.ExportPdfDialog
+import com.example.ui.editor.components.EditorTopAppBar
 import com.example.ui.editor.components.FindReplaceBar
-import com.example.ui.editor.components.HeaderFooterEditDialog
-import com.example.ui.editor.components.ImagePropertiesDialog
-import com.example.ui.editor.components.InsertHyperlinkDialog
-import com.example.ui.editor.components.InsertTableDialog
-import com.example.ui.editor.components.PageLayoutDialog
-import com.example.ui.editor.components.PageNumberInsertDialog
-import com.example.ui.editor.components.SaveAsDialog
-import com.example.ui.editor.components.SaveOptionsDialog
-import com.example.ui.editor.components.TableCellEditDialog
-import com.example.ui.editor.components.TablePropertiesDialog
 import com.example.ui.editor.components.WordRibbon
-import com.example.ui.editor.components.DigitalSignatureDialog
-import com.example.ui.editor.components.DocumentPasswordDialog
-import com.example.ui.editor.components.ShapeInsertDialog
-import com.example.ui.editor.components.VersionHistoryDialog
-import com.example.ui.editor.components.WatermarkDialog
-import com.example.ui.editor.components.shareDocxFile
-import com.example.ui.editor.components.sharePdfFile
-import com.example.ui.editor.components.shareTextFile
 import com.example.ui.theme.WordDeskCanvasDark
 import com.example.ui.theme.WordDeskCanvasLight
 import com.example.ui.theme.WordPrimary
 import kotlinx.coroutines.launch
-import android.app.Activity
-import android.content.Intent
-import android.speech.RecognizerIntent
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 
+/**
+ * Main coordinator screen for document editing.
+ * Composes modular editor blocks: Top App Bar, Ribbon, Canvas, Status Bar,
+ * Floating Quick-Format Bar, and Dialog Host.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditorScreen(
@@ -191,7 +141,6 @@ fun EditorScreen(
     var selectedTableForProperties by remember { mutableStateOf<TableBlock?>(null) }
     var selectedCellForEdit by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
     var selectedImageForProperties by remember { mutableStateOf<ImageBlock?>(null) }
-    var showOptionsMenu by remember { mutableStateOf(false) }
 
     // Voice Typing Dictation Launcher
     val voiceTypingLauncher = rememberLauncherForActivityResult(
@@ -268,153 +217,24 @@ fun EditorScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
-                TopAppBar(
-                    navigationIcon = {
-                        IconButton(
-                            onClick = { handleBackNavigation() },
-                            modifier = Modifier.testTag("editor_back_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back to Home"
-                            )
-                        }
-                    },
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clickable { showTitleEditDialog = true }
-                                .padding(vertical = 4.dp)
-                                .testTag("title_edit_container")
-                        ) {
-                            Text(
-                                text = document?.title ?: "Document",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Title",
-                                tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    },
-                    actions = {
-                        AutosaveChip(status = autosaveStatus)
-
-                        IconButton(
-                            onClick = { viewModel.undo() },
-                            enabled = canUndo,
-                            modifier = Modifier.testTag("action_undo")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Undo,
-                                contentDescription = "Undo",
-                                tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.redo() },
-                            enabled = canRedo,
-                            modifier = Modifier.testTag("action_redo")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Redo,
-                                contentDescription = "Redo",
-                                tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.toggleViewMode() },
-                            modifier = Modifier.testTag("action_toggle_view_mode")
-                        ) {
-                            Icon(
-                                imageVector = if (viewMode == EditorViewMode.PAGINATED_A4) Icons.Default.PhoneAndroid else Icons.Default.Description,
-                                contentDescription = if (viewMode == EditorViewMode.PAGINATED_A4) "Switch to Mobile View" else "Switch to Full Page A4 View",
-                                tint = if (viewMode == EditorViewMode.PAGINATED_A4) WordPrimary else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { viewModel.toggleFindReplace() },
-                            modifier = Modifier.testTag("action_find_replace")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search and Replace",
-                                tint = if (isFindReplaceVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Box {
-                            IconButton(onClick = { showOptionsMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "More Actions")
-                            }
-
-                            DropdownMenu(
-                                expanded = showOptionsMenu,
-                                onDismissRequest = { showOptionsMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Save...") },
-                                    leadingIcon = { Icon(Icons.Default.Save, contentDescription = null, tint = WordPrimary) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showSaveOptionsDialog = true
-                                    },
-                                    modifier = Modifier.testTag("menu_save_options")
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Export...") },
-                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = WordPrimary) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showExportOptionsDialog = true
-                                    },
-                                    modifier = Modifier.testTag("menu_export_options")
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Page Setup...") },
-                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, tint = WordPrimary) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showLayoutDialog = true
-                                    },
-                                    modifier = Modifier.testTag("menu_page_setup")
-                                )
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                DropdownMenuItem(
-                                    text = { Text("Print") },
-                                    leadingIcon = { Icon(Icons.Default.Print, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        viewModel.printDocument(context)
-                                    },
-                                    modifier = Modifier.testTag("menu_print")
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Document Statistics") },
-                                    leadingIcon = { Icon(Icons.Default.FormatListNumbered, contentDescription = null) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        showStatsDialog = true
-                                    },
-                                    modifier = Modifier.testTag("menu_stats")
-                                )
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                EditorTopAppBar(
+                    title = document?.title ?: "Document",
+                    autosaveStatus = autosaveStatus,
+                    canUndo = canUndo,
+                    canRedo = canRedo,
+                    viewMode = viewMode,
+                    isFindReplaceVisible = isFindReplaceVisible,
+                    onBackClick = handleBackNavigation,
+                    onTitleClick = { showTitleEditDialog = true },
+                    onUndoClick = { viewModel.undo() },
+                    onRedoClick = { viewModel.redo() },
+                    onToggleViewMode = { viewModel.toggleViewMode() },
+                    onToggleFindReplace = { viewModel.toggleFindReplace() },
+                    onSaveClick = { showSaveOptionsDialog = true },
+                    onExportClick = { showExportOptionsDialog = true },
+                    onPageSetupClick = { showLayoutDialog = true },
+                    onPrintClick = { viewModel.printDocument(context) },
+                    onStatsClick = { showStatsDialog = true }
                 )
 
                 FindReplaceBar(
@@ -491,58 +311,10 @@ fun EditorScreen(
 
             // Crash/Restart Recovery Notification Banner
             if (recoveryAvailable) {
-                Surface(
-                    color = Color(0xFFFFF3CD),
-                    border = BorderStroke(1.dp, Color(0xFFFFEEBA)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .testTag("recovery_banner")
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            tint = Color(0xFF856404),
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Unsaved Recovery Draft Found",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                color = Color(0xFF856404)
-                            )
-                            Text(
-                                text = "A draft from an earlier session is available for restoration.",
-                                fontSize = 11.sp,
-                                color = Color(0xFF856404)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Button(
-                            onClick = { viewModel.restoreRecoveryDraft() },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF856404)),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.testTag("restore_recovery_draft_button")
-                        ) {
-                            Text("Restore", fontSize = 11.sp, color = Color.White)
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        TextButton(
-                            onClick = { viewModel.dismissRecoveryDraft() },
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            modifier = Modifier.testTag("dismiss_recovery_draft_button")
-                        ) {
-                            Text("Dismiss", fontSize = 11.sp, color = Color(0xFF856404))
-                        }
-                    }
-                }
+                EditorRecoveryBanner(
+                    onRestore = { viewModel.restoreRecoveryDraft() },
+                    onDismiss = { viewModel.dismissRecoveryDraft() }
+                )
             }
 
             BoxWithConstraints(
@@ -600,490 +372,144 @@ fun EditorScreen(
                         enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
                         exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
                     ) {
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shadowElevation = 6.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shadowElevation = 6.dp,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
-                            IconButton(
-                                onClick = { viewModel.toggleBold() },
-                                modifier = Modifier.size(36.dp).testTag("quick_format_bold")
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.FormatBold,
-                                    contentDescription = "Bold",
-                                    tint = if (activeFormatting.isBold) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.toggleItalic() },
-                                modifier = Modifier.size(36.dp).testTag("quick_format_italic")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.FormatItalic,
-                                    contentDescription = "Italic",
-                                    tint = if (activeFormatting.isItalic) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.toggleUnderline() },
-                                modifier = Modifier.size(36.dp).testTag("quick_format_underline")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.FormatUnderlined,
-                                    contentDescription = "Underline",
-                                    tint = if (activeFormatting.isUnderline) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(
-                                onClick = { viewModel.toggleStrikethrough() },
-                                modifier = Modifier.size(36.dp).testTag("quick_format_strikethrough")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.FormatStrikethrough,
-                                    contentDescription = "Strikethrough",
-                                    tint = if (activeFormatting.isStrikethrough) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
-                                    else viewModel.setHighlightColor("#FEF08A")
-                                },
-                                modifier = Modifier.size(36.dp).testTag("quick_format_highlight")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Highlight,
-                                    contentDescription = "Highlight",
-                                    tint = if (activeFormatting.highlightColorHex != null) Color(0xFFEAB308) else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            IconButton(
-                                onClick = {
-                                    if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
-                                    else viewModel.setTextColor("#185ABD")
-                                },
-                                modifier = Modifier.size(36.dp).testTag("quick_format_color")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.FormatColorText,
-                                    contentDescription = "Color",
-                                    tint = if (activeFormatting.textColorHex != null) Color(0xFF185ABD) else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                IconButton(
+                                    onClick = { viewModel.toggleBold() },
+                                    modifier = Modifier.size(36.dp).testTag("quick_format_bold")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FormatBold,
+                                        contentDescription = "Bold",
+                                        tint = if (activeFormatting.isBold) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { viewModel.toggleItalic() },
+                                    modifier = Modifier.size(36.dp).testTag("quick_format_italic")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FormatItalic,
+                                        contentDescription = "Italic",
+                                        tint = if (activeFormatting.isItalic) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { viewModel.toggleUnderline() },
+                                    modifier = Modifier.size(36.dp).testTag("quick_format_underline")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FormatUnderlined,
+                                        contentDescription = "Underline",
+                                        tint = if (activeFormatting.isUnderline) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { viewModel.toggleStrikethrough() },
+                                    modifier = Modifier.size(36.dp).testTag("quick_format_strikethrough")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FormatStrikethrough,
+                                        contentDescription = "Strikethrough",
+                                        tint = if (activeFormatting.isStrikethrough) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
+                                        else viewModel.setHighlightColor("#FEF08A")
+                                    },
+                                    modifier = Modifier.size(36.dp).testTag("quick_format_highlight")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Highlight,
+                                        contentDescription = "Highlight",
+                                        tint = if (activeFormatting.highlightColorHex != null) Color(0xFFEAB308) else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
+                                        else viewModel.setTextColor("#185ABD")
+                                    },
+                                    modifier = Modifier.size(36.dp).testTag("quick_format_color")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FormatColorText,
+                                        contentDescription = "Color",
+                                        tint = if (activeFormatting.textColorHex != null) Color(0xFF185ABD) else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
-                }
                 }
             }
         }
     }
 
-    // Title Edit Dialog
-    if (showTitleEditDialog) {
-        EditTitleDialog(
-            initialTitle = document?.title ?: "",
-            onDismiss = { showTitleEditDialog = false },
-            onConfirm = { newTitle ->
-                viewModel.updateTitle(newTitle)
-                showTitleEditDialog = false
-            }
-        )
-    }
-
-    // Save Options Dialog
-    if (showSaveOptionsDialog) {
-        SaveOptionsDialog(
-            onDismiss = { showSaveOptionsDialog = false },
-            onQuickSave = {
-                showSaveOptionsDialog = false
-                viewModel.saveNow()
-            },
-            onSaveAs = {
-                showSaveOptionsDialog = false
-                showSaveAsDialog = true
-            },
-            onSaveSafDocx = {
-                showSaveOptionsDialog = false
-                val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                safDocxSaveLauncher.launch("$safeTitle.docx")
-            }
-        )
-    }
-
-    // Export Options Dialog
-    if (showExportOptionsDialog) {
-        ExportOptionsDialog(
-            onDismiss = { showExportOptionsDialog = false },
-            onExportPdf = {
-                showExportOptionsDialog = false
-                showExportPdfDialog = true
-            },
-            onExportDocx = {
-                showExportOptionsDialog = false
-                viewModel.exportToDocx(context) { file ->
-                    file?.let { shareDocxFile(context, it) }
-                }
-            },
-            onExportPlainText = {
-                showExportOptionsDialog = false
-                viewModel.exportToPlainText(context) { file ->
-                    file?.let { shareTextFile(context, it) }
-                }
-            }
-        )
-    }
-
-    // Save As Dialog
-    if (showSaveAsDialog) {
-        SaveAsDialog(
-            initialTitle = "${document?.title ?: "Document"} (Copy)",
-            onDismiss = { showSaveAsDialog = false },
-            onConfirm = { copyTitle ->
-                viewModel.saveAs(copyTitle) {
-                    showSaveAsDialog = false
-                }
-            }
-        )
-    }
-
-    // Unsaved Changes Discard Warning Dialog
-    if (showDiscardDialog) {
-        DiscardChangesDialog(
-            docTitle = document?.title ?: "this document",
-            onDismiss = { showDiscardDialog = false },
-            onSaveAndExit = {
-                coroutineScope.launch {
-                    viewModel.flushSave()
-                    showDiscardDialog = false
-                    onNavigateBack()
-                }
-            },
-            onDiscard = {
-                viewModel.dismissRecoveryDraft()
-                showDiscardDialog = false
-                onNavigateBack()
-            }
-        )
-    }
-
-    // Insert Table Dialog
-    if (showTableDialog) {
-        InsertTableDialog(
-            onDismiss = { showTableDialog = false },
-            onConfirm = { r, c, hasBorders, widthPercent ->
-                viewModel.insertTable(
-                    rows = r,
-                    cols = c,
-                    hasBorders = hasBorders,
-                    tableWidthPercent = widthPercent
-                )
-                showTableDialog = false
-            }
-        )
-    }
-
-    // Table Properties Dialog
-    selectedTableForProperties?.let { table ->
-        TablePropertiesDialog(
-            table = table,
-            onDismiss = { selectedTableForProperties = null },
-            onAddRow = { viewModel.addTableRow(table.id) },
-            onDeleteRow = { viewModel.deleteTableRow(table.id, table.rowCount - 1) },
-            onAddCol = { viewModel.addTableColumn(table.id) },
-            onDeleteCol = { viewModel.deleteTableColumn(table.id, table.columnCount - 1) },
-            onUpdateProperties = { hasBorders, borderColorHex, widthPercent, alignment ->
-                viewModel.updateTableProperties(
-                    blockId = table.id,
-                    hasBorders = hasBorders,
-                    borderColorHex = borderColorHex,
-                    tableWidthPercent = widthPercent,
-                    alignment = alignment
-                )
-            },
-            onDeleteTable = {
-                viewModel.deleteBlockById(table.id)
-            }
-        )
-    }
-
-    // Table Cell Edit Dialog
-    selectedCellForEdit?.let { (table, row, col) ->
-        val cell = table.cells.getOrNull(row)?.getOrNull(col) ?: com.example.data.model.TableCell()
-        TableCellEditDialog(
-            cell = cell,
-            row = row,
-            col = col,
-            onDismiss = { selectedCellForEdit = null },
-            onConfirm = { text, isBold, isItalic, bgHex, alignment ->
-                viewModel.updateTableCell(table.id, row, col, text)
-                viewModel.updateTableCellFormat(
-                    blockId = table.id,
-                    row = row,
-                    col = col,
-                    isBold = isBold,
-                    isItalic = isItalic,
-                    backgroundColorHex = bgHex,
-                    alignment = alignment
-                )
-                selectedCellForEdit = null
-            }
-        )
-    }
-
-    // Image Properties Dialog
-    selectedImageForProperties?.let { img ->
-        ImagePropertiesDialog(
-            imageBlock = img,
-            onDismiss = { selectedImageForProperties = null },
-            onConfirm = { widthDp, heightDp, alignment, caption, ratio ->
-                viewModel.updateImageProperties(
-                    blockId = img.id,
-                    widthDp = widthDp,
-                    heightDp = heightDp,
-                    alignment = alignment,
-                    caption = caption,
-                    aspectRatio = ratio
-                )
-            },
-            onDeleteImage = {
-                viewModel.deleteBlockById(img.id)
-            }
-        )
-    }
-
-    // Header & Footer Dialog
-    if (showHeaderFooterDialog && document != null) {
-        val layout = document!!.layoutConfig
-        HeaderFooterEditDialog(
-            currentHeader = layout.headerText,
-            currentFooter = layout.footerText,
-            showHeader = layout.showHeader,
-            showFooter = layout.showFooter,
-            onDismiss = { showHeaderFooterDialog = false },
-            onConfirm = { headerText, footerText, showHeader, showFooter ->
-                viewModel.setHeaderFooter(headerText, footerText, showHeader, showFooter)
-                showHeaderFooterDialog = false
-            }
-        )
-    }
-
-    // Page Number Insert Dialog
-    if (showPageNumberDialog) {
-        PageNumberInsertDialog(
-            onDismiss = { showPageNumberDialog = false },
-            onSelectPreset = { pattern, alignment ->
-                viewModel.setPageNumberPreset(pattern, alignment)
-                showPageNumberDialog = false
-            }
-        )
-    }
-
-    // Insert Hyperlink Dialog
-    if (showLinkDialog) {
-        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
-        InsertHyperlinkDialog(
-            initialUrl = activeFormatting.linkUrl ?: "https://",
-            onDismiss = { showLinkDialog = false },
-            onConfirm = { url ->
-                viewModel.setHyperlink(url)
-                showLinkDialog = false
-            },
-            onRemoveLink = {
-                viewModel.setHyperlink(null)
-                showLinkDialog = false
-            }
-        )
-    }
-
-    // Page Layout Dialog
-    if (showLayoutDialog && document != null) {
-        PageLayoutDialog(
-            currentLayout = document!!.layoutConfig,
-            onDismiss = { showLayoutDialog = false },
-            onSaveConfig = { newConfig ->
-                viewModel.updatePageLayoutConfig(newConfig)
-                showLayoutDialog = false
-            }
-        )
-    }
-
-    // Export PDF Dialog
-    if (showExportPdfDialog && document != null) {
-        ExportPdfDialog(
-            document = document!!,
-            actualPageCount = actualPageCount,
-            onDismiss = { showExportPdfDialog = false },
-            onSaveToStorage = {
-                val safeTitle = (document?.title ?: "document").replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                safPdfSaveLauncher.launch("$safeTitle.pdf")
-            },
-            onSharePdf = {
-                viewModel.exportToPdf(context) { file ->
-                    file?.let { sharePdfFile(context, it) }
-                }
-            },
-            onPrint = {
-                viewModel.printDocument(context)
-            },
-            onOpenPageSetup = {
-                showLayoutDialog = true
-            }
-        )
-    }
-
-    // Document Statistics Dialog
-    if (showStatsDialog) {
-        DocumentStatisticsDialog(
-            document = document,
-            actualPageCount = actualPageCount,
-            activeParagraph = activeParagraph,
-            onDismiss = { showStatsDialog = false }
-        )
-    }
-
-    // Document Lock Barrier (Point 5: Security PIN Lock)
-    if (isDocumentLocked) {
-        var unlockPasswordInput by remember { mutableStateOf("") }
-        var unlockError by remember { mutableStateOf<String?>(null) }
-
-        AlertDialog(
-            onDismissRequest = { /* Require valid PIN or back navigation */ },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = null,
-                        tint = WordPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text("Document Locked", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "This document is protected with a password PIN. Please enter the PIN to view and edit:",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = unlockPasswordInput,
-                        onValueChange = {
-                            unlockPasswordInput = it
-                            unlockError = null
-                        },
-                        label = { Text("Enter PIN / Password") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        isError = unlockError != null,
-                        modifier = Modifier.fillMaxWidth().testTag("unlock_pin_input")
-                    )
-                    unlockError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val ok = viewModel.unlockDocument(unlockPasswordInput)
-                        if (!ok) {
-                            unlockError = "Incorrect PIN or Password"
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
-                    modifier = Modifier.testTag("unlock_confirm_btn")
-                ) {
-                    Text("Unlock")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { onNavigateBack() },
-                    modifier = Modifier.testTag("unlock_cancel_btn")
-                ) {
-                    Text("Back to Home")
-                }
-            }
-        )
-    }
-
-    // Digital Signature Dialog (Point 4)
-    if (showSignatureDialog) {
-        DigitalSignatureDialog(
-            onDismiss = { showSignatureDialog = false },
-            onConfirm = { signerName, signerTitle, strokeHex, points ->
-                viewModel.insertSignature(signerName, signerTitle, strokeHex, points)
-                showSignatureDialog = false
-            }
-        )
-    }
-
-    // Shape / Callout Box Dialog (Point 4)
-    if (showShapeDialog) {
-        ShapeInsertDialog(
-            onDismiss = { showShapeDialog = false },
-            onConfirm = { shapeType, title, content, bgHex, borderHex ->
-                viewModel.insertShape(shapeType, title, content, bgHex, borderHex)
-                showShapeDialog = false
-            }
-        )
-    }
-
-    // Document Watermark Dialog (Point 3)
-    if (showWatermarkDialog && document != null) {
-        WatermarkDialog(
-            initialText = document!!.layoutConfig.watermarkText,
-            onDismiss = { showWatermarkDialog = false },
-            onApply = { text, colorHex, angle ->
-                viewModel.setWatermark(text, colorHex, angle)
-                showWatermarkDialog = false
-            },
-            onRemove = {
-                viewModel.removeWatermark()
-                showWatermarkDialog = false
-            }
-        )
-    }
-
-    // Password Security Lock Dialog (Point 5)
-    if (showPasswordDialog && document != null) {
-        DocumentPasswordDialog(
-            isCurrentlyLocked = document!!.isPasswordProtected,
-            onDismiss = { showPasswordDialog = false },
-            onSetPassword = { pwd ->
-                viewModel.setDocumentPassword(pwd)
-                showPasswordDialog = false
-            },
-            onRemovePassword = {
-                viewModel.removeDocumentPassword()
-                showPasswordDialog = false
-            }
-        )
-    }
-
-    // Version History & Snapshots Dialog (Point 5)
-    if (showVersionHistoryDialog) {
-        val revisions by viewModel.revisionSnapshots.collectAsStateWithLifecycle()
-        VersionHistoryDialog(
-            revisions = revisions,
-            onDismiss = { showVersionHistoryDialog = false },
-            onCreateSnapshot = {
-                val label = "Version ${revisions.size + 1}"
-                viewModel.createNamedSnapshot(label)
-            },
-            onRestoreRevision = { revId ->
-                viewModel.restoreRevisionSnapshot(revId)
-                showVersionHistoryDialog = false
-            }
-        )
-    }
+    // Decoupled Editor Dialogs and Modals Host
+    EditorDialogsHost(
+        viewModel = viewModel,
+        document = document,
+        context = context,
+        actualPageCount = actualPageCount,
+        activeParagraph = activeParagraph,
+        showTitleEditDialog = showTitleEditDialog,
+        onDismissTitleEdit = { showTitleEditDialog = false },
+        showSaveOptionsDialog = showSaveOptionsDialog,
+        onDismissSaveOptions = { showSaveOptionsDialog = false },
+        onOpenSaveAs = { showSaveAsDialog = true },
+        showExportOptionsDialog = showExportOptionsDialog,
+        onDismissExportOptions = { showExportOptionsDialog = false },
+        onOpenExportPdf = { showExportPdfDialog = true },
+        showSaveAsDialog = showSaveAsDialog,
+        onDismissSaveAs = { showSaveAsDialog = false },
+        showDiscardDialog = showDiscardDialog,
+        onDismissDiscard = { showDiscardDialog = false },
+        onNavigateBack = onNavigateBack,
+        showTableDialog = showTableDialog,
+        onDismissTableDialog = { showTableDialog = false },
+        selectedTableForProperties = selectedTableForProperties,
+        onDismissTableProperties = { selectedTableForProperties = null },
+        selectedCellForEdit = selectedCellForEdit,
+        onDismissCellEdit = { selectedCellForEdit = null },
+        selectedImageForProperties = selectedImageForProperties,
+        onDismissImageProperties = { selectedImageForProperties = null },
+        showHeaderFooterDialog = showHeaderFooterDialog,
+        onDismissHeaderFooter = { showHeaderFooterDialog = false },
+        showPageNumberDialog = showPageNumberDialog,
+        onDismissPageNumber = { showPageNumberDialog = false },
+        showLinkDialog = showLinkDialog,
+        onDismissLinkDialog = { showLinkDialog = false },
+        showLayoutDialog = showLayoutDialog,
+        onDismissLayoutDialog = { showLayoutDialog = false },
+        showExportPdfDialog = showExportPdfDialog,
+        onDismissExportPdf = { showExportPdfDialog = false },
+        onOpenPageSetupFromPdf = { showLayoutDialog = true },
+        showStatsDialog = showStatsDialog,
+        onDismissStatsDialog = { showStatsDialog = false },
+        isDocumentLocked = isDocumentLocked,
+        showSignatureDialog = showSignatureDialog,
+        onDismissSignatureDialog = { showSignatureDialog = false },
+        showShapeDialog = showShapeDialog,
+        onDismissShapeDialog = { showShapeDialog = false },
+        showWatermarkDialog = showWatermarkDialog,
+        onDismissWatermarkDialog = { showWatermarkDialog = false },
+        showPasswordDialog = showPasswordDialog,
+        onDismissPasswordDialog = { showPasswordDialog = false },
+        showVersionHistoryDialog = showVersionHistoryDialog,
+        onDismissVersionHistoryDialog = { showVersionHistoryDialog = false },
+        safDocxSaveLauncher = safDocxSaveLauncher,
+        safPdfSaveLauncher = safPdfSaveLauncher
+    )
 }
