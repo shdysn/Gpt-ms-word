@@ -123,8 +123,44 @@ data class ImageBlock(
     val cornerRadiusDp: Int = 8,
     val borderThicknessDp: Int = 0,
     val borderColorHex: String = "#CBD5E1",
-    val rotationDegrees: Float = 0f
+    val rotationDegrees: Float = 0f,
+    val wrapMode: String = "IN_LINE" // IN_LINE, SQUARE, BEHIND_TEXT, IN_FRONT
 ) : BlockElement
+
+/**
+ * Footnote / Endnote block element rendered at page or section bottoms.
+ */
+data class FootnoteBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val noteNumber: Int = 1,
+    val referenceText: String = "",
+    val noteContent: String = ""
+) : BlockElement
+
+/**
+ * Document comment / annotation for review collaboration.
+ */
+data class DocumentComment(
+    val id: String = UUID.randomUUID().toString(),
+    val blockId: String,
+    val author: String = "Reviewer",
+    val text: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isResolved: Boolean = false
+)
+
+/**
+ * Tracked change record for document revision auditing.
+ */
+data class TrackedChange(
+    val id: String = UUID.randomUUID().toString(),
+    val blockId: String,
+    val originalText: String,
+    val updatedText: String,
+    val author: String = "Editor",
+    val timestamp: Long = System.currentTimeMillis(),
+    val changeType: String = "EDIT" // INSERT, DELETE, EDIT
+)
 
 /**
  * Table of Contents block dynamically generated from document headings.
@@ -184,7 +220,10 @@ data class RichDocument(
     val updatedAt: Long = System.currentTimeMillis(),
     val layoutConfig: PageLayoutConfig = PageLayoutConfig(),
     val blocks: List<BlockElement> = listOf(ParagraphBlock()),
-    val passwordHash: String? = null // Non-null when document is password-protected
+    val passwordHash: String? = null, // Non-null when document is password-protected
+    val comments: List<DocumentComment> = emptyList(),
+    val trackedChanges: List<TrackedChange> = emptyList(),
+    val isTrackChangesEnabled: Boolean = false
 ) {
     val wordCount: Int
         get() = blocks.filterIsInstance<ParagraphBlock>().sumOf { block ->

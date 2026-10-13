@@ -98,6 +98,18 @@ fun EditorDialogsHost(
     onDismissPasswordDialog: () -> Unit,
     showVersionHistoryDialog: Boolean,
     onDismissVersionHistoryDialog: () -> Unit,
+    showCommentsDialog: Boolean = false,
+    onDismissCommentsDialog: () -> Unit = {},
+    showTrackChangesDialog: Boolean = false,
+    onDismissTrackChangesDialog: () -> Unit = {},
+    showSmartWritingDialog: Boolean = false,
+    onDismissSmartWritingDialog: () -> Unit = {},
+    showFootnoteDialog: Boolean = false,
+    onDismissFootnoteDialog: () -> Unit = {},
+    showPageBordersDialog: Boolean = false,
+    onDismissPageBordersDialog: () -> Unit = {},
+    showPageColorDialog: Boolean = false,
+    onDismissPageColorDialog: () -> Unit = {},
     safDocxSaveLauncher: ActivityResultLauncher<String>,
     safPdfSaveLauncher: ActivityResultLauncher<String>
 ) {
@@ -260,14 +272,17 @@ fun EditorDialogsHost(
         ImagePropertiesDialog(
             imageBlock = img,
             onDismiss = onDismissImageProperties,
-            onConfirm = { widthDp, heightDp, alignment, caption, ratio ->
+            onConfirm = { widthDp, heightDp, alignment, caption, ratio, wrapMode, filterMode, cornerRadius ->
                 viewModel.updateImageProperties(
                     blockId = img.id,
                     widthDp = widthDp,
                     heightDp = heightDp,
                     alignment = alignment,
                     caption = caption,
-                    aspectRatio = ratio
+                    aspectRatio = ratio,
+                    wrapMode = wrapMode,
+                    filterMode = filterMode,
+                    cornerRadiusDp = cornerRadius
                 )
             },
             onDeleteImage = {
@@ -499,6 +514,103 @@ fun EditorDialogsHost(
             onRestoreRevision = { revId ->
                 viewModel.restoreRevisionSnapshot(revId)
                 onDismissVersionHistoryDialog()
+            }
+        )
+    }
+
+    // Comments & Annotations Dialog
+    if (showCommentsDialog && document != null) {
+        val activeBlock = activeParagraph
+        CommentsDialog(
+            comments = document.comments,
+            activeBlockId = activeBlock?.id,
+            onDismiss = onDismissCommentsDialog,
+            onAddComment = { author, text ->
+                viewModel.addComment(
+                    blockId = activeBlock?.id ?: document.blocks.firstOrNull()?.id ?: "",
+                    author = author,
+                    text = text
+                )
+            },
+            onResolveComment = { commentId ->
+                viewModel.resolveComment(commentId)
+            },
+            onDeleteComment = { commentId ->
+                viewModel.deleteComment(commentId)
+            }
+        )
+    }
+
+    // Track Changes & Revisions Dialog
+    if (showTrackChangesDialog && document != null) {
+        TrackChangesDialog(
+            isTrackChangesEnabled = document.isTrackChangesEnabled,
+            trackedChanges = document.trackedChanges,
+            onDismiss = onDismissTrackChangesDialog,
+            onToggleTrackChanges = { enabled ->
+                viewModel.toggleTrackChanges(enabled)
+            },
+            onAcceptChange = { changeId ->
+                viewModel.acceptChange(changeId)
+            },
+            onRejectChange = { changeId ->
+                viewModel.rejectChange(changeId)
+            },
+            onAcceptAll = {
+                viewModel.acceptAllChanges()
+            },
+            onRejectAll = {
+                viewModel.rejectAllChanges()
+            }
+        )
+    }
+
+    // AI Smart Writing Assistant Dialog
+    if (showSmartWritingDialog) {
+        SmartWritingDialog(
+            document = document,
+            activeParagraph = activeParagraph,
+            onDismiss = onDismissSmartWritingDialog,
+            onApplyRewrite = { paragraphId, newText ->
+                viewModel.applyAiRewrite(paragraphId, newText)
+            },
+            onInsertSummary = { summaryText ->
+                viewModel.insertAiSummary(summaryText)
+            }
+        )
+    }
+
+    // Insert Footnote Dialog
+    if (showFootnoteDialog) {
+        InsertFootnoteDialog(
+            defaultReferenceText = activeParagraph?.text?.take(30) ?: "",
+            onDismiss = onDismissFootnoteDialog,
+            onConfirm = { refText, noteContent ->
+                viewModel.insertFootnote(refText, noteContent)
+                onDismissFootnoteDialog()
+            }
+        )
+    }
+
+    // Page Borders Dialog
+    if (showPageBordersDialog && document != null) {
+        PageBordersDialog(
+            initialStyle = document.layoutConfig.borderStyle,
+            initialColorHex = document.layoutConfig.borderColorHex,
+            onDismiss = onDismissPageBordersDialog,
+            onApply = { style, colorHex ->
+                viewModel.setPageBorder(style, colorHex)
+            }
+        )
+    }
+
+    // Page Color Tint Dialog
+    if (showPageColorDialog && document != null) {
+        PageColorDialog(
+            initialColorHex = document.layoutConfig.pageBackgroundHex,
+            onDismiss = onDismissPageColorDialog,
+            onApply = { colorHex ->
+                viewModel.setPageBackgroundColor(colorHex)
             }
         )
     }

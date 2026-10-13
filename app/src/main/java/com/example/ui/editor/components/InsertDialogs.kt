@@ -1351,7 +1351,7 @@ fun TablePropertiesDialog(
 fun ImagePropertiesDialog(
     imageBlock: ImageBlock,
     onDismiss: () -> Unit,
-    onConfirm: (widthDp: Int, heightDp: Int, alignment: TextAlignment, caption: String, aspectRatio: Float) -> Unit,
+    onConfirm: (widthDp: Int, heightDp: Int, alignment: TextAlignment, caption: String, aspectRatio: Float, wrapMode: String, filterMode: String, cornerRadius: Int) -> Unit,
     onDeleteImage: () -> Unit
 ) {
     var widthDp by remember { mutableStateOf(imageBlock.widthDp.toFloat()) }
@@ -1359,6 +1359,9 @@ fun ImagePropertiesDialog(
     var maintainAspectRatio by remember { mutableStateOf(true) }
     var alignment by remember { mutableStateOf(imageBlock.alignment) }
     var captionText by remember { mutableStateOf(imageBlock.caption) }
+    var wrapMode by remember { mutableStateOf(imageBlock.wrapMode) }
+    var filterMode by remember { mutableStateOf(imageBlock.filterMode) }
+    var cornerRadius by remember { mutableStateOf(imageBlock.cornerRadiusDp) }
 
     val baseRatio = if (imageBlock.aspectRatio > 0) imageBlock.aspectRatio else 1.333f
     val computedHeight = if (maintainAspectRatio) (widthDp / baseRatio).toInt() else customHeightDp.toInt()
@@ -1372,6 +1375,24 @@ fun ImagePropertiesDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                Text("Text Wrapping:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        "IN_LINE" to "In Line",
+                        "SQUARE" to "Square",
+                        "BEHIND_TEXT" to "Behind",
+                        "IN_FRONT" to "In Front"
+                    ).forEach { (mode, label) ->
+                        FilterChip(
+                            selected = wrapMode == mode,
+                            onClick = { wrapMode = mode },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
                 Text("Image Width: ${widthDp.toInt()} dp", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Slider(
                     value = widthDp,
@@ -1437,6 +1458,30 @@ fun ImagePropertiesDialog(
 
                 HorizontalDivider()
 
+                Text("Visual Filter:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("NORMAL" to "Original", "GRAYSCALE" to "Grayscale", "SEPIA" to "Sepia").forEach { (fMode, label) ->
+                        FilterChip(
+                            selected = filterMode == fMode,
+                            onClick = { filterMode = fMode },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                Text("Corner Radius: $cornerRadius dp", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0 to "Sharp (0)", 8 to "Rounded (8)", 16 to "Card (16)", 28 to "Soft (28)").forEach { (rad, label) ->
+                        FilterChip(
+                            selected = cornerRadius == rad,
+                            onClick = { cornerRadius = rad },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
                 Text("Alignment:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
@@ -1477,7 +1522,7 @@ fun ImagePropertiesDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    onConfirm(widthDp.toInt(), computedHeight, alignment, captionText, effectiveRatio)
+                    onConfirm(widthDp.toInt(), computedHeight, alignment, captionText, effectiveRatio, wrapMode, filterMode, cornerRadius)
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),

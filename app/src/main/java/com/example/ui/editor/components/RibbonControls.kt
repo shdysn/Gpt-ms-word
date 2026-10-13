@@ -15,13 +15,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.BorderAll
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Draw
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.HorizontalRule
@@ -80,7 +83,8 @@ fun InsertRibbonControls(
     onOpenHeaderFooterDialog: () -> Unit,
     onOpenPageNumberDialog: () -> Unit,
     onOpenSignatureDialog: () -> Unit,
-    onOpenShapeDialog: () -> Unit
+    onOpenShapeDialog: () -> Unit,
+    onOpenFootnoteDialog: () -> Unit = {}
 ) {
     RibbonActionButton(
         icon = Icons.Default.Add,
@@ -104,6 +108,12 @@ fun InsertRibbonControls(
         icon = Icons.AutoMirrored.Filled.ListAlt,
         label = "Table of Contents",
         onClick = { viewModel.insertTableOfContents() }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.FormatListNumbered,
+        label = "Footnote",
+        onClick = onOpenFootnoteDialog
     )
 
     RibbonActionButton(
@@ -177,7 +187,9 @@ fun InsertRibbonControls(
 fun LayoutRibbonControls(
     viewModel: EditorViewModel,
     onOpenWatermarkDialog: () -> Unit,
-    onOpenLayoutDialog: () -> Unit
+    onOpenLayoutDialog: () -> Unit,
+    onOpenPageBordersDialog: () -> Unit = {},
+    onOpenPageColorDialog: () -> Unit = {}
 ) {
     val document by viewModel.document.collectAsStateWithLifecycle()
     val layout = document?.layoutConfig ?: PageLayoutConfig()
@@ -212,6 +224,21 @@ fun LayoutRibbonControls(
         label = "2 Columns",
         isSelected = layout.columnCount == 2,
         onClick = { viewModel.setColumnCount(2) }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Page Borders & Color
+    RibbonActionButton(
+        icon = Icons.Default.BorderAll,
+        label = "Page Borders",
+        onClick = onOpenPageBordersDialog
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.Palette,
+        label = "Page Color",
+        onClick = onOpenPageColorDialog
     )
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -259,13 +286,44 @@ fun ReviewRibbonControls(
     onOpenPasswordDialog: () -> Unit,
     onOpenVersionHistoryDialog: () -> Unit,
     onOpenStatsDialog: () -> Unit,
-    onStartVoiceTyping: () -> Unit
+    onStartVoiceTyping: () -> Unit,
+    onOpenCommentsDialog: () -> Unit = {},
+    onOpenTrackChangesDialog: () -> Unit = {},
+    onOpenSmartWritingDialog: () -> Unit = {}
 ) {
     val document by viewModel.document.collectAsStateWithLifecycle()
     val isSpeaking by viewModel.isSpeaking.collectAsStateWithLifecycle()
     val speechRate by viewModel.speechRate.collectAsStateWithLifecycle()
     val snapshots by viewModel.revisionSnapshots.collectAsStateWithLifecycle()
     val isProtected = document?.isPasswordProtected == true
+    val commentsCount = document?.comments?.size ?: 0
+    val isTracking = document?.isTrackChangesEnabled == true
+
+    // AI Smart Writing Assistant
+    RibbonActionButton(
+        icon = Icons.Default.AutoAwesome,
+        label = "AI Assistant",
+        onClick = onOpenSmartWritingDialog
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Comments & Annotations
+    RibbonActionButton(
+        icon = Icons.Default.Comment,
+        label = if (commentsCount > 0) "Comments ($commentsCount)" else "Comments",
+        onClick = onOpenCommentsDialog
+    )
+
+    // Track Changes
+    RibbonToggleButton(
+        icon = Icons.Default.EditNote,
+        label = if (isTracking) "Tracking (ON)" else "Track Changes",
+        isSelected = isTracking,
+        onClick = onOpenTrackChangesDialog
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     // Text-to-Speech (Read Aloud)
     if (isSpeaking) {

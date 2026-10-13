@@ -138,6 +138,12 @@ fun EditorScreen(
     var showWatermarkDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showVersionHistoryDialog by remember { mutableStateOf(false) }
+    var showCommentsDialog by remember { mutableStateOf(false) }
+    var showTrackChangesDialog by remember { mutableStateOf(false) }
+    var showSmartWritingDialog by remember { mutableStateOf(false) }
+    var showFootnoteDialog by remember { mutableStateOf(false) }
+    var showPageBordersDialog by remember { mutableStateOf(false) }
+    var showPageColorDialog by remember { mutableStateOf(false) }
     var selectedTableForProperties by remember { mutableStateOf<TableBlock?>(null) }
     var selectedCellForEdit by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
     var selectedImageForProperties by remember { mutableStateOf<ImageBlock?>(null) }
@@ -294,6 +300,12 @@ fun EditorScreen(
                 onOpenPasswordDialog = { showPasswordDialog = true },
                 onOpenVersionHistoryDialog = { showVersionHistoryDialog = true },
                 onOpenStatsDialog = { showStatsDialog = true },
+                onOpenFootnoteDialog = { showFootnoteDialog = true },
+                onOpenPageBordersDialog = { showPageBordersDialog = true },
+                onOpenPageColorDialog = { showPageColorDialog = true },
+                onOpenCommentsDialog = { showCommentsDialog = true },
+                onOpenTrackChangesDialog = { showTrackChangesDialog = true },
+                onOpenSmartWritingDialog = { showSmartWritingDialog = true },
                 onStartVoiceTyping = {
                     try {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -516,6 +528,18 @@ fun EditorScreen(
         onDismissPasswordDialog = { showPasswordDialog = false },
         showVersionHistoryDialog = showVersionHistoryDialog,
         onDismissVersionHistoryDialog = { showVersionHistoryDialog = false },
+        showCommentsDialog = showCommentsDialog,
+        onDismissCommentsDialog = { showCommentsDialog = false },
+        showTrackChangesDialog = showTrackChangesDialog,
+        onDismissTrackChangesDialog = { showTrackChangesDialog = false },
+        showSmartWritingDialog = showSmartWritingDialog,
+        onDismissSmartWritingDialog = { showSmartWritingDialog = false },
+        showFootnoteDialog = showFootnoteDialog,
+        onDismissFootnoteDialog = { showFootnoteDialog = false },
+        showPageBordersDialog = showPageBordersDialog,
+        onDismissPageBordersDialog = { showPageBordersDialog = false },
+        showPageColorDialog = showPageColorDialog,
+        onDismissPageColorDialog = { showPageColorDialog = false },
         safDocxSaveLauncher = safDocxSaveLauncher,
         safPdfSaveLauncher = safPdfSaveLauncher
     )

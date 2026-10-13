@@ -94,6 +94,15 @@ data class ShapePageItem(
 ) : PageItem
 
 /**
+ * Footnote item rendered on a paginated page.
+ */
+data class FootnotePageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.FootnoteBlock,
+    override val heightPt: Float = 36f
+) : PageItem
+
+/**
  * Physical page breakdown containing laid out items, header, and footer.
  */
 data class DocumentPage(

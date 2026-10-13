@@ -668,5 +668,58 @@ fun BlockItemView(
                 }
             }
         }
+
+        is com.example.data.model.FootnoteBlock -> {
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .testTag("footnote_block_${block.id}")
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = if (isDarkPage) Color(0xFF475569) else Color(0xFFCBD5E1),
+                        modifier = Modifier.width(80.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = "[${block.noteNumber}] ",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (11f * zoomScale).sp,
+                            color = WordPrimary
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            if (block.referenceText.isNotBlank()) {
+                                Text(
+                                    text = "Ref: \"${block.referenceText}\"",
+                                    fontSize = (10f * zoomScale).sp,
+                                    fontStyle = FontStyle.Italic,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                            }
+                            Text(
+                                text = block.noteContent,
+                                fontSize = (11f * zoomScale).sp,
+                                color = if (isDarkPage) Color(0xFFE2E8F0) else Color(0xFF334155)
+                            )
+                        }
+                        if (canDeleteBlock) {
+                            IconButton(onClick = onDeleteBlock, modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Footnote", tint = Color.Gray, modifier = Modifier.size(13.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

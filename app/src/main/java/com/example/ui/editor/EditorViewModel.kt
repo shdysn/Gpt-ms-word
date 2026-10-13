@@ -1258,7 +1258,10 @@ class EditorViewModel(
         heightDp: Int? = null,
         alignment: TextAlignment? = null,
         caption: String? = null,
-        aspectRatio: Float? = null
+        aspectRatio: Float? = null,
+        wrapMode: String? = null,
+        filterMode: String? = null,
+        cornerRadiusDp: Int? = null
     ) {
         val currentDoc = _document.value ?: return
         val oldBlock = currentDoc.blocks.firstOrNull { it.id == blockId } as? ImageBlock ?: return
@@ -1271,7 +1274,10 @@ class EditorViewModel(
             heightDp = newHeight.coerceIn(60, 600),
             alignment = alignment ?: oldBlock.alignment,
             caption = caption ?: oldBlock.caption,
-            aspectRatio = newRatio
+            aspectRatio = newRatio,
+            wrapMode = wrapMode ?: oldBlock.wrapMode,
+            filterMode = filterMode ?: oldBlock.filterMode,
+            cornerRadiusDp = cornerRadiusDp ?: oldBlock.cornerRadiusDp
         )
 
         executeCommand(
@@ -1279,7 +1285,7 @@ class EditorViewModel(
                 blockId = blockId,
                 oldImage = oldBlock,
                 newImage = newBlock,
-                actionDescription = "Resize / Align Image"
+                actionDescription = "Format Picture Properties"
             )
         )
     }
@@ -2117,6 +2123,153 @@ class EditorViewModel(
         }
         val updated = currentTable.copy(cells = updatedCells)
         executeCommand(UpdateTableBlockCommand(currentTable.id, currentTable, updated))
+    }
+
+    // ----------------------------------------------------
+    // Review & Tracking Operations
+    // ----------------------------------------------------
+
+    fun addComment(blockId: String, author: String, text: String) {
+        val doc = _document.value ?: return
+        val newComment = com.example.data.model.DocumentComment(
+            blockId = blockId,
+            author = author.ifBlank { "Reviewer" },
+            text = text
+        )
+        val updated = doc.copy(comments = doc.comments + newComment)
+        _document.value = updated
+        _statusMessage.value = "Comment added"
+    }
+
+    fun resolveComment(commentId: String) {
+        val doc = _document.value ?: return
+        val updatedComments = doc.comments.map {
+            if (it.id == commentId) it.copy(isResolved = !it.isResolved) else it
+        }
+        _document.value = doc.copy(comments = updatedComments)
+    }
+
+    fun deleteComment(commentId: String) {
+        val doc = _document.value ?: return
+        _document.value = doc.copy(comments = doc.comments.filterNot { it.id == commentId })
+        _statusMessage.value = "Comment removed"
+    }
+
+    fun toggleTrackChanges(enabled: Boolean? = null) {
+        val doc = _document.value ?: return
+        val newEnabled = enabled ?: !doc.isTrackChangesEnabled
+        _document.value = doc.copy(isTrackChangesEnabled = newEnabled)
+        _statusMessage.value = if (newEnabled) "Track Changes enabled" else "Track Changes disabled"
+    }
+
+    fun acceptChange(changeId: String) {
+        val doc = _document.value ?: return
+        _document.value = doc.copy(trackedChanges = doc.trackedChanges.filterNot { it.id == changeId })
+        _statusMessage.value = "Change accepted"
+    }
+
+    fun rejectChange(changeId: String) {
+        val doc = _document.value ?: return
+        val change = doc.trackedChanges.firstOrNull { it.id == changeId } ?: return
+        val updatedBlocks = doc.blocks.map { b ->
+            if (b.id == change.blockId && b is ParagraphBlock) {
+                b.copy(text = change.originalText)
+            } else b
+        }
+        _document.value = doc.copy(
+            blocks = updatedBlocks,
+            trackedChanges = doc.trackedChanges.filterNot { it.id == changeId }
+        )
+        _statusMessage.value = "Change rejected"
+    }
+
+    fun acceptAllChanges() {
+        val doc = _document.value ?: return
+        _document.value = doc.copy(trackedChanges = emptyList())
+        _statusMessage.value = "All changes accepted"
+    }
+
+    fun rejectAllChanges() {
+        val doc = _document.value ?: return
+        var currentBlocks = doc.blocks
+        for (change in doc.trackedChanges) {
+            currentBlocks = currentBlocks.map { b ->
+                if (b.id == change.blockId && b is ParagraphBlock) {
+                    b.copy(text = change.originalText)
+                } else b
+            }
+        }
+        _document.value = doc.copy(blocks = currentBlocks, trackedChanges = emptyList())
+        _statusMessage.value = "All changes rejected"
+    }
+
+    // ----------------------------------------------------
+    // Footnote, Page Border & Color Operations
+    // ----------------------------------------------------
+
+    fun insertFootnote(referenceText: String, noteContent: String) {
+        val doc = _document.value ?: return
+        val currentNotes = doc.blocks.filterIsInstance<com.example.data.model.FootnoteBlock>()
+        val nextNoteNumber = currentNotes.size + 1
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, doc.blocks.size)
+
+        val footnote = com.example.data.model.FootnoteBlock(
+            noteNumber = nextNoteNumber,
+            referenceText = referenceText,
+            noteContent = noteContent
+        )
+        executeCommand(InsertBlockCommand(insertIndex, footnote))
+        _statusMessage.value = "Footnote [$nextNoteNumber] inserted"
+    }
+
+    fun setPageBorder(style: com.example.core.layout.PageBorderStyle, colorHex: String) {
+        val doc = _document.value ?: return
+        val newLayout = doc.layoutConfig.copy(borderStyle = style, borderColorHex = colorHex)
+        updatePageLayoutConfig(newLayout)
+        _statusMessage.value = "Page border updated"
+    }
+
+    fun setPageBackgroundColor(bgHex: String) {
+        val doc = _document.value ?: return
+        val newLayout = doc.layoutConfig.copy(pageBackgroundHex = bgHex)
+        updatePageLayoutConfig(newLayout)
+        _statusMessage.value = "Page background color updated"
+    }
+
+    // ----------------------------------------------------
+    // AI Smart Writing Assistant Operations
+    // ----------------------------------------------------
+
+    fun applyAiRewrite(paragraphId: String, newText: String) {
+        val doc = _document.value ?: return
+        val blockIndex = doc.blocks.indexOfFirst { it.id == paragraphId }
+        if (blockIndex == -1) return
+        val oldBlock = doc.blocks[blockIndex] as? ParagraphBlock ?: return
+        if (doc.isTrackChangesEnabled) {
+            val record = com.example.data.model.TrackedChange(
+                blockId = paragraphId,
+                originalText = oldBlock.text,
+                updatedText = newText,
+                author = "AI Assistant",
+                changeType = "POLISH"
+            )
+            _document.value = doc.copy(trackedChanges = doc.trackedChanges + record)
+        }
+        updateParagraphText(blockIndex, newText)
+        _statusMessage.value = "Paragraph polished"
+    }
+
+    fun insertAiSummary(summaryText: String) {
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        val summaryBlock = com.example.data.model.ShapeBlock(
+            shapeType = "NOTE",
+            title = "Executive Summary",
+            content = summaryText,
+            backgroundColorHex = "#EFF6FF",
+            borderColorHex = "#3B82F6"
+        )
+        executeCommand(InsertBlockCommand(insertIndex, summaryBlock))
+        _statusMessage.value = "Summary box inserted"
     }
 
     override fun onCleared() {

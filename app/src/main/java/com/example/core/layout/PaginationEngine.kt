@@ -323,6 +323,21 @@ object PaginationEngine {
                     )
                     currentHeight += shapeHeight
                 }
+
+                is com.example.data.model.FootnoteBlock -> {
+                    val fnHeight = 36f
+                    if (currentHeight + fnHeight > printableHeightPt && currentPage.isNotEmpty()) {
+                        commitCurrentPageAndStartNew()
+                    }
+                    currentPage.add(
+                        FootnotePageItem(
+                            originalBlockIndex = blockIndex,
+                            originalBlock = block,
+                            heightPt = fnHeight
+                        )
+                    )
+                    currentHeight += fnHeight
+                }
             }
         }
 

@@ -439,6 +439,14 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("borderThicknessDp", block.borderThicknessDp)
                         blockObj.put("borderColorHex", block.borderColorHex)
                         blockObj.put("rotationDegrees", block.rotationDegrees.toDouble())
+                        blockObj.put("wrapMode", block.wrapMode)
+                    }
+                    is com.example.data.model.FootnoteBlock -> {
+                        blockObj.put("type", "footnote")
+                        blockObj.put("id", block.id)
+                        blockObj.put("noteNumber", block.noteNumber)
+                        blockObj.put("referenceText", block.referenceText)
+                        blockObj.put("noteContent", block.noteContent)
                     }
                     is com.example.data.model.TableOfContentsBlock -> {
                         blockObj.put("type", "table_of_contents")
@@ -476,6 +484,37 @@ class DocumentStorageManager(private val context: Context) {
                 blocksArray.put(blockObj)
             }
             put("blocks", blocksArray)
+
+            // Review & Tracking
+            put("isTrackChangesEnabled", doc.isTrackChangesEnabled)
+            val commentsArr = JSONArray()
+            for (c in doc.comments) {
+                val cObj = JSONObject().apply {
+                    put("id", c.id)
+                    put("blockId", c.blockId)
+                    put("author", c.author)
+                    put("text", c.text)
+                    put("timestamp", c.timestamp)
+                    put("isResolved", c.isResolved)
+                }
+                commentsArr.put(cObj)
+            }
+            put("comments", commentsArr)
+
+            val changesArr = JSONArray()
+            for (tc in doc.trackedChanges) {
+                val tcObj = JSONObject().apply {
+                    put("id", tc.id)
+                    put("blockId", tc.blockId)
+                    put("originalText", tc.originalText)
+                    put("updatedText", tc.updatedText)
+                    put("author", tc.author)
+                    put("timestamp", tc.timestamp)
+                    put("changeType", tc.changeType)
+                }
+                changesArr.put(tcObj)
+            }
+            put("trackedChanges", changesArr)
         }
         return root.toString(2)
     }
@@ -678,7 +717,18 @@ class DocumentStorageManager(private val context: Context) {
                             cornerRadiusDp = bObj.optInt("cornerRadiusDp", 8),
                             borderThicknessDp = bObj.optInt("borderThicknessDp", 0),
                             borderColorHex = bObj.optString("borderColorHex", "#CBD5E1"),
-                            rotationDegrees = bObj.optDouble("rotationDegrees", 0.0).toFloat()
+                            rotationDegrees = bObj.optDouble("rotationDegrees", 0.0).toFloat(),
+                            wrapMode = bObj.optString("wrapMode", "IN_LINE")
+                        )
+                    )
+                }
+                "footnote" -> {
+                    blocks.add(
+                        com.example.data.model.FootnoteBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            noteNumber = bObj.optInt("noteNumber", 1),
+                            referenceText = bObj.optString("referenceText", ""),
+                            noteContent = bObj.optString("noteContent", "")
                         )
                     )
                 }
@@ -727,6 +777,45 @@ class DocumentStorageManager(private val context: Context) {
             blocks.add(ParagraphBlock())
         }
 
+        // Review & Tracking deserialization
+        val isTrackChangesEnabled = root.optBoolean("isTrackChangesEnabled", false)
+        val comments = mutableListOf<com.example.data.model.DocumentComment>()
+        val commentsArr = root.optJSONArray("comments")
+        if (commentsArr != null) {
+            for (i in 0 until commentsArr.length()) {
+                val cObj = commentsArr.getJSONObject(i)
+                comments.add(
+                    com.example.data.model.DocumentComment(
+                        id = cObj.optString("id", java.util.UUID.randomUUID().toString()),
+                        blockId = cObj.optString("blockId", ""),
+                        author = cObj.optString("author", "Reviewer"),
+                        text = cObj.optString("text", ""),
+                        timestamp = cObj.optLong("timestamp", System.currentTimeMillis()),
+                        isResolved = cObj.optBoolean("isResolved", false)
+                    )
+                )
+            }
+        }
+
+        val trackedChanges = mutableListOf<com.example.data.model.TrackedChange>()
+        val changesArr = root.optJSONArray("trackedChanges")
+        if (changesArr != null) {
+            for (i in 0 until changesArr.length()) {
+                val tcObj = changesArr.getJSONObject(i)
+                trackedChanges.add(
+                    com.example.data.model.TrackedChange(
+                        id = tcObj.optString("id", java.util.UUID.randomUUID().toString()),
+                        blockId = tcObj.optString("blockId", ""),
+                        originalText = tcObj.optString("originalText", ""),
+                        updatedText = tcObj.optString("updatedText", ""),
+                        author = tcObj.optString("author", "Editor"),
+                        timestamp = tcObj.optLong("timestamp", System.currentTimeMillis()),
+                        changeType = tcObj.optString("changeType", "EDIT")
+                    )
+                )
+            }
+        }
+
         return RichDocument(
             id = id.ifBlank { java.util.UUID.randomUUID().toString() },
             title = title,
@@ -735,7 +824,10 @@ class DocumentStorageManager(private val context: Context) {
             updatedAt = updatedAt,
             layoutConfig = layoutConfig,
             blocks = blocks,
-            passwordHash = passwordHash
+            passwordHash = passwordHash,
+            comments = comments,
+            trackedChanges = trackedChanges,
+            isTrackChangesEnabled = isTrackChangesEnabled
         )
     }
 }

@@ -107,7 +107,13 @@ fun WordRibbon(
     onOpenPasswordDialog: () -> Unit = {},
     onOpenVersionHistoryDialog: () -> Unit = {},
     onOpenStatsDialog: () -> Unit = {},
-    onStartVoiceTyping: () -> Unit = {}
+    onStartVoiceTyping: () -> Unit = {},
+    onOpenFootnoteDialog: () -> Unit = {},
+    onOpenPageBordersDialog: () -> Unit = {},
+    onOpenPageColorDialog: () -> Unit = {},
+    onOpenCommentsDialog: () -> Unit = {},
+    onOpenTrackChangesDialog: () -> Unit = {},
+    onOpenSmartWritingDialog: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
 
@@ -233,7 +239,8 @@ fun WordRibbon(
                                 onOpenHeaderFooterDialog = onOpenHeaderFooterDialog,
                                 onOpenPageNumberDialog = onOpenPageNumberDialog,
                                 onOpenSignatureDialog = onOpenSignatureDialog,
-                                onOpenShapeDialog = onOpenShapeDialog
+                                onOpenShapeDialog = onOpenShapeDialog,
+                                onOpenFootnoteDialog = onOpenFootnoteDialog
                             )
                         }
                     }
@@ -250,7 +257,9 @@ fun WordRibbon(
                             LayoutRibbonControls(
                                 viewModel = viewModel,
                                 onOpenWatermarkDialog = onOpenWatermarkDialog,
-                                onOpenLayoutDialog = onOpenLayoutDialog
+                                onOpenLayoutDialog = onOpenLayoutDialog,
+                                onOpenPageBordersDialog = onOpenPageBordersDialog,
+                                onOpenPageColorDialog = onOpenPageColorDialog
                             )
                         }
                     }
@@ -270,7 +279,10 @@ fun WordRibbon(
                                 onOpenPasswordDialog = onOpenPasswordDialog,
                                 onOpenVersionHistoryDialog = onOpenVersionHistoryDialog,
                                 onOpenStatsDialog = onOpenStatsDialog,
-                                onStartVoiceTyping = onStartVoiceTyping
+                                onStartVoiceTyping = onStartVoiceTyping,
+                                onOpenCommentsDialog = onOpenCommentsDialog,
+                                onOpenTrackChangesDialog = onOpenTrackChangesDialog,
+                                onOpenSmartWritingDialog = onOpenSmartWritingDialog
                             )
                         }
                     }

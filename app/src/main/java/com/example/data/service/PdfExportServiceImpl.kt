@@ -881,6 +881,25 @@ class PdfExportServiceImpl : DocumentExportService {
                         canvas.drawText(shape.content.ifBlank { "..." }, leftMargin + 12f, cursorY + 40f, bodyPaint)
                         cursorY += 72f
                     }
+
+                    is com.example.core.layout.FootnotePageItem -> {
+                        val fn = item.originalBlock
+                        val fnDividerPaint = Paint().apply {
+                            color = Color.rgb(203, 213, 225)
+                            strokeWidth = 1f
+                        }
+                        canvas.drawLine(leftMargin, cursorY + 4f, leftMargin + 60f, cursorY + 4f, fnDividerPaint)
+                        cursorY += 10f
+
+                        val fnPaint = Paint().apply {
+                            isAntiAlias = true
+                            color = Color.rgb(71, 85, 105)
+                            textSize = 8.5f
+                        }
+                        val noteLabel = "[${fn.noteNumber}] ${fn.referenceText.ifBlank { "" }}: ${fn.noteContent}"
+                        canvas.drawText(noteLabel, leftMargin, cursorY + 8f, fnPaint)
+                        cursorY += 18f
+                    }
                 }
             }
 

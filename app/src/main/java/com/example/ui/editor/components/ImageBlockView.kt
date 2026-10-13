@@ -90,15 +90,39 @@ fun ImageBlockView(
             else -> null
         }
 
-        Box(
-            modifier = Modifier
+        val boxModifier = when (imageBlock.wrapMode) {
+            "BEHIND_TEXT" -> Modifier
+                .width(scaledWidthDp)
+                .height(scaledHeightDp)
+                .clip(RoundedCornerShape(imageCornerRadius))
+                .border(imageBorderThickness, imageBorderColor.copy(alpha = 0.5f), RoundedCornerShape(imageCornerRadius))
+                .graphicsLayer(alpha = 0.5f)
+                .clickable { onEditProperties() }
+                .testTag("image_block_${imageBlock.id}")
+            "SQUARE" -> Modifier
+                .width(scaledWidthDp)
+                .height(scaledHeightDp)
+                .clip(RoundedCornerShape(imageCornerRadius))
+                .border(imageBorderThickness + 1.dp, imageBorderColor, RoundedCornerShape(imageCornerRadius))
+                .clickable { onEditProperties() }
+                .testTag("image_block_${imageBlock.id}")
+            "IN_FRONT" -> Modifier
+                .width(scaledWidthDp)
+                .height(scaledHeightDp)
+                .clip(RoundedCornerShape(imageCornerRadius))
+                .border(imageBorderThickness, WordPrimary, RoundedCornerShape(imageCornerRadius))
+                .clickable { onEditProperties() }
+                .testTag("image_block_${imageBlock.id}")
+            else -> Modifier
                 .width(scaledWidthDp)
                 .height(scaledHeightDp)
                 .clip(RoundedCornerShape(imageCornerRadius))
                 .border(imageBorderThickness, imageBorderColor, RoundedCornerShape(imageCornerRadius))
                 .clickable { onEditProperties() }
                 .testTag("image_block_${imageBlock.id}")
-        ) {
+        }
+
+        Box(modifier = boxModifier) {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(imageBlock.imageUri)
@@ -163,8 +187,14 @@ fun ImageBlockView(
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
+                    val wrapLabel = when (imageBlock.wrapMode) {
+                        "SQUARE" -> "Square"
+                        "BEHIND_TEXT" -> "Behind"
+                        "IN_FRONT" -> "In Front"
+                        else -> "${imageBlock.widthDp}dp"
+                    }
                     Text(
-                        text = "${imageBlock.widthDp}dp",
+                        text = wrapLabel,
                         color = Color.White,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
