@@ -882,6 +882,10 @@ $bordersXml
         sb.append("""<w:pgSz w:w="$effWidth" w:h="$effHeight" ${if (isLandscape) """w:orient="landscape"""" else ""}/>""")
         sb.append("""<w:pgMar w:top="$topTwips" w:right="$rightTwips" w:bottom="$bottomTwips" w:left="$leftTwips" w:header="720" w:footer="720" w:gutter="0"/>""")
 
+        if (layout.columnCount > 1) {
+            sb.append("""<w:cols w:num="${layout.columnCount}" w:space="720"/>""")
+        }
+
         if (layout.borderStyle != com.example.core.layout.PageBorderStyle.NONE) {
             val borderVal = when (layout.borderStyle) {
                 com.example.core.layout.PageBorderStyle.SINGLE_THIN -> "single"

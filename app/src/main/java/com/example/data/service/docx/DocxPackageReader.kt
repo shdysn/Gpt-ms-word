@@ -782,6 +782,9 @@ class DocxPackageReader(private val context: Context?) {
             }
         }
 
+        val colsEl = sectPr.getElementsByTagName("w:cols").item(0) as? Element
+        val parsedColCount = colsEl?.getAttribute("w:num")?.toIntOrNull() ?: 1
+
         return currentConfig.copy(
             pageSize = pageSize,
             orientation = orientation,
@@ -792,7 +795,8 @@ class DocxPackageReader(private val context: Context?) {
             customRightMarginMm = rightMm,
             borderStyle = borderStyle,
             borderColorHex = borderColor,
-            borderWidthPt = borderWidthPt
+            borderWidthPt = borderWidthPt,
+            columnCount = parsedColCount.coerceIn(1, 2)
         )
     }
 

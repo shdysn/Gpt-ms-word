@@ -1773,8 +1773,43 @@ class EditorViewModel(
 
     fun startReadAloud(context: Context) {
         val doc = _document.value ?: return
-        val paragraphs = doc.blocks.filterIsInstance<ParagraphBlock>().filter { it.text.isNotBlank() }
-        if (paragraphs.isEmpty()) {
+        val utterances = mutableListOf<String>()
+        doc.blocks.forEach { block ->
+            when (block) {
+                is ParagraphBlock -> {
+                    if (block.text.isNotBlank()) utterances.add(block.text)
+                }
+                is TableBlock -> {
+                    val tableText = block.cells.flatten()
+                        .map { it.text.trim() }
+                        .filter { it.isNotBlank() }
+                        .joinToString(", ")
+                    if (tableText.isNotBlank()) {
+                        utterances.add("Table with ${block.rowCount} rows: $tableText")
+                    }
+                }
+                is com.example.data.model.ShapeBlock -> {
+                    val shapeText = buildString {
+                        if (block.title.isNotBlank()) append("${block.title}. ")
+                        if (block.content.isNotBlank()) append(block.content)
+                    }.trim()
+                    if (shapeText.isNotBlank()) utterances.add("Note: $shapeText")
+                }
+                is ImageBlock -> {
+                    if (block.caption.isNotBlank()) {
+                        utterances.add("Image caption: ${block.caption}")
+                    }
+                }
+                is com.example.data.model.SignatureBlock -> {
+                    if (block.signerName.isNotBlank()) {
+                        utterances.add("Digitally signed by ${block.signerName}, ${block.signerTitle}")
+                    }
+                }
+                else -> Unit
+            }
+        }
+
+        if (utterances.isEmpty()) {
             _statusMessage.value = "Document contains no text to read aloud"
             return
         }
@@ -1784,33 +1819,33 @@ class EditorViewModel(
                 if (status == TextToSpeech.SUCCESS) {
                     tts?.language = Locale.getDefault()
                     tts?.setSpeechRate(_speechRate.value)
-                    speakParagraphSequence(paragraphs)
+                    speakUtteranceSequence(utterances)
                 } else {
                     _statusMessage.value = "Failed to initialize Text-To-Speech engine"
                 }
             }
         } else {
             tts?.setSpeechRate(_speechRate.value)
-            speakParagraphSequence(paragraphs)
+            speakUtteranceSequence(utterances)
         }
     }
 
-    private fun speakParagraphSequence(paragraphs: List<ParagraphBlock>) {
+    private fun speakUtteranceSequence(utterances: List<String>) {
         _isSpeaking.value = true
         tts?.stop()
 
-        var pIndex = 0
-        val total = paragraphs.size
+        var uIndex = 0
+        val total = utterances.size
 
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                _speakingParagraphIndex.value = pIndex
+                _speakingParagraphIndex.value = uIndex
             }
 
             override fun onDone(utteranceId: String?) {
-                pIndex++
-                if (pIndex < total) {
-                    speakNextParagraph(paragraphs[pIndex], pIndex)
+                uIndex++
+                if (uIndex < total) {
+                    speakNextUtterance(utterances[uIndex], uIndex)
                 } else {
                     _isSpeaking.value = false
                     _speakingParagraphIndex.value = null
@@ -1823,13 +1858,13 @@ class EditorViewModel(
             }
         })
 
-        speakNextParagraph(paragraphs[0], 0)
+        speakNextUtterance(utterances[0], 0)
     }
 
-    private fun speakNextParagraph(paragraph: ParagraphBlock, index: Int) {
+    private fun speakNextUtterance(text: String, index: Int) {
         val params = android.os.Bundle()
-        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "p_$index")
-        tts?.speak(paragraph.text, TextToSpeech.QUEUE_FLUSH, params, "p_$index")
+        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "u_$index")
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, "u_$index")
     }
 
     fun stopReadAloud() {

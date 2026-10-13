@@ -300,7 +300,14 @@ fun EditorScreen(
                             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                             putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to dictate text into document...")
                         }
-                        voiceTypingLauncher.launch(intent)
+                        val activities = context.packageManager.queryIntentActivities(intent, 0)
+                        if (activities.isNotEmpty()) {
+                            voiceTypingLauncher.launch(intent)
+                        } else {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Voice typing requires Google Speech Services on your device")
+                            }
+                        }
                     } catch (_: Exception) {
                         coroutineScope.launch {
                             snackbarHostState.showSnackbar("Speech recognition service not available on this device")

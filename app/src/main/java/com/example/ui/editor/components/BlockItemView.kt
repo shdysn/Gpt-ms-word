@@ -20,11 +20,15 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -97,7 +101,9 @@ fun BlockItemView(
     onAddTableCol: () -> Unit = {},
     onDeleteTableCol: () -> Unit = {},
     onEditImageProperties: () -> Unit = {},
-    documentBlocks: List<BlockElement> = emptyList()
+    documentBlocks: List<BlockElement> = emptyList(),
+    paginatedPages: List<com.example.core.layout.DocumentPage> = emptyList(),
+    onNavigateToBlock: (Int) -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -224,7 +230,7 @@ fun BlockItemView(
                         ListType.NONE -> Unit
                     }
 
-                    Box(
+                    Column(
                         modifier = Modifier.weight(1f)
                     ) {
                         BasicTextField(
@@ -307,6 +313,53 @@ fun BlockItemView(
                                 }
                             }
                         )
+
+                        // Contextual Hyperlink Action Pill
+                        val currentCursor = textFieldValue.selection.start
+                        val activeLinkSpan = remember(currentCursor, block.spans) {
+                            block.spans.firstOrNull { span ->
+                                span.linkUrl != null && currentCursor in span.start..span.end
+                            }
+                        }
+                        if (activeLinkSpan?.linkUrl != null && isActive) {
+                            val context = LocalContext.current
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFEFF6FF),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF3B82F6) else Color(0xFFBFDBFE)),
+                                shadowElevation = 2.dp,
+                                modifier = Modifier
+                                    .padding(top = 4.dp, bottom = 4.dp)
+                                    .clickable {
+                                        try {
+                                            val rawUrl = activeLinkSpan.linkUrl!!
+                                            val validUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("mailto:")) rawUrl else "https://$rawUrl"
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(validUrl))
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {}
+                                    }
+                                    .testTag("hyperlink_open_pill")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Link,
+                                        contentDescription = null,
+                                        tint = Color(0xFF2563EB),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Open Link: ${activeLinkSpan.linkUrl}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF2563EB)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -448,10 +501,21 @@ fun BlockItemView(
                                 HeadingStyle.HEADING_2 -> 14.dp
                                 else -> 28.dp
                             }
+                            val targetBlockIndex = documentBlocks.indexOf(hBlock)
+                            val realPageNumber = paginatedPages.firstOrNull { page ->
+                                page.items.any { it.originalBlockIndex == targetBlockIndex }
+                            }?.pageNumber ?: (hIdx + 1)
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(start = indentDp, top = 4.dp, bottom = 4.dp),
+                                    .padding(start = indentDp, top = 4.dp, bottom = 4.dp)
+                                    .clickable(enabled = targetBlockIndex >= 0) {
+                                        if (targetBlockIndex >= 0) {
+                                            onNavigateToBlock(targetBlockIndex)
+                                        }
+                                    }
+                                    .testTag("toc_item_$hIdx"),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
@@ -470,7 +534,7 @@ fun BlockItemView(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "${hIdx + 1}",
+                                    text = "$realPageNumber",
                                     fontSize = (12f * zoomScale).sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (isDarkPage) Color(0xFF94A3B8) else Color(0xFF64748B)

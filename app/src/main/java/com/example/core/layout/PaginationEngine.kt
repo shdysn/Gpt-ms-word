@@ -176,7 +176,9 @@ object PaginationEngine {
                     }
                     val spaceBefore = block.spaceBeforePt
                     val indentPt = if (block.leftIndentPt > 0f) block.leftIndentPt else (block.indentationLevel * 18f)
-                    val effectivePrintableWidth = (printableWidthPt - indentPt).coerceAtLeast(72f)
+                    val colCount = layout.columnCount.coerceIn(1, 2)
+                    val baseWidth = if (colCount == 2) (printableWidthPt - 18f) / 2f else printableWidthPt
+                    val effectivePrintableWidth = (baseWidth - indentPt).coerceAtLeast(72f)
 
                     val isBold = block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 || block.headingStyle == HeadingStyle.HEADING_2
                     val lines = breakTextIntoLines(block.text, paint, fontSizePt, isBold, effectivePrintableWidth)

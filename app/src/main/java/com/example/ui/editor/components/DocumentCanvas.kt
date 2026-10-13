@@ -377,7 +377,9 @@ fun DocumentCanvas(
                                             onSelectionChanged = {},
                                             onTextChanged = { _, _ -> },
                                             onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) },
-                                            documentBlocks = document.blocks
+                                            documentBlocks = document.blocks,
+                                            paginatedPages = paginatedPages,
+                                            onNavigateToBlock = { onBlockSelected(it) }
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                     }
@@ -496,7 +498,9 @@ fun DocumentCanvas(
                             onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
                             onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
                             onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) },
-                            documentBlocks = document.blocks
+                            documentBlocks = document.blocks,
+                            paginatedPages = paginatedPages,
+                            onNavigateToBlock = { onBlockSelected(it) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
