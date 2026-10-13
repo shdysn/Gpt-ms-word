@@ -373,6 +373,11 @@ fun HomeScreen(
                             onClick = { viewModel.onFilterChanged(HomeFilter.PINNED) },
                             label = { Text("Pinned") }
                         )
+                        FilterChip(
+                            selected = activeFilter == HomeFilter.FAVORITES,
+                            onClick = { viewModel.onFilterChanged(HomeFilter.FAVORITES) },
+                            label = { Text("Favorites") }
+                        )
                     }
 
                     // Sort Order Dropdown

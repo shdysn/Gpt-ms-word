@@ -88,14 +88,52 @@ object BidiUtils {
 
     /**
      * Formats list numbering for a given item index:
+     * Supports hierarchical multi-level outlines according to indentationLevel (1., a), i)...)
      * In RTL mode, supports traditional Urdu/Arabic punctuation and numerals.
      */
-    fun formatListNumber(number: Int, isRtl: Boolean, useUrduNumerals: Boolean = false): String {
+    fun formatListNumber(
+        number: Int,
+        isRtl: Boolean,
+        useUrduNumerals: Boolean = false,
+        indentationLevel: Int = 0
+    ): String {
+        val safeIndent = indentationLevel.coerceAtLeast(0)
         return if (isRtl) {
             val numStr = if (useUrduNumerals) toUrduNumerals(number) else number.toString()
-            "$numStr۔ " // Urdu full-stop separator
+            when (safeIndent % 3) {
+                1 -> "(${numStr})۔ "
+                2 -> "• "
+                else -> "$numStr۔ "
+            }
         } else {
-            "$number. "
+            when (safeIndent % 3) {
+                1 -> {
+                    val char = ('a'.code + ((number - 1) % 26)).toChar()
+                    "$char) "
+                }
+                2 -> {
+                    val roman = toRoman(number)
+                    "$roman) "
+                }
+                else -> "$number. "
+            }
         }
     }
+
+    private fun toRoman(n: Int): String {
+        val num = n.coerceIn(1, 50)
+        val romanMap = listOf(
+            10 to "x", 9 to "ix", 5 to "v", 4 to "iv", 1 to "i"
+        )
+        val sb = StringBuilder()
+        var remaining = num
+        for ((value, sym) in romanMap) {
+            while (remaining >= value) {
+                sb.append(sym)
+                remaining -= value
+            }
+        }
+        return sb.toString()
+    }
 }
+

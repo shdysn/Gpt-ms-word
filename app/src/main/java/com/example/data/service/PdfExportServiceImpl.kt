@@ -520,7 +520,7 @@ class PdfExportServiceImpl : DocumentExportService {
                             ListType.BULLET -> "• "
                             ListType.NUMBERED -> {
                                 val listNum = computeNumberedListIndex(document.blocks, item.originalBlockIndex)
-                                BidiUtils.formatListNumber(listNum, isRtl, false)
+                                BidiUtils.formatListNumber(listNum, isRtl, false, indentationLevel = block.indentationLevel)
                             }
                             ListType.NONE -> ""
                         }

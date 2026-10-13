@@ -28,7 +28,9 @@ import androidx.compose.material.icons.filled.FormatBold
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.FormatColorText
 import androidx.compose.material.icons.filled.FormatItalic
+import androidx.compose.material.icons.filled.FormatLineSpacing
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Link
@@ -87,6 +89,9 @@ fun FormattingToolbar(
     onDecreaseIndent: () -> Unit,
     onOpenLinkDialog: () -> Unit,
     onToggleRtl: () -> Unit,
+    onSetLineSpacing: (Float) -> Unit = {},
+    isFormatPainterActive: Boolean = false,
+    onToggleFormatPainter: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var styleMenuExpanded by remember { mutableStateOf(false) }
@@ -94,6 +99,7 @@ fun FormattingToolbar(
     var sizeMenuExpanded by remember { mutableStateOf(false) }
     var textColorMenuExpanded by remember { mutableStateOf(false) }
     var highlightMenuExpanded by remember { mutableStateOf(false) }
+    var lineSpacingMenuExpanded by remember { mutableStateOf(false) }
 
     val isRtl = activeParagraph?.isRtl == true
     val currentHeadingStyle = activeParagraph?.headingStyle ?: HeadingStyle.NORMAL
@@ -368,6 +374,17 @@ fun FormattingToolbar(
                         }
                     }
                 }
+
+                ToolbarDivider()
+
+                // Format Painter (Style Cloner)
+                FormatToggleButton(
+                    icon = Icons.Default.FormatPaint,
+                    label = if (isFormatPainterActive) "Painter (Active)" else "Format Painter",
+                    isActive = isFormatPainterActive,
+                    onClick = onToggleFormatPainter,
+                    tag = "format_painter"
+                )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
@@ -461,6 +478,52 @@ fun FormattingToolbar(
                     onClick = { onSetAlignment(TextAlignment.JUSTIFY) },
                     tag = "align_justify"
                 )
+
+                // Line Spacing Selector
+                Box {
+                    IconButton(
+                        onClick = { lineSpacingMenuExpanded = true },
+                        modifier = Modifier.size(36.dp).testTag("format_line_spacing")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FormatLineSpacing,
+                            contentDescription = "Line Spacing",
+                            tint = if ((activeParagraph?.lineSpacingMultiplier ?: 1.25f) != 1.25f) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = lineSpacingMenuExpanded,
+                        onDismissRequest = { lineSpacingMenuExpanded = false }
+                    ) {
+                        val spacingOptions = listOf(
+                            1.0f to "1.0 (Single)",
+                            1.15f to "1.15 Lines",
+                            1.25f to "1.25 (Word Normal)",
+                            1.5f to "1.5 Lines",
+                            2.0f to "2.0 (Double Spacing)",
+                            2.5f to "2.5 Lines",
+                            3.0f to "3.0 Lines"
+                        )
+                        val currentSpacing = activeParagraph?.lineSpacingMultiplier ?: 1.25f
+                        spacingOptions.forEach { (mult, label) ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = label,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (kotlin.math.abs(currentSpacing - mult) < 0.05f) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (kotlin.math.abs(currentSpacing - mult) < 0.05f) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    lineSpacingMenuExpanded = false
+                                    onSetLineSpacing(mult)
+                                }
+                            )
+                        }
+                    }
+                }
 
                 ToolbarDivider()
 

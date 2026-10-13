@@ -116,6 +116,7 @@ fun WordRibbon(
     onOpenSmartWritingDialog: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+    val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -218,7 +219,10 @@ fun WordRibbon(
                             onIncreaseIndent = viewModel::increaseIndent,
                             onDecreaseIndent = viewModel::decreaseIndent,
                             onOpenLinkDialog = onOpenLinkDialog,
-                            onToggleRtl = viewModel::toggleRtl
+                            onToggleRtl = viewModel::toggleRtl,
+                            onSetLineSpacing = viewModel::setLineSpacing,
+                            isFormatPainterActive = isFormatPainterActive,
+                            onToggleFormatPainter = viewModel::toggleFormatPainter
                         )
                     }
 

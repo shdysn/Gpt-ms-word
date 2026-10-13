@@ -27,7 +27,8 @@ import kotlinx.coroutines.flow.map
 enum class HomeFilter {
     ALL,
     RECENT,
-    PINNED
+    PINNED,
+    FAVORITES
 }
 
 enum class DocumentSortOrder(val displayName: String) {
@@ -80,6 +81,7 @@ class HomeViewModel(
                     else list.sortedByDescending { it.updatedAt }.take(5)
                 }
                 HomeFilter.PINNED -> list.filter { it.isPinned }
+                HomeFilter.FAVORITES -> list.filter { it.isFavorite }
             }
             if (filter == HomeFilter.RECENT) {
                 when (sortOrder) {

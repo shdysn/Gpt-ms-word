@@ -11,6 +11,8 @@ import com.example.core.layout.PageSize
 import com.example.core.typography.BidiUtils
 import com.example.data.model.BlockElement
 import com.example.data.model.DividerBlock
+import com.example.data.model.DocumentComment
+import com.example.data.model.FootnoteBlock
 import com.example.data.model.HeadingStyle
 import com.example.data.model.ImageBlock
 import com.example.data.model.InlineSpan
@@ -88,12 +90,6 @@ class DocxPackageReader(private val context: Context?) {
             }
             if (zipEntries.keys.any { it.startsWith("word/charts") }) {
                 warnings.add("Charts were omitted; convert charts to images before importing for best results.")
-            }
-            if (zipEntries.keys.any { it.startsWith("word/comments") }) {
-                warnings.add("Document comments were not imported.")
-            }
-            if (zipEntries.keys.any { it.startsWith("word/footnotes") || it.startsWith("word/endnotes") }) {
-                warnings.add("Footnotes and endnotes were omitted.")
             }
 
             // 2. Parse metadata from docProps/core.xml
@@ -248,6 +244,56 @@ class DocxPackageReader(private val context: Context?) {
                 }
             }
 
+            // 4b. Parse footnotes if present
+            zipEntries["word/footnotes.xml"]?.let { fnBytes ->
+                try {
+                    val fnDom = parseXml(fnBytes)
+                    val fnNodes = fnDom.getElementsByTagName("w:footnote")
+                    for (i in 0 until fnNodes.length) {
+                        val fnElem = fnNodes.item(i) as? Element ?: continue
+                        val fnType = fnElem.getAttribute("w:type")
+                        if (fnType == "separator" || fnType == "continuationSeparator") continue
+                        val fnIdStr = fnElem.getAttribute("w:id")
+                        val fnId = fnIdStr.toIntOrNull() ?: (i + 1)
+                        val text = extractElementText(fnElem).trim()
+                        if (text.isNotBlank()) {
+                            blocks.add(
+                                FootnoteBlock(
+                                    noteNumber = fnId,
+                                    referenceText = "",
+                                    noteContent = text
+                                )
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // 4c. Parse comments if present
+            val parsedComments = mutableListOf<DocumentComment>()
+            zipEntries["word/comments.xml"]?.let { commentBytes ->
+                try {
+                    val commentsDom = parseXml(commentBytes)
+                    val commentNodes = commentsDom.getElementsByTagName("w:comment")
+                    for (i in 0 until commentNodes.length) {
+                        val commentElem = commentNodes.item(i) as? Element ?: continue
+                        val cId = commentElem.getAttribute("w:id")
+                        val author = commentElem.getAttribute("w:author").ifBlank { "Reviewer" }
+                        val text = extractElementText(commentElem).trim()
+                        if (text.isNotBlank()) {
+                            parsedComments.add(
+                                DocumentComment(
+                                    id = cId.ifBlank { UUID.randomUUID().toString() },
+                                    blockId = blocks.firstOrNull()?.id ?: "",
+                                    author = author,
+                                    text = text
+                                )
+                            )
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
             if (blocks.isEmpty()) {
                 blocks.add(ParagraphBlock(text = ""))
             }
@@ -257,7 +303,8 @@ class DocxPackageReader(private val context: Context?) {
                 title = docTitle,
                 author = docAuthor,
                 layoutConfig = parsedLayoutConfig,
-                blocks = blocks
+                blocks = blocks,
+                comments = parsedComments
             )
 
             val compNotes = mutableListOf<String>()
@@ -286,6 +333,15 @@ class DocxPackageReader(private val context: Context?) {
 
     private fun extractAllText(dom: Document): String {
         val tNodes = dom.getElementsByTagName("w:t")
+        val sb = StringBuilder()
+        for (i in 0 until tNodes.length) {
+            sb.append(tNodes.item(i).textContent)
+        }
+        return sb.toString()
+    }
+
+    private fun extractElementText(elem: Element): String {
+        val tNodes = elem.getElementsByTagName("w:t")
         val sb = StringBuilder()
         for (i in 0 until tNodes.length) {
             sb.append(tNodes.item(i).textContent)

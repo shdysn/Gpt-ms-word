@@ -219,7 +219,8 @@ fun BlockItemView(
                             val formattedNumber = BidiUtils.formatListNumber(
                                 number = itemNumber ?: 1,
                                 isRtl = block.isRtl,
-                                useUrduNumerals = false
+                                useUrduNumerals = false,
+                                indentationLevel = block.indentationLevel
                             )
                             Text(
                                 text = formattedNumber,

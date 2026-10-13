@@ -161,6 +161,25 @@ class EditorViewModel(
         initialValue = com.example.editor.engine.ActiveFormatting()
     )
 
+    data class CopiedFormatting(
+        val isBold: Boolean = false,
+        val isItalic: Boolean = false,
+        val isUnderline: Boolean = false,
+        val isStrikethrough: Boolean = false,
+        val textColorHex: String? = null,
+        val highlightColorHex: String? = null,
+        val fontFamilyName: String? = null,
+        val fontSizeSp: Float? = null,
+        val alignment: TextAlignment = TextAlignment.START,
+        val headingStyle: HeadingStyle = HeadingStyle.NORMAL,
+        val lineSpacingMultiplier: Float = 1.25f
+    )
+
+    private val _isFormatPainterActive = MutableStateFlow(false)
+    val isFormatPainterActive: StateFlow<Boolean> = _isFormatPainterActive.asStateFlow()
+
+    private var _copiedFormatting: CopiedFormatting? = null
+
     // Autosave Controller with Crash-Recovery Draft Snapshotting
     private val autosaveController = AutosaveController(
         scope = viewModelScope,
@@ -341,6 +360,9 @@ class EditorViewModel(
     }
 
     fun setActiveBlock(index: Int) {
+        if (_isFormatPainterActive.value && index != _activeBlockIndex.value) {
+            applyFormatPainterIfActive(index)
+        }
         _activeBlockIndex.value = index
     }
 
@@ -915,6 +937,97 @@ class EditorViewModel(
                 newAlignment = alignment
             )
         )
+    }
+
+    fun setLineSpacing(multiplier: Float) {
+        val currentDoc = _document.value ?: return
+        val targetIdx = _activeBlockIndex.value.coerceIn(0, (currentDoc.blocks.size - 1).coerceAtLeast(0))
+        val block = currentDoc.blocks.getOrNull(targetIdx) as? ParagraphBlock ?: return
+        val updated = block.copy(lineSpacingMultiplier = multiplier.coerceIn(0.8f, 3.5f))
+        val newBlocks = currentDoc.blocks.toMutableList()
+        newBlocks[targetIdx] = updated
+        val updatedDoc = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+        executeCommand(
+            object : EditorCommand {
+                override val description: String = "Set Line Spacing"
+                override fun apply(document: RichDocument): RichDocument = updatedDoc
+                override fun revert(document: RichDocument): RichDocument = currentDoc
+            }
+        )
+    }
+
+    fun toggleFormatPainter() {
+        if (_isFormatPainterActive.value) {
+            _isFormatPainterActive.value = false
+            _copiedFormatting = null
+            _statusMessage.value = "Format Painter deactivated"
+        } else {
+            val currentDoc = _document.value ?: return
+            val block = currentDoc.blocks.getOrNull(_activeBlockIndex.value) as? ParagraphBlock ?: return
+            val currentFormat = activeFormatting.value
+            _copiedFormatting = CopiedFormatting(
+                isBold = currentFormat.isBold,
+                isItalic = currentFormat.isItalic,
+                isUnderline = currentFormat.isUnderline,
+                isStrikethrough = currentFormat.isStrikethrough,
+                textColorHex = currentFormat.textColorHex,
+                highlightColorHex = currentFormat.highlightColorHex,
+                fontFamilyName = currentFormat.fontFamilyName,
+                fontSizeSp = currentFormat.fontSizeSp,
+                alignment = block.alignment,
+                headingStyle = block.headingStyle,
+                lineSpacingMultiplier = block.lineSpacingMultiplier
+            )
+            _isFormatPainterActive.value = true
+            _statusMessage.value = "Format Painter active: Tap any paragraph to apply style"
+        }
+    }
+
+    fun applyFormatPainterIfActive(targetBlockIndex: Int) {
+        if (!_isFormatPainterActive.value) return
+        val copied = _copiedFormatting ?: return
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.getOrNull(targetBlockIndex) as? ParagraphBlock ?: return
+
+        val newSpans = if (block.text.isNotEmpty()) {
+            listOf(
+                InlineSpan(
+                    start = 0,
+                    end = block.text.length,
+                    isBold = copied.isBold,
+                    isItalic = copied.isItalic,
+                    isUnderline = copied.isUnderline,
+                    isStrikethrough = copied.isStrikethrough,
+                    textColorHex = copied.textColorHex,
+                    highlightColorHex = copied.highlightColorHex,
+                    fontFamilyName = copied.fontFamilyName,
+                    fontSizeSp = copied.fontSizeSp
+                )
+            )
+        } else emptyList()
+
+        val updated = block.copy(
+            spans = newSpans,
+            alignment = copied.alignment,
+            headingStyle = copied.headingStyle,
+            lineSpacingMultiplier = copied.lineSpacingMultiplier
+        )
+
+        val newBlocks = currentDoc.blocks.toMutableList()
+        newBlocks[targetBlockIndex] = updated
+        val updatedDoc = currentDoc.copy(blocks = newBlocks, updatedAt = System.currentTimeMillis())
+
+        executeCommand(
+            object : EditorCommand {
+                override val description: String = "Apply Format Painter"
+                override fun apply(document: RichDocument): RichDocument = updatedDoc
+                override fun revert(document: RichDocument): RichDocument = currentDoc
+            }
+        )
+
+        _isFormatPainterActive.value = false
+        _copiedFormatting = null
+        _statusMessage.value = "Style applied"
     }
 
     fun setHeadingStyle(heading: HeadingStyle) {

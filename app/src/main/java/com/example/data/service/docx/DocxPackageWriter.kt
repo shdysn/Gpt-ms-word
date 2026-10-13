@@ -6,6 +6,8 @@ import com.example.core.layout.PageOrientation
 import com.example.core.layout.PageSize
 import com.example.core.typography.BidiUtils
 import com.example.data.model.DividerBlock
+import com.example.data.model.DocumentComment
+import com.example.data.model.FootnoteBlock
 import com.example.data.model.HeadingStyle
 import com.example.data.model.ImageBlock
 import com.example.data.model.InlineSpan
@@ -117,6 +119,17 @@ class DocxPackageWriter(private val context: Context?) {
             writeZipEntry(zipOut, "word/footer1.xml", buildFooterXml(document))
         }
 
+        // 8b. Write comments if present
+        if (document.comments.isNotEmpty()) {
+            writeZipEntry(zipOut, "word/comments.xml", buildCommentsXml(document.comments))
+        }
+
+        // 8c. Write footnotes if present
+        val footnotes = document.blocks.filterIsInstance<FootnoteBlock>()
+        if (footnotes.isNotEmpty()) {
+            writeZipEntry(zipOut, "word/footnotes.xml", buildFootnotesXml(footnotes))
+        }
+
         // 9. Write embedded image binaries
         for (img in embeddedImages) {
             writeZipEntryBytes(zipOut, img.entryPath, img.data)
@@ -188,6 +201,12 @@ class DocxPackageWriter(private val context: Context?) {
         if (document.layoutConfig.showFooter && document.layoutConfig.footerText.isNotBlank()) {
             sb.append("""<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>""")
         }
+        if (document.comments.isNotEmpty()) {
+            sb.append("""<Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/>""")
+        }
+        if (document.blocks.any { it is FootnoteBlock }) {
+            sb.append("""<Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>""")
+        }
         sb.append("""<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>""")
         sb.append("""<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>""")
         sb.append("""</Types>""")
@@ -218,6 +237,12 @@ class DocxPackageWriter(private val context: Context?) {
         }
         if (document.layoutConfig.showFooter && document.layoutConfig.footerText.isNotBlank()) {
             sb.append("""<Relationship Id="rIdFooter1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>""")
+        }
+        if (document.comments.isNotEmpty()) {
+            sb.append("""<Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>""")
+        }
+        if (document.blocks.any { it is FootnoteBlock }) {
+            sb.append("""<Relationship Id="rIdFootnotes" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes" Target="footnotes.xml"/>""")
         }
         for (img in images) {
             val relativeTarget = img.entryPath.removePrefix("word/")
@@ -1011,6 +1036,42 @@ $bordersXml
             "C0C0C0" -> "lightGray"
             else -> "yellow"
         }
+    }
+
+    private fun buildCommentsXml(comments: List<DocumentComment>): String {
+        val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val sb = StringBuilder()
+        sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
+        sb.append("""<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">""")
+        comments.forEachIndexed { index, comment ->
+            val dateStr = isoFormat.format(Date(comment.timestamp))
+            sb.append("""<w:comment w:id="$index" w:author="${escapeXml(comment.author)}" w:date="$dateStr">""")
+            sb.append("""<w:p><w:r><w:t>${escapeXml(comment.text)}</w:t></w:r></w:p>""")
+            sb.append("""</w:comment>""")
+        }
+        sb.append("""</w:comments>""")
+        return sb.toString()
+    }
+
+    private fun buildFootnotesXml(footnotes: List<FootnoteBlock>): String {
+        val sb = StringBuilder()
+        sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
+        sb.append("""<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">""")
+        sb.append("""<w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>""")
+        sb.append("""<w:footnote w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:footnote>""")
+        footnotes.forEachIndexed { index, fn ->
+            val fnId = index + 1
+            sb.append("""<w:footnote w:id="$fnId">""")
+            sb.append("""<w:p>""")
+            sb.append("""<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r>""")
+            sb.append("""<w:r><w:t xml:space="preserve"> ${escapeXml(fn.noteContent)}</w:t></w:r>""")
+            sb.append("""</w:p>""")
+            sb.append("""</w:footnote>""")
+        }
+        sb.append("""</w:footnotes>""")
+        return sb.toString()
     }
 
     private fun escapeXml(str: String): String {
