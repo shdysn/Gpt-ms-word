@@ -48,8 +48,10 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -109,6 +111,11 @@ import com.example.ui.editor.components.SaveOptionsDialog
 import com.example.ui.editor.components.TableCellEditDialog
 import com.example.ui.editor.components.TablePropertiesDialog
 import com.example.ui.editor.components.WordRibbon
+import com.example.ui.editor.components.DigitalSignatureDialog
+import com.example.ui.editor.components.DocumentPasswordDialog
+import com.example.ui.editor.components.ShapeInsertDialog
+import com.example.ui.editor.components.VersionHistoryDialog
+import com.example.ui.editor.components.WatermarkDialog
 import com.example.ui.editor.components.shareDocxFile
 import com.example.ui.editor.components.sharePdfFile
 import com.example.ui.editor.components.shareTextFile
@@ -116,6 +123,11 @@ import com.example.ui.theme.WordDeskCanvasDark
 import com.example.ui.theme.WordDeskCanvasLight
 import com.example.ui.theme.WordPrimary
 import kotlinx.coroutines.launch
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,6 +139,7 @@ fun EditorScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val document by viewModel.document.collectAsStateWithLifecycle()
+    val isDocumentLocked by viewModel.isDocumentLocked.collectAsStateWithLifecycle()
     val activeRibbonTab by viewModel.activeRibbonTab.collectAsStateWithLifecycle()
     val isRibbonVisible by viewModel.isRibbonVisible.collectAsStateWithLifecycle()
     val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
@@ -170,10 +183,28 @@ fun EditorScreen(
     var showStatsDialog by remember { mutableStateOf(false) }
     var showHeaderFooterDialog by remember { mutableStateOf(false) }
     var showPageNumberDialog by remember { mutableStateOf(false) }
+    var showSignatureDialog by remember { mutableStateOf(false) }
+    var showShapeDialog by remember { mutableStateOf(false) }
+    var showWatermarkDialog by remember { mutableStateOf(false) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var showVersionHistoryDialog by remember { mutableStateOf(false) }
     var selectedTableForProperties by remember { mutableStateOf<TableBlock?>(null) }
     var selectedCellForEdit by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
     var selectedImageForProperties by remember { mutableStateOf<ImageBlock?>(null) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+
+    // Voice Typing Dictation Launcher
+    val voiceTypingLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenMatches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            val spokenText = spokenMatches?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                viewModel.appendVoiceTypingText(spokenText)
+            }
+        }
+    }
 
     // Flush edits to storage when application is backgrounded or minimized
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -436,7 +467,26 @@ fun EditorScreen(
                 onOpenLinkDialog = { showLinkDialog = true },
                 onOpenHeaderFooterDialog = { showHeaderFooterDialog = true },
                 onOpenPageNumberDialog = { showPageNumberDialog = true },
-                onOpenLayoutDialog = { showLayoutDialog = true }
+                onOpenLayoutDialog = { showLayoutDialog = true },
+                onOpenSignatureDialog = { showSignatureDialog = true },
+                onOpenShapeDialog = { showShapeDialog = true },
+                onOpenWatermarkDialog = { showWatermarkDialog = true },
+                onOpenPasswordDialog = { showPasswordDialog = true },
+                onOpenVersionHistoryDialog = { showVersionHistoryDialog = true },
+                onOpenStatsDialog = { showStatsDialog = true },
+                onStartVoiceTyping = {
+                    try {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to dictate text into document...")
+                        }
+                        voiceTypingLauncher.launch(intent)
+                    } catch (_: Exception) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Speech recognition service not available on this device")
+                        }
+                    }
+                }
             )
 
             // Crash/Restart Recovery Notification Banner
@@ -895,6 +945,145 @@ fun EditorScreen(
             actualPageCount = actualPageCount,
             activeParagraph = activeParagraph,
             onDismiss = { showStatsDialog = false }
+        )
+    }
+
+    // Document Lock Barrier (Point 5: Security PIN Lock)
+    if (isDocumentLocked) {
+        var unlockPasswordInput by remember { mutableStateOf("") }
+        var unlockError by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { /* Require valid PIN or back navigation */ },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = WordPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Document Locked", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "This document is protected with a password PIN. Please enter the PIN to view and edit:",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = unlockPasswordInput,
+                        onValueChange = {
+                            unlockPasswordInput = it
+                            unlockError = null
+                        },
+                        label = { Text("Enter PIN / Password") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        isError = unlockError != null,
+                        modifier = Modifier.fillMaxWidth().testTag("unlock_pin_input")
+                    )
+                    unlockError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val ok = viewModel.unlockDocument(unlockPasswordInput)
+                        if (!ok) {
+                            unlockError = "Incorrect PIN or Password"
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
+                    modifier = Modifier.testTag("unlock_confirm_btn")
+                ) {
+                    Text("Unlock")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { onNavigateBack() },
+                    modifier = Modifier.testTag("unlock_cancel_btn")
+                ) {
+                    Text("Back to Home")
+                }
+            }
+        )
+    }
+
+    // Digital Signature Dialog (Point 4)
+    if (showSignatureDialog) {
+        DigitalSignatureDialog(
+            onDismiss = { showSignatureDialog = false },
+            onConfirm = { signerName, signerTitle, strokeHex, points ->
+                viewModel.insertSignature(signerName, signerTitle, strokeHex, points)
+                showSignatureDialog = false
+            }
+        )
+    }
+
+    // Shape / Callout Box Dialog (Point 4)
+    if (showShapeDialog) {
+        ShapeInsertDialog(
+            onDismiss = { showShapeDialog = false },
+            onConfirm = { shapeType, title, content, bgHex, borderHex ->
+                viewModel.insertShape(shapeType, title, content, bgHex, borderHex)
+                showShapeDialog = false
+            }
+        )
+    }
+
+    // Document Watermark Dialog (Point 3)
+    if (showWatermarkDialog && document != null) {
+        WatermarkDialog(
+            initialText = document!!.layoutConfig.watermarkText,
+            onDismiss = { showWatermarkDialog = false },
+            onApply = { text, colorHex, angle ->
+                viewModel.setWatermark(text, colorHex, angle)
+                showWatermarkDialog = false
+            },
+            onRemove = {
+                viewModel.removeWatermark()
+                showWatermarkDialog = false
+            }
+        )
+    }
+
+    // Password Security Lock Dialog (Point 5)
+    if (showPasswordDialog && document != null) {
+        DocumentPasswordDialog(
+            isCurrentlyLocked = document!!.isPasswordProtected,
+            onDismiss = { showPasswordDialog = false },
+            onSetPassword = { pwd ->
+                viewModel.setDocumentPassword(pwd)
+                showPasswordDialog = false
+            },
+            onRemovePassword = {
+                viewModel.removeDocumentPassword()
+                showPasswordDialog = false
+            }
+        )
+    }
+
+    // Version History & Snapshots Dialog (Point 5)
+    if (showVersionHistoryDialog) {
+        val revisions by viewModel.revisionSnapshots.collectAsStateWithLifecycle()
+        VersionHistoryDialog(
+            revisions = revisions,
+            onDismiss = { showVersionHistoryDialog = false },
+            onCreateSnapshot = {
+                val label = "Version ${revisions.size + 1}"
+                viewModel.createNamedSnapshot(label)
+            },
+            onRestoreRevision = { revId ->
+                viewModel.restoreRevisionSnapshot(revId)
+                showVersionHistoryDialog = false
+            }
         )
     }
 }

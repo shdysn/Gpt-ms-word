@@ -207,7 +207,8 @@ fun TableBlockView(
                             cell.backgroundColorHex != null -> try {
                                 Color(android.graphics.Color.parseColor(cell.backgroundColorHex))
                             } catch (_: Exception) { if (isDarkPage) Color(0xFF1E293B) else Color.White }
-                            r == 0 -> if (isDarkPage) Color(0xFF334155) else Color(0xFFF1F5F9)
+                            r == 0 && table.hasHeaderRow -> if (isDarkPage) Color(0xFF334155) else Color(0xFFF1F5F9)
+                            table.isZebraStriped && r % 2 == 1 -> if (isDarkPage) Color(0xFF242F40) else Color(0xFFF8FAFC)
                             else -> if (isDarkPage) Color(0xFF1E293B) else Color.White
                         }
 
@@ -244,7 +245,7 @@ fun TableBlockView(
                         ) {
                             Text(
                                 text = cell.text.ifBlank { "—" },
-                                fontWeight = if (cell.isBold || r == 0) FontWeight.Bold else FontWeight.Normal,
+                                fontWeight = if (cell.isBold || (r == 0 && table.hasHeaderRow)) FontWeight.Bold else FontWeight.Normal,
                                 fontStyle = if (cell.isItalic) FontStyle.Italic else FontStyle.Normal,
                                 fontSize = (12f * zoomScale).sp,
                                 textAlign = cellTextAlign,

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -114,6 +115,15 @@ fun DocumentItemRow(
                             contentDescription = "Pinned",
                             tint = WordPrimary,
                             modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    if (doc.isPasswordProtected) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Password Protected",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }

@@ -24,5 +24,6 @@ data class DocumentEntity(
     val pageSize: String = "A4",
     val orientation: String = "PORTRAIT",
     val marginPreset: String = "NORMAL",
-    val hasRecoveryDraft: Boolean = false
+    val hasRecoveryDraft: Boolean = false,
+    val isPasswordProtected: Boolean = false
 )

@@ -540,6 +540,23 @@ class DocxPackageWriter(private val context: Context?) {
                 is PageBreakBlock -> {
                     sb.append("""<w:p><w:r><w:br w:type="page"/></w:r></w:p>""")
                 }
+                is com.example.data.model.TableOfContentsBlock -> {
+                    sb.append("""<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/></w:rPr><w:t>${block.title}</w:t></w:r></w:p>""")
+                    for (b in document.blocks) {
+                        if (b is ParagraphBlock && b.headingStyle != HeadingStyle.NORMAL && b.text.isNotBlank()) {
+                            val indent = if (b.headingStyle == HeadingStyle.HEADING_2) 360 else if (b.headingStyle == HeadingStyle.HEADING_3) 720 else 0
+                            sb.append("""<w:p><w:pPr><w:ind w:left="$indent"/><w:spacing w:after="80"/></w:pPr><w:r><w:t>${b.text.replace("<", "&lt;").replace(">", "&gt;")}</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t>1</w:t></w:r></w:p>""")
+                        }
+                    }
+                }
+                is com.example.data.model.SignatureBlock -> {
+                    sb.append("""<w:p><w:pPr><w:spacing w:before="360" w:after="80"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="28"/><w:color w:val="0F172A"/></w:rPr><w:t>${block.signerName.ifBlank { "Authorized Signature" }}</w:t></w:r></w:p>""")
+                    sb.append("""<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="1" w:color="0F172A"/></w:pBdr><w:spacing w:after="120"/></w:pPr></w:p>""")
+                    sb.append("""<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>${block.signerTitle} ${if (block.signedDate.isNotBlank()) "• Date: " + block.signedDate else ""}</w:t></w:r></w:p>""")
+                }
+                is com.example.data.model.ShapeBlock -> {
+                    sb.append("""<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="4" w:color="3B82F6"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="EFF6FF"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1E40AF"/></w:rPr><w:t>${block.title}</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>${block.content.replace("<", "&lt;").replace(">", "&gt;")}</w:t></w:r></w:p>""")
+                }
             }
         }
 

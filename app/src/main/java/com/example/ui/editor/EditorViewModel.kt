@@ -50,12 +50,22 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import com.example.ui.editor.components.DocumentRevisionSnapshot
+import java.security.MessageDigest
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
+
 /**
  * Microsoft Word Ribbon tab categories.
  */
 enum class RibbonTab {
     HOME,
     INSERT,
+    LAYOUT,
+    REVIEW,
     VIEW
 }
 
@@ -190,6 +200,29 @@ class EditorViewModel(
         initialValue = false
     )
 
+    // Text-To-Speech (TTS) Read Aloud Engine
+    private var tts: TextToSpeech? = null
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+
+    private val _speakingParagraphIndex = MutableStateFlow<Int?>(null)
+    val speakingParagraphIndex: StateFlow<Int?> = _speakingParagraphIndex.asStateFlow()
+
+    private val _speechRate = MutableStateFlow(1.0f)
+    val speechRate: StateFlow<Float> = _speechRate.asStateFlow()
+
+    // Canvas Comfort Paper Mode ("WHITE", "SEPIA", "DARK")
+    private val _canvasPaperMode = MutableStateFlow("WHITE")
+    val canvasPaperMode: StateFlow<String> = _canvasPaperMode.asStateFlow()
+
+    // Document Revision Snapshots History
+    private val _revisionSnapshots = MutableStateFlow<List<DocumentRevisionSnapshot>>(emptyList())
+    val revisionSnapshots: StateFlow<List<DocumentRevisionSnapshot>> = _revisionSnapshots.asStateFlow()
+
+    // Document Security Lock state
+    private val _isDocumentLocked = MutableStateFlow(false)
+    val isDocumentLocked: StateFlow<Boolean> = _isDocumentLocked.asStateFlow()
+
     init {
         loadDocument()
     }
@@ -210,6 +243,9 @@ class EditorViewModel(
             when (val res = repository.getDocument(documentId)) {
                 is DocumentResult.Success -> {
                     val loadedDoc = res.data
+                    if (loadedDoc.isPasswordProtected) {
+                        _isDocumentLocked.value = true
+                    }
                     val normalizedBlocks = normalizeParagraphBlocks(loadedDoc.blocks)
                     val firstBlock = normalizedBlocks.firstOrNull() as? ParagraphBlock
                     val adjustedDoc = if (defaultRtl.value && firstBlock != null && firstBlock.text.isEmpty() && !firstBlock.isRtl) {
@@ -1729,6 +1765,330 @@ class EditorViewModel(
     fun createPrintDocumentAdapter(context: Context): android.print.PrintDocumentAdapter? {
         val doc = _document.value ?: return null
         return repository.createPrintDocumentAdapter(context, doc)
+    }
+
+    // ----------------------------------------------------
+    // TTS Read Aloud Controller
+    // ----------------------------------------------------
+
+    fun startReadAloud(context: Context) {
+        val doc = _document.value ?: return
+        val paragraphs = doc.blocks.filterIsInstance<ParagraphBlock>().filter { it.text.isNotBlank() }
+        if (paragraphs.isEmpty()) {
+            _statusMessage.value = "Document contains no text to read aloud"
+            return
+        }
+
+        if (tts == null) {
+            tts = TextToSpeech(context.applicationContext) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    tts?.language = Locale.getDefault()
+                    tts?.setSpeechRate(_speechRate.value)
+                    speakParagraphSequence(paragraphs)
+                } else {
+                    _statusMessage.value = "Failed to initialize Text-To-Speech engine"
+                }
+            }
+        } else {
+            tts?.setSpeechRate(_speechRate.value)
+            speakParagraphSequence(paragraphs)
+        }
+    }
+
+    private fun speakParagraphSequence(paragraphs: List<ParagraphBlock>) {
+        _isSpeaking.value = true
+        tts?.stop()
+
+        var pIndex = 0
+        val total = paragraphs.size
+
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {
+                _speakingParagraphIndex.value = pIndex
+            }
+
+            override fun onDone(utteranceId: String?) {
+                pIndex++
+                if (pIndex < total) {
+                    speakNextParagraph(paragraphs[pIndex], pIndex)
+                } else {
+                    _isSpeaking.value = false
+                    _speakingParagraphIndex.value = null
+                }
+            }
+
+            override fun onError(utteranceId: String?) {
+                _isSpeaking.value = false
+                _speakingParagraphIndex.value = null
+            }
+        })
+
+        speakNextParagraph(paragraphs[0], 0)
+    }
+
+    private fun speakNextParagraph(paragraph: ParagraphBlock, index: Int) {
+        val params = android.os.Bundle()
+        params.putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, "p_$index")
+        tts?.speak(paragraph.text, TextToSpeech.QUEUE_FLUSH, params, "p_$index")
+    }
+
+    fun stopReadAloud() {
+        tts?.stop()
+        _isSpeaking.value = false
+        _speakingParagraphIndex.value = null
+    }
+
+    fun setTtsSpeechRate(rate: Float) {
+        _speechRate.value = rate.coerceIn(0.5f, 2.5f)
+        tts?.setSpeechRate(_speechRate.value)
+    }
+
+    // ----------------------------------------------------
+    // Canvas Comfort Paper Mode ("WHITE", "SEPIA", "DARK")
+    // ----------------------------------------------------
+
+    fun setCanvasPaperMode(mode: String) {
+        _canvasPaperMode.value = mode
+        val colorHex = when (mode) {
+            "SEPIA" -> "#FBF0D9"
+            "DARK" -> "#18181B"
+            else -> "#FFFFFF"
+        }
+        val currentLayout = _document.value?.layoutConfig ?: PageLayoutConfig()
+        executeCommand(UpdateLayoutCommand(currentLayout, currentLayout.copy(pageBackgroundHex = colorHex)))
+    }
+
+    // ----------------------------------------------------
+    // Version History & Snapshots
+    // ----------------------------------------------------
+
+    fun createNamedSnapshot(label: String = "Manual Snapshot") {
+        val doc = _document.value ?: return
+        val snapshot = DocumentRevisionSnapshot(
+            id = java.util.UUID.randomUUID().toString(),
+            timestamp = System.currentTimeMillis(),
+            label = label.ifBlank { "Snapshot" },
+            wordCount = doc.wordCount,
+            characterCount = doc.characterCount,
+            snippet = doc.plainTextSnippet,
+            snapshotDoc = doc.copy()
+        )
+        _revisionSnapshots.value = listOf(snapshot) + _revisionSnapshots.value.take(9)
+        _statusMessage.value = "Revision snapshot '$label' saved"
+    }
+
+    fun restoreRevisionSnapshot(snapshotId: String) {
+        val snap = _revisionSnapshots.value.firstOrNull { it.id == snapshotId } ?: return
+        snap.snapshotDoc?.let { restoredDoc ->
+            _document.value = restoredDoc.copy(updatedAt = System.currentTimeMillis())
+            scheduleDocumentAutosave()
+        }
+        _statusMessage.value = "Restored snapshot from ${java.text.SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snap.timestamp))}"
+    }
+
+    fun cycleSpeechRate() {
+        val nextRate = when (_speechRate.value) {
+            0.75f -> 1.0f
+            1.0f -> 1.25f
+            1.25f -> 1.5f
+            1.5f -> 2.0f
+            else -> 0.75f
+        }
+        setTtsSpeechRate(nextRate)
+    }
+
+    fun toggleRuler() {
+        viewModelScope.launch {
+            preferencesManager.setShowRuler(!showRuler.value)
+        }
+    }
+
+    fun toggleWordCount() {
+        viewModelScope.launch {
+            preferencesManager.setShowWordCount(!showWordCount.value)
+        }
+    }
+
+    // ----------------------------------------------------
+    // Watermark & Layout Columns
+    // ----------------------------------------------------
+
+    fun setWatermark(text: String, colorHex: String = "#2594A3B8", angleDeg: Float = -45f) {
+        val currentLayout = _document.value?.layoutConfig ?: PageLayoutConfig()
+        val newLayout = currentLayout.copy(
+            watermarkText = text,
+            watermarkColorHex = colorHex,
+            watermarkAngleDeg = angleDeg
+        )
+        executeCommand(UpdateLayoutCommand(currentLayout, newLayout))
+        _statusMessage.value = if (text.isNotBlank()) "Watermark set to '$text'" else "Watermark removed"
+    }
+
+    fun removeWatermark() {
+        setWatermark("")
+    }
+
+    fun setColumnCount(columns: Int) {
+        val currentLayout = _document.value?.layoutConfig ?: PageLayoutConfig()
+        val cols = columns.coerceIn(1, 2)
+        executeCommand(UpdateLayoutCommand(currentLayout, currentLayout.copy(columnCount = cols)))
+        _statusMessage.value = if (cols == 2) "Two-Column layout applied" else "Single-Column layout applied"
+    }
+
+    // ----------------------------------------------------
+    // Document Password Lock (Security)
+    // ----------------------------------------------------
+
+    private fun hashPassword(password: String): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        val bytes = md.digest(password.toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    fun setDocumentPassword(password: String) {
+        val doc = _document.value ?: return
+        val hashed = hashPassword(password)
+        _document.value = doc.copy(passwordHash = hashed)
+        _isDocumentLocked.value = false
+        scheduleDocumentAutosave()
+        _statusMessage.value = "Document locked with password PIN"
+    }
+
+    fun removeDocumentPassword() {
+        val doc = _document.value ?: return
+        _document.value = doc.copy(passwordHash = null)
+        _isDocumentLocked.value = false
+        scheduleDocumentAutosave()
+        _statusMessage.value = "Password protection removed"
+    }
+
+    fun verifyPassword(input: String): Boolean {
+        val doc = _document.value ?: return true
+        val target = doc.passwordHash ?: return true
+        return hashPassword(input) == target
+    }
+
+    fun unlockDocument(password: String): Boolean {
+        val verified = verifyPassword(password)
+        if (verified) {
+            _isDocumentLocked.value = false
+            _statusMessage.value = "Document unlocked"
+        } else {
+            _statusMessage.value = "Incorrect PIN or Password"
+        }
+        return verified
+    }
+
+    // ----------------------------------------------------
+    // Voice Typing (Speech-to-Text) Append
+    // ----------------------------------------------------
+
+    fun appendVoiceTypingText(spokenText: String) {
+        if (spokenText.isBlank()) return
+        val doc = _document.value ?: return
+        val activeIndex = _activeBlockIndex.value.coerceIn(0, (doc.blocks.size - 1).coerceAtLeast(0))
+        val currentBlock = doc.blocks.getOrNull(activeIndex) as? ParagraphBlock
+        if (currentBlock != null) {
+            val space = if (currentBlock.text.isNotBlank() && !currentBlock.text.endsWith(" ")) " " else ""
+            val newText = currentBlock.text + space + spokenText
+            updateParagraphText(activeIndex, newText, androidx.compose.ui.text.TextRange(newText.length))
+            _statusMessage.value = "Dictation added: $spokenText"
+        }
+    }
+
+    // ----------------------------------------------------
+    // Insert TOC, Signature, and Shape
+    // ----------------------------------------------------
+
+    fun insertTableOfContents() {
+        val insertIndex = _activeBlockIndex.value.coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        executeCommand(InsertBlockCommand(insertIndex, com.example.data.model.TableOfContentsBlock()))
+        _statusMessage.value = "Table of Contents inserted"
+    }
+
+    fun insertSignature(signerName: String, signerTitle: String, strokeHex: String, points: String) {
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
+        val sigBlock = com.example.data.model.SignatureBlock(
+            svgPoints = points,
+            signerName = signerName,
+            signerTitle = signerTitle,
+            signedDate = dateStr,
+            strokeColorHex = strokeHex
+        )
+        executeCommand(InsertBlockCommand(insertIndex, sigBlock))
+        _statusMessage.value = "Digital Signature inserted"
+    }
+
+    fun insertShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String) {
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        val shapeBlock = com.example.data.model.ShapeBlock(
+            shapeType = shapeType,
+            title = title,
+            content = content,
+            backgroundColorHex = bgHex,
+            borderColorHex = borderHex
+        )
+        executeCommand(InsertBlockCommand(insertIndex, shapeBlock))
+        _statusMessage.value = "Shape / Callout Box inserted"
+    }
+
+    // ----------------------------------------------------
+    // Table and Image Advanced Formatting
+    // ----------------------------------------------------
+
+    fun updateImageFormatting(
+        blockId: String,
+        filterMode: String,
+        cornerRadiusDp: Int,
+        borderThicknessDp: Int,
+        borderColorHex: String,
+        rotationDegrees: Float
+    ) {
+        val doc = _document.value ?: return
+        val currentImg = doc.blocks.filterIsInstance<ImageBlock>().firstOrNull { it.id == blockId } ?: return
+        val updatedImg = currentImg.copy(
+            filterMode = filterMode,
+            cornerRadiusDp = cornerRadiusDp,
+            borderThicknessDp = borderThicknessDp,
+            borderColorHex = borderColorHex,
+            rotationDegrees = rotationDegrees
+        )
+        executeCommand(UpdateImageBlockCommand(currentImg.id, currentImg, updatedImg))
+        _statusMessage.value = "Image properties updated"
+    }
+
+    fun toggleTableHeaderRow(tableId: String) {
+        val doc = _document.value ?: return
+        val currentTable = doc.blocks.filterIsInstance<TableBlock>().firstOrNull { it.id == tableId } ?: return
+        val updated = currentTable.copy(hasHeaderRow = !currentTable.hasHeaderRow)
+        executeCommand(UpdateTableBlockCommand(currentTable.id, currentTable, updated))
+    }
+
+    fun toggleTableZebraStriping(tableId: String) {
+        val doc = _document.value ?: return
+        val currentTable = doc.blocks.filterIsInstance<TableBlock>().firstOrNull { it.id == tableId } ?: return
+        val updated = currentTable.copy(isZebraStriped = !currentTable.isZebraStriped)
+        executeCommand(UpdateTableBlockCommand(currentTable.id, currentTable, updated))
+    }
+
+    fun setTableCellBackground(tableId: String, row: Int, col: Int, bgHex: String?) {
+        val doc = _document.value ?: return
+        val currentTable = doc.blocks.filterIsInstance<TableBlock>().firstOrNull { it.id == tableId } ?: return
+        val updatedCells = currentTable.cells.mapIndexed { r, rList ->
+            rList.mapIndexed { c, cell ->
+                if (r == row && c == col) cell.copy(backgroundColorHex = bgHex) else cell
+            }
+        }
+        val updated = currentTable.copy(cells = updatedCells)
+        executeCommand(UpdateTableBlockCommand(currentTable.id, currentTable, updated))
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        tts?.stop()
+        tts?.shutdown()
+        tts = null
     }
 }
 

@@ -1,6 +1,7 @@
 package com.example.ui.editor.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.HorizontalDivider
@@ -145,16 +147,33 @@ fun DocumentCanvas(
                     color = pageBgColor,
                     border = borderStroke
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start = leftMarginDp,
-                                end = rightMarginDp,
-                                top = topMarginDp,
-                                bottom = bottomMarginDp
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // Watermark rotated in sheet background
+                        if (page.layout.watermarkText.isNotBlank()) {
+                            val wmColor = try {
+                                Color(android.graphics.Color.parseColor(page.layout.watermarkColorHex))
+                            } catch (_: Exception) { Color(0x2594A3B8) }
+                            Text(
+                                text = page.layout.watermarkText,
+                                fontSize = (46f * zoomScale).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = wmColor,
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .graphicsLayer(rotationZ = page.layout.watermarkAngleDeg)
                             )
-                    ) {
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = leftMarginDp,
+                                    end = rightMarginDp,
+                                    top = topMarginDp,
+                                    bottom = bottomMarginDp
+                                )
+                        ) {
                         // Header Area
                         if (page.hasHeader && page.formattedHeader.isNotBlank()) {
                             Row(
@@ -346,6 +365,54 @@ fun DocumentCanvas(
                                             }
                                         }
                                     }
+                                    is com.example.core.layout.TableOfContentsPageItem -> {
+                                        BlockItemView(
+                                            block = pageItem.originalBlock,
+                                            itemNumber = null,
+                                            isActive = false,
+                                            isDarkPage = isDarkPage,
+                                            zoomScale = zoomScale,
+                                            canDeleteBlock = document.blocks.size > 1,
+                                            onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                            onSelectionChanged = {},
+                                            onTextChanged = { _, _ -> },
+                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) },
+                                            documentBlocks = document.blocks
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+
+                                    is com.example.core.layout.SignaturePageItem -> {
+                                        BlockItemView(
+                                            block = pageItem.originalBlock,
+                                            itemNumber = null,
+                                            isActive = false,
+                                            isDarkPage = isDarkPage,
+                                            zoomScale = zoomScale,
+                                            canDeleteBlock = document.blocks.size > 1,
+                                            onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                            onSelectionChanged = {},
+                                            onTextChanged = { _, _ -> },
+                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
+
+                                    is com.example.core.layout.ShapePageItem -> {
+                                        BlockItemView(
+                                            block = pageItem.originalBlock,
+                                            itemNumber = null,
+                                            isActive = false,
+                                            isDarkPage = isDarkPage,
+                                            zoomScale = zoomScale,
+                                            canDeleteBlock = document.blocks.size > 1,
+                                            onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                            onSelectionChanged = {},
+                                            onTextChanged = { _, _ -> },
+                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                    }
                                 }
                             }
                         }
@@ -373,6 +440,7 @@ fun DocumentCanvas(
                                 )
                             }
                         }
+                    }
                     }
                 }
 
@@ -427,7 +495,8 @@ fun DocumentCanvas(
                             onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
                             onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
                             onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
-                            onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) }
+                            onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) },
+                            documentBlocks = document.blocks
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }

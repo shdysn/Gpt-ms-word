@@ -130,7 +130,11 @@ data class PageLayoutConfig(
     val borderWidthPt: Float = 1f,
     val pageNumberFormat: PageNumberFormat = PageNumberFormat.ARABIC_NUMERALS,
     val pageNumberStart: Int = 1,
-    val differentFirstPage: Boolean = false
+    val differentFirstPage: Boolean = false,
+    val watermarkText: String = "",
+    val watermarkColorHex: String = "#2594A3B8",
+    val watermarkAngleDeg: Float = -45f,
+    val columnCount: Int = 1 // 1 for standard single column, 2 for two-column newspaper layout
 ) {
     val topMarginMm: Float get() = customTopMarginMm ?: marginPreset.topMm
     val bottomMarginMm: Float get() = customBottomMarginMm ?: marginPreset.bottomMm

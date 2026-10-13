@@ -352,8 +352,13 @@ class DocumentStorageManager(private val context: Context) {
                 put("pageNumberFormat", doc.layoutConfig.pageNumberFormat.name)
                 put("pageNumberStart", doc.layoutConfig.pageNumberStart)
                 put("differentFirstPage", doc.layoutConfig.differentFirstPage)
+                put("watermarkText", doc.layoutConfig.watermarkText)
+                put("watermarkColorHex", doc.layoutConfig.watermarkColorHex)
+                put("watermarkAngleDeg", doc.layoutConfig.watermarkAngleDeg.toDouble())
+                put("columnCount", doc.layoutConfig.columnCount)
             }
             put("layoutConfig", layoutObj)
+            doc.passwordHash?.let { put("passwordHash", it) }
 
             // Blocks
             val blocksArray = JSONArray()
@@ -401,6 +406,8 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("borderColorHex", block.borderColorHex)
                         blockObj.put("tableWidthPercent", block.tableWidthPercent)
                         blockObj.put("alignment", block.alignment.name)
+                        blockObj.put("hasHeaderRow", block.hasHeaderRow)
+                        blockObj.put("isZebraStriped", block.isZebraStriped)
                         val cellsArray = JSONArray()
                         for (row in block.cells) {
                             val rowArray = JSONArray()
@@ -427,6 +434,35 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("heightDp", block.heightDp)
                         blockObj.put("alignment", block.alignment.name)
                         blockObj.put("aspectRatio", block.aspectRatio.toDouble())
+                        blockObj.put("filterMode", block.filterMode)
+                        blockObj.put("cornerRadiusDp", block.cornerRadiusDp)
+                        blockObj.put("borderThicknessDp", block.borderThicknessDp)
+                        blockObj.put("borderColorHex", block.borderColorHex)
+                        blockObj.put("rotationDegrees", block.rotationDegrees.toDouble())
+                    }
+                    is com.example.data.model.TableOfContentsBlock -> {
+                        blockObj.put("type", "table_of_contents")
+                        blockObj.put("id", block.id)
+                        blockObj.put("title", block.title)
+                    }
+                    is com.example.data.model.SignatureBlock -> {
+                        blockObj.put("type", "signature")
+                        blockObj.put("id", block.id)
+                        blockObj.put("svgPoints", block.svgPoints)
+                        blockObj.put("signerName", block.signerName)
+                        blockObj.put("signerTitle", block.signerTitle)
+                        blockObj.put("signedDate", block.signedDate)
+                        blockObj.put("strokeColorHex", block.strokeColorHex)
+                        blockObj.put("alignment", block.alignment.name)
+                    }
+                    is com.example.data.model.ShapeBlock -> {
+                        blockObj.put("type", "shape")
+                        blockObj.put("id", block.id)
+                        blockObj.put("shapeType", block.shapeType)
+                        blockObj.put("title", block.title)
+                        blockObj.put("content", block.content)
+                        blockObj.put("backgroundColorHex", block.backgroundColorHex)
+                        blockObj.put("borderColorHex", block.borderColorHex)
                     }
                     is DividerBlock -> {
                         blockObj.put("type", "divider")
@@ -501,11 +537,17 @@ class DocumentStorageManager(private val context: Context) {
                 borderWidthPt = lObj.optDouble("borderWidthPt", 1.0).toFloat(),
                 pageNumberFormat = numberFormat,
                 pageNumberStart = lObj.optInt("pageNumberStart", 1),
-                differentFirstPage = lObj.optBoolean("differentFirstPage", false)
+                differentFirstPage = lObj.optBoolean("differentFirstPage", false),
+                watermarkText = lObj.optString("watermarkText", ""),
+                watermarkColorHex = lObj.optString("watermarkColorHex", "#2594A3B8"),
+                watermarkAngleDeg = lObj.optDouble("watermarkAngleDeg", -45.0).toFloat(),
+                columnCount = lObj.optInt("columnCount", 1)
             )
         } else {
             PageLayoutConfig()
         }
+
+        val passwordHash = if (root.has("passwordHash") && !root.isNull("passwordHash")) root.getString("passwordHash") else null
 
         val blocks = mutableListOf<BlockElement>()
         val blocksArray = root.optJSONArray("blocks") ?: JSONArray()
@@ -577,6 +619,8 @@ class DocumentStorageManager(private val context: Context) {
                     val alignment = try {
                         TextAlignment.valueOf(bObj.optString("alignment", "CENTER"))
                     } catch (e: Exception) { TextAlignment.CENTER }
+                    val hasHeaderRow = bObj.optBoolean("hasHeaderRow", true)
+                    val isZebraStriped = bObj.optBoolean("isZebraStriped", false)
 
                     val cells = mutableListOf<List<TableCell>>()
                     val cellsArr = bObj.optJSONArray("cells")
@@ -611,7 +655,9 @@ class DocumentStorageManager(private val context: Context) {
                             hasBorders = hasBorders,
                             borderColorHex = borderColorHex,
                             tableWidthPercent = tableWidthPercent,
-                            alignment = alignment
+                            alignment = alignment,
+                            hasHeaderRow = hasHeaderRow,
+                            isZebraStriped = isZebraStriped
                         )
                     )
                 }
@@ -627,7 +673,48 @@ class DocumentStorageManager(private val context: Context) {
                             widthDp = bObj.optInt("widthDp", 240),
                             heightDp = bObj.optInt("heightDp", 180),
                             alignment = imgAlign,
-                            aspectRatio = bObj.optDouble("aspectRatio", 1.333).toFloat()
+                            aspectRatio = bObj.optDouble("aspectRatio", 1.333).toFloat(),
+                            filterMode = bObj.optString("filterMode", "NORMAL"),
+                            cornerRadiusDp = bObj.optInt("cornerRadiusDp", 8),
+                            borderThicknessDp = bObj.optInt("borderThicknessDp", 0),
+                            borderColorHex = bObj.optString("borderColorHex", "#CBD5E1"),
+                            rotationDegrees = bObj.optDouble("rotationDegrees", 0.0).toFloat()
+                        )
+                    )
+                }
+                "table_of_contents" -> {
+                    blocks.add(
+                        com.example.data.model.TableOfContentsBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            title = bObj.optString("title", "Table of Contents")
+                        )
+                    )
+                }
+                "signature" -> {
+                    val sigAlign = try {
+                        TextAlignment.valueOf(bObj.optString("alignment", "START"))
+                    } catch (e: Exception) { TextAlignment.START }
+                    blocks.add(
+                        com.example.data.model.SignatureBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            svgPoints = bObj.optString("svgPoints", ""),
+                            signerName = bObj.optString("signerName", ""),
+                            signerTitle = bObj.optString("signerTitle", "Authorized Signatory"),
+                            signedDate = bObj.optString("signedDate", ""),
+                            strokeColorHex = bObj.optString("strokeColorHex", "#0F172A"),
+                            alignment = sigAlign
+                        )
+                    )
+                }
+                "shape" -> {
+                    blocks.add(
+                        com.example.data.model.ShapeBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            shapeType = bObj.optString("shapeType", "NOTE"),
+                            title = bObj.optString("title", "Important Note"),
+                            content = bObj.optString("content", ""),
+                            backgroundColorHex = bObj.optString("backgroundColorHex", "#EFF6FF"),
+                            borderColorHex = bObj.optString("borderColorHex", "#3B82F6")
                         )
                     )
                 }
@@ -647,7 +734,8 @@ class DocumentStorageManager(private val context: Context) {
             createdAt = createdAt,
             updatedAt = updatedAt,
             layoutConfig = layoutConfig,
-            blocks = blocks
+            blocks = blocks,
+            passwordHash = passwordHash
         )
     }
 }

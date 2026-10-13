@@ -1,17 +1,31 @@
 package com.example.ui.editor.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Draw
+import androidx.compose.material.icons.filled.FormatQuote
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -82,7 +96,8 @@ fun BlockItemView(
     onDeleteTableRow: () -> Unit = {},
     onAddTableCol: () -> Unit = {},
     onDeleteTableCol: () -> Unit = {},
-    onEditImageProperties: () -> Unit = {}
+    onEditImageProperties: () -> Unit = {},
+    documentBlocks: List<BlockElement> = emptyList()
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -374,6 +389,217 @@ fun BlockItemView(
                             tint = WordPrimary,
                             modifier = Modifier.size(14.dp)
                         )
+                    }
+                }
+            }
+        }
+
+        is com.example.data.model.TableOfContentsBlock -> {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFF8FAFC),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .testTag("toc_block_${block.id}")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ListAlt,
+                            contentDescription = null,
+                            tint = WordPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = block.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (16f * zoomScale).sp,
+                            color = if (isDarkPage) Color(0xFFF1F5F9) else Color(0xFF0F172A),
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (canDeleteBlock) {
+                            IconButton(onClick = onDeleteBlock, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete TOC", tint = Color.Gray, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val headings = documentBlocks.filterIsInstance<ParagraphBlock>().filter { it.headingStyle != HeadingStyle.NORMAL && it.text.isNotBlank() }
+                    if (headings.isEmpty()) {
+                        Text(
+                            text = "No headings found in document. Set paragraphs to Heading 1, 2, or 3 to populate.",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            fontStyle = FontStyle.Italic
+                        )
+                    } else {
+                        headings.forEachIndexed { hIdx, hBlock ->
+                            val indentDp = when (hBlock.headingStyle) {
+                                HeadingStyle.TITLE, HeadingStyle.HEADING_1 -> 0.dp
+                                HeadingStyle.HEADING_2 -> 14.dp
+                                else -> 28.dp
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = indentDp, top = 4.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = hBlock.text.take(40),
+                                    fontSize = (13f * zoomScale).sp,
+                                    fontWeight = if (hBlock.headingStyle == HeadingStyle.TITLE || hBlock.headingStyle == HeadingStyle.HEADING_1) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isDarkPage) Color(0xFF93C5FD) else Color(0xFF1E40AF),
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = ". . . . . . . . . . . . . . . . . . . .",
+                                    color = if (isDarkPage) Color(0xFF475569) else Color(0xFFCBD5E1),
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "${hIdx + 1}",
+                                    fontSize = (12f * zoomScale).sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isDarkPage) Color(0xFF94A3B8) else Color(0xFF64748B)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        is com.example.data.model.SignatureBlock -> {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isDarkPage) Color(0xFF1E293B) else Color.White,
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .testTag("signature_block_${block.id}")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Draw,
+                            contentDescription = null,
+                            tint = WordPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Verified Digital Signature",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = WordPrimary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (canDeleteBlock) {
+                            IconButton(onClick = onDeleteBlock, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete Signature", tint = Color.Gray, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    // Signature Cursive Line
+                    Text(
+                        text = block.signerName.ifBlank { "Authorized Signature" },
+                        fontSize = (20f * zoomScale).sp,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.Medium,
+                        color = try { Color(android.graphics.Color.parseColor(block.strokeColorHex)) } catch (_: Exception) { Color(0xFF0F172A) }
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    HorizontalDivider(
+                        thickness = 1.5.dp,
+                        color = try { Color(android.graphics.Color.parseColor(block.strokeColorHex)) } catch (_: Exception) { Color(0xFF0F172A) },
+                        modifier = Modifier.width(220.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = block.signerTitle,
+                        fontSize = (11f * zoomScale).sp,
+                        color = if (isDarkPage) Color(0xFFCBD5E1) else Color(0xFF475569)
+                    )
+                    if (block.signedDate.isNotBlank()) {
+                        Text(
+                            text = "Signed: ${block.signedDate}",
+                            fontSize = (10f * zoomScale).sp,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
+        }
+
+        is com.example.data.model.ShapeBlock -> {
+            val bgCol = try { Color(android.graphics.Color.parseColor(block.backgroundColorHex)) } catch (_: Exception) { Color(0xFFEFF6FF) }
+            val borderCol = try { Color(android.graphics.Color.parseColor(block.borderColorHex)) } catch (_: Exception) { Color(0xFF3B82F6) }
+            val shapeIcon = when (block.shapeType) {
+                "WARNING" -> Icons.Default.Warning
+                "SUCCESS" -> Icons.Default.CheckCircle
+                "QUOTE" -> Icons.Default.FormatQuote
+                else -> Icons.Default.Info
+            }
+
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isDarkPage) Color(0xFF1E293B) else bgCol,
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, borderCol),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+                    .testTag("shape_block_${block.id}")
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = shapeIcon,
+                        contentDescription = null,
+                        tint = borderCol,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = block.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (13f * zoomScale).sp,
+                            color = borderCol
+                        )
+                        if (block.content.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = block.content,
+                                fontSize = (12f * zoomScale).sp,
+                                color = if (isDarkPage) Color(0xFFE2E8F0) else Color(0xFF1E293B)
+                            )
+                        }
+                    }
+                    if (canDeleteBlock) {
+                        IconButton(onClick = onDeleteBlock, modifier = Modifier.size(22.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Shape", tint = Color.Gray, modifier = Modifier.size(13.dp))
+                        }
                     }
                 }
             }

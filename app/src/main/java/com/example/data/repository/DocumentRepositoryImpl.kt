@@ -70,7 +70,8 @@ class DocumentRepositoryImpl(
                 pageSize = updatedDoc.layoutConfig.pageSize.name,
                 orientation = updatedDoc.layoutConfig.orientation.name,
                 marginPreset = updatedDoc.layoutConfig.marginPreset.name,
-                hasRecoveryDraft = false
+                hasRecoveryDraft = false,
+                isPasswordProtected = updatedDoc.isPasswordProtected
             )
 
             documentDao.insertOrUpdateDocument(entity)

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -175,6 +176,15 @@ fun DocumentGridCard(
                             imageVector = Icons.Default.PushPin,
                             contentDescription = "Pinned",
                             tint = WordPrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    if (doc.isPasswordProtected) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Password Protected",
+                            tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(14.dp)
                         )
                     }

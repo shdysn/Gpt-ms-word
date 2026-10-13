@@ -19,19 +19,37 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.BorderAll
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerticalSplit
+import androidx.compose.material.icons.filled.ViewColumn
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.HorizontalDivider
@@ -55,6 +73,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.core.layout.MarginPreset
+import com.example.core.layout.PageBorderStyle
+import com.example.core.layout.PageOrientation
+import com.example.core.layout.PageSize
 import com.example.data.model.ParagraphBlock
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.EditorViewMode
@@ -78,7 +100,14 @@ fun WordRibbon(
     onOpenLinkDialog: () -> Unit,
     onOpenHeaderFooterDialog: () -> Unit = {},
     onOpenPageNumberDialog: () -> Unit = {},
-    onOpenLayoutDialog: () -> Unit = {}
+    onOpenLayoutDialog: () -> Unit = {},
+    onOpenSignatureDialog: () -> Unit = {},
+    onOpenShapeDialog: () -> Unit = {},
+    onOpenWatermarkDialog: () -> Unit = {},
+    onOpenPasswordDialog: () -> Unit = {},
+    onOpenVersionHistoryDialog: () -> Unit = {},
+    onOpenStatsDialog: () -> Unit = {},
+    onStartVoiceTyping: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
 
@@ -202,7 +231,46 @@ fun WordRibbon(
                                 onOpenPhotoPicker = onOpenPhotoPicker,
                                 onOpenLinkDialog = onOpenLinkDialog,
                                 onOpenHeaderFooterDialog = onOpenHeaderFooterDialog,
-                                onOpenPageNumberDialog = onOpenPageNumberDialog
+                                onOpenPageNumberDialog = onOpenPageNumberDialog,
+                                onOpenSignatureDialog = onOpenSignatureDialog,
+                                onOpenShapeDialog = onOpenShapeDialog
+                            )
+                        }
+                    }
+
+                    RibbonTab.LAYOUT -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            LayoutRibbonControls(
+                                viewModel = viewModel,
+                                onOpenWatermarkDialog = onOpenWatermarkDialog,
+                                onOpenLayoutDialog = onOpenLayoutDialog
+                            )
+                        }
+                    }
+
+                    RibbonTab.REVIEW -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ReviewRibbonControls(
+                                viewModel = viewModel,
+                                context = context,
+                                onOpenPasswordDialog = onOpenPasswordDialog,
+                                onOpenVersionHistoryDialog = onOpenVersionHistoryDialog,
+                                onOpenStatsDialog = onOpenStatsDialog,
+                                onStartVoiceTyping = onStartVoiceTyping
                             )
                         }
                     }
@@ -235,7 +303,9 @@ fun InsertRibbonControls(
     onOpenPhotoPicker: () -> Unit,
     onOpenLinkDialog: () -> Unit,
     onOpenHeaderFooterDialog: () -> Unit,
-    onOpenPageNumberDialog: () -> Unit
+    onOpenPageNumberDialog: () -> Unit,
+    onOpenSignatureDialog: () -> Unit,
+    onOpenShapeDialog: () -> Unit
 ) {
     RibbonActionButton(
         icon = Icons.Default.Add,
@@ -253,6 +323,27 @@ fun InsertRibbonControls(
         icon = Icons.Default.Image,
         label = "Picture",
         onClick = onOpenPhotoPicker
+    )
+
+    // Table of Contents (Point 3)
+    RibbonActionButton(
+        icon = Icons.Default.ListAlt,
+        label = "Table of Contents",
+        onClick = { viewModel.insertTableOfContents() }
+    )
+
+    // Digital Signature (Point 4)
+    RibbonActionButton(
+        icon = Icons.Default.Draw,
+        label = "Signature",
+        onClick = onOpenSignatureDialog
+    )
+
+    // Shapes & Callout Box (Point 4)
+    RibbonActionButton(
+        icon = Icons.Default.Category,
+        label = "Shape / Note",
+        onClick = onOpenShapeDialog
     )
 
     RibbonActionButton(
@@ -311,12 +402,191 @@ fun InsertRibbonControls(
 }
 
 @Composable
+fun LayoutRibbonControls(
+    viewModel: EditorViewModel,
+    onOpenWatermarkDialog: () -> Unit,
+    onOpenLayoutDialog: () -> Unit
+) {
+    val document by viewModel.document.collectAsStateWithLifecycle()
+    val layout = document?.layoutConfig ?: com.example.core.layout.PageLayoutConfig()
+
+    // Orientation Toggles
+    RibbonToggleButton(
+        icon = Icons.Default.Description,
+        label = "Portrait",
+        isSelected = layout.orientation == PageOrientation.PORTRAIT,
+        onClick = { viewModel.updatePageLayout(orientation = PageOrientation.PORTRAIT) }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.PhoneAndroid,
+        label = "Landscape",
+        isSelected = layout.orientation == PageOrientation.LANDSCAPE,
+        onClick = { viewModel.updatePageLayout(orientation = PageOrientation.LANDSCAPE) }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Columns: 1 or 2 Columns
+    RibbonToggleButton(
+        icon = Icons.Default.Description,
+        label = "1 Column",
+        isSelected = layout.columnCount == 1,
+        onClick = { viewModel.setColumnCount(1) }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.ViewColumn,
+        label = "2 Columns",
+        isSelected = layout.columnCount == 2,
+        onClick = { viewModel.setColumnCount(2) }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Watermark (Point 3)
+    val hasWatermark = layout.watermarkText.isNotBlank()
+    RibbonToggleButton(
+        icon = Icons.Default.WaterDrop,
+        label = if (hasWatermark) "Watermark (${layout.watermarkText.take(8)})" else "Watermark",
+        isSelected = hasWatermark,
+        onClick = onOpenWatermarkDialog
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Quick Margins
+    RibbonToggleButton(
+        icon = Icons.Default.BorderAll,
+        label = "Normal Margins",
+        isSelected = layout.marginPreset == MarginPreset.NORMAL,
+        onClick = { viewModel.updatePageLayout(marginPreset = MarginPreset.NORMAL) }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.BorderAll,
+        label = "Narrow Margins",
+        isSelected = layout.marginPreset == MarginPreset.NARROW,
+        onClick = { viewModel.updatePageLayout(marginPreset = MarginPreset.NARROW) }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Full Page Setup Dialog
+    RibbonActionButton(
+        icon = Icons.Default.Tune,
+        label = "Page Setup",
+        onClick = onOpenLayoutDialog
+    )
+}
+
+@Composable
+fun ReviewRibbonControls(
+    viewModel: EditorViewModel,
+    context: Context,
+    onOpenPasswordDialog: () -> Unit,
+    onOpenVersionHistoryDialog: () -> Unit,
+    onOpenStatsDialog: () -> Unit,
+    onStartVoiceTyping: () -> Unit
+) {
+    val document by viewModel.document.collectAsStateWithLifecycle()
+    val isSpeaking by viewModel.isSpeaking.collectAsStateWithLifecycle()
+    val speechRate by viewModel.speechRate.collectAsStateWithLifecycle()
+    val snapshots by viewModel.revisionSnapshots.collectAsStateWithLifecycle()
+    val isProtected = document?.isPasswordProtected == true
+
+    // Text-to-Speech (Read Aloud) - Point 5
+    if (isSpeaking) {
+        RibbonActionButton(
+            icon = Icons.Default.Stop,
+            label = "Stop Reading",
+            onClick = { viewModel.stopReadAloud() }
+        )
+    } else {
+        RibbonActionButton(
+            icon = Icons.Default.VolumeUp,
+            label = "Read Aloud",
+            onClick = { viewModel.startReadAloud(context) }
+        )
+    }
+
+    // TTS Speed Rate toggle
+    RibbonActionButton(
+        icon = Icons.Default.Speed,
+        label = "${speechRate}x Speed",
+        onClick = { viewModel.cycleSpeechRate() }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Voice Typing (Dictation / Speech-to-Text) - Point 5
+    RibbonActionButton(
+        icon = Icons.Default.Mic,
+        label = "Voice Typing",
+        onClick = onStartVoiceTyping
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Document Security Lock (Point 5)
+    RibbonToggleButton(
+        icon = if (isProtected) Icons.Default.Lock else Icons.Default.LockOpen,
+        label = if (isProtected) "Protected PIN" else "Password Lock",
+        isSelected = isProtected,
+        onClick = onOpenPasswordDialog
+    )
+
+    // Version History Snapshots (Point 5)
+    RibbonActionButton(
+        icon = Icons.Default.History,
+        label = if (snapshots.isNotEmpty()) "History (${snapshots.size})" else "Version History",
+        onClick = onOpenVersionHistoryDialog
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Word Count & Statistics
+    RibbonActionButton(
+        icon = Icons.Default.BarChart,
+        label = "Document Stats",
+        onClick = onOpenStatsDialog
+    )
+}
+
+@Composable
 fun ViewRibbonControls(
     viewModel: EditorViewModel,
     onOpenLayoutDialog: () -> Unit = {}
 ) {
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
+    val canvasPaperMode by viewModel.canvasPaperMode.collectAsStateWithLifecycle()
+    val showRuler by viewModel.showRuler.collectAsStateWithLifecycle()
+    val showWordCount by viewModel.showWordCount.collectAsStateWithLifecycle()
+
+    // Canvas Paper Theme (Point 5: Canvas Dark Mode & Eye Care)
+    RibbonToggleButton(
+        icon = Icons.Default.LightMode,
+        label = "White Sheet",
+        isSelected = canvasPaperMode == "WHITE",
+        onClick = { viewModel.setCanvasPaperMode("WHITE") }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.Palette,
+        label = "Eye-Care Sepia",
+        isSelected = canvasPaperMode == "SEPIA",
+        onClick = { viewModel.setCanvasPaperMode("SEPIA") }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.DarkMode,
+        label = "Night / Dark",
+        isSelected = canvasPaperMode == "DARK",
+        onClick = { viewModel.setCanvasPaperMode("DARK") }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     RibbonToggleButton(
         icon = Icons.Default.Description,
@@ -332,6 +602,24 @@ fun ViewRibbonControls(
         isSelected = currentViewMode == EditorViewMode.CONTINUOUS_MOBILE,
         onClick = { viewModel.setViewMode(EditorViewMode.CONTINUOUS_MOBILE) },
         tag = "view_mode_mobile"
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Ruler toggle
+    RibbonToggleButton(
+        icon = Icons.Default.SquareFoot,
+        label = "Ruler",
+        isSelected = showRuler,
+        onClick = { viewModel.toggleRuler() }
+    )
+
+    // Word count status toggle
+    RibbonToggleButton(
+        icon = Icons.Default.BarChart,
+        label = "Word Count",
+        isSelected = showWordCount,
+        onClick = { viewModel.toggleWordCount() }
     )
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))

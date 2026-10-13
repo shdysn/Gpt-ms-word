@@ -421,6 +421,22 @@ class PdfExportServiceImpl : DocumentExportService {
                 }
             }
 
+            // 2b. Draw watermark if configured
+            if (layout.watermarkText.isNotBlank()) {
+                val watermarkPaint = Paint().apply {
+                    isAntiAlias = true
+                    color = try { Color.parseColor(layout.watermarkColorHex) } catch (_: Exception) { Color.argb(40, 148, 163, 184) }
+                    textSize = 52f
+                    textAlign = Paint.Align.CENTER
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                }
+                canvas.save()
+                canvas.translate(pageWidth / 2f, pageHeight / 2f)
+                canvas.rotate(layout.watermarkAngleDeg)
+                canvas.drawText(layout.watermarkText, 0f, 18f, watermarkPaint)
+                canvas.restore()
+            }
+
             // 3. Draw header (with safe vertical bounds)
             if (docPage.hasHeader && docPage.formattedHeader.isNotBlank()) {
                 val headerRtl = BidiUtils.detectParagraphIsRtl(docPage.formattedHeader)
@@ -739,6 +755,131 @@ class PdfExportServiceImpl : DocumentExportService {
 
                     is com.example.core.layout.PageBreakPageItem -> {
                         // Handled cleanly at page boundary during pagination
+                    }
+
+                    is com.example.core.layout.TableOfContentsPageItem -> {
+                        val tocPaint = Paint().apply {
+                            isAntiAlias = true
+                            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                            textSize = 14f
+                            color = Color.rgb(30, 41, 59)
+                        }
+                        canvas.drawText(item.originalBlock.title, leftMargin, cursorY + 12f, tocPaint)
+                        cursorY += 22f
+
+                        val entryPaint = Paint().apply {
+                            isAntiAlias = true
+                            textSize = 10.5f
+                            color = Color.rgb(51, 65, 85)
+                        }
+                        val leaderPaint = Paint().apply {
+                            isAntiAlias = true
+                            textSize = 10f
+                            color = Color.rgb(148, 163, 184)
+                        }
+
+                        // Collect headings from document
+                        var headingCount = 0
+                        for ((bIdx, b) in document.blocks.withIndex()) {
+                            if (b is ParagraphBlock && b.headingStyle != HeadingStyle.NORMAL && b.text.isNotBlank()) {
+                                if (headingCount >= 5) break
+                                val indent = when (b.headingStyle) {
+                                    HeadingStyle.TITLE, HeadingStyle.HEADING_1 -> 0f
+                                    HeadingStyle.HEADING_2 -> 14f
+                                    else -> 24f
+                                }
+                                val titleText = b.text.take(45)
+                                canvas.drawText(titleText, leftMargin + indent, cursorY + 10f, entryPaint)
+                                val textWidth = entryPaint.measureText(titleText)
+                                val pageNumStr = "1"
+                                val pageNumWidth = entryPaint.measureText(pageNumStr)
+                                val leaderStartX = leftMargin + indent + textWidth + 8f
+                                val leaderEndX = pageWidth - rightMargin - pageNumWidth - 8f
+                                if (leaderEndX > leaderStartX) {
+                                    canvas.drawText(". . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .", leaderStartX, cursorY + 10f, leaderPaint)
+                                }
+                                canvas.drawText(pageNumStr, pageWidth - rightMargin - pageNumWidth, cursorY + 10f, entryPaint)
+                                cursorY += 18f
+                                headingCount++
+                            }
+                        }
+                        if (headingCount == 0) {
+                            entryPaint.color = Color.GRAY
+                            canvas.drawText("No headings found (Add Heading 1, 2, or 3 to populate)", leftMargin, cursorY + 10f, entryPaint)
+                            cursorY += 20f
+                        }
+                        cursorY += 10f
+                    }
+
+                    is com.example.core.layout.SignaturePageItem -> {
+                        val sig = item.originalBlock
+                        val sigBoxWidth = 200f
+                        val sigStartX = when (sig.alignment) {
+                            TextAlignment.END -> pageWidth - rightMargin - sigBoxWidth
+                            TextAlignment.CENTER -> leftMargin + (contentWidth - sigBoxWidth) / 2f
+                            else -> leftMargin
+                        }
+
+                        // Draw digital signature line
+                        val linePaint = Paint().apply {
+                            color = Color.rgb(15, 23, 42)
+                            strokeWidth = 1.2f
+                        }
+                        canvas.drawLine(sigStartX, cursorY + 45f, sigStartX + sigBoxWidth, cursorY + 45f, linePaint)
+
+                        // Draw digital cursive / pen signature text
+                        val penPaint = Paint().apply {
+                            isAntiAlias = true
+                            color = try { Color.parseColor(sig.strokeColorHex) } catch (_: Exception) { Color.rgb(15, 23, 42) }
+                            textSize = 18f
+                            typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
+                        }
+                        val signName = sig.signerName.ifBlank { "Authorized Signature" }
+                        canvas.drawText(signName, sigStartX + 8f, cursorY + 36f, penPaint)
+
+                        // Draw Title and Date below line
+                        val infoPaint = Paint().apply {
+                            isAntiAlias = true
+                            color = Color.rgb(71, 85, 105)
+                            textSize = 8.5f
+                        }
+                        canvas.drawText(sig.signerTitle, sigStartX, cursorY + 58f, infoPaint)
+                        if (sig.signedDate.isNotBlank()) {
+                            canvas.drawText("Date: ${sig.signedDate}", sigStartX, cursorY + 69f, infoPaint)
+                        }
+                        cursorY += 80f
+                    }
+
+                    is com.example.core.layout.ShapePageItem -> {
+                        val shape = item.originalBlock
+                        val boxRect = android.graphics.RectF(leftMargin, cursorY, pageWidth - rightMargin, cursorY + 60f)
+                        val bgPaint = Paint().apply {
+                            color = try { Color.parseColor(shape.backgroundColorHex) } catch (_: Exception) { Color.rgb(239, 246, 255) }
+                            style = Paint.Style.FILL
+                        }
+                        val bdrPaint = Paint().apply {
+                            color = try { Color.parseColor(shape.borderColorHex) } catch (_: Exception) { Color.rgb(59, 130, 246) }
+                            style = Paint.Style.STROKE
+                            strokeWidth = 1.5f
+                        }
+                        canvas.drawRoundRect(boxRect, 6f, 6f, bgPaint)
+                        canvas.drawRoundRect(boxRect, 6f, 6f, bdrPaint)
+
+                        val titlePaint = Paint().apply {
+                            isAntiAlias = true
+                            color = bdrPaint.color
+                            textSize = 10.5f
+                            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                        }
+                        canvas.drawText(shape.title, leftMargin + 12f, cursorY + 20f, titlePaint)
+
+                        val bodyPaint = Paint().apply {
+                            isAntiAlias = true
+                            color = Color.rgb(30, 41, 59)
+                            textSize = 9.5f
+                        }
+                        canvas.drawText(shape.content.ifBlank { "..." }, leftMargin + 12f, cursorY + 40f, bodyPaint)
+                        cursorY += 72f
                     }
                 }
             }

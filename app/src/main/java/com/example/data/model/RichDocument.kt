@@ -103,11 +103,13 @@ data class TableBlock(
     val borderColorHex: String = "#CBD5E1",
     val tableWidthPercent: Int = 100,
     val alignment: TextAlignment = TextAlignment.CENTER,
-    val columnWidthWeights: List<Float> = emptyList()
+    val columnWidthWeights: List<Float> = emptyList(),
+    val hasHeaderRow: Boolean = true,
+    val isZebraStriped: Boolean = false
 ) : BlockElement
 
 /**
- * Image block element.
+ * Image block element with borders, filters, and rotation.
  */
 data class ImageBlock(
     override val id: String = UUID.randomUUID().toString(),
@@ -116,7 +118,45 @@ data class ImageBlock(
     val widthDp: Int = 240,
     val heightDp: Int = 180,
     val alignment: TextAlignment = TextAlignment.CENTER,
-    val aspectRatio: Float = 1.333f
+    val aspectRatio: Float = 1.333f,
+    val filterMode: String = "NORMAL", // NORMAL, GRAYSCALE, SEPIA
+    val cornerRadiusDp: Int = 8,
+    val borderThicknessDp: Int = 0,
+    val borderColorHex: String = "#CBD5E1",
+    val rotationDegrees: Float = 0f
+) : BlockElement
+
+/**
+ * Table of Contents block dynamically generated from document headings.
+ */
+data class TableOfContentsBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val title: String = "Table of Contents"
+) : BlockElement
+
+/**
+ * Verified Digital Signature block with signer name, title, and date.
+ */
+data class SignatureBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val svgPoints: String = "", // serialized line points "x1,y1;x2,y2..."
+    val signerName: String = "",
+    val signerTitle: String = "Authorized Signatory",
+    val signedDate: String = "",
+    val strokeColorHex: String = "#0F172A",
+    val alignment: TextAlignment = TextAlignment.START
+) : BlockElement
+
+/**
+ * Stylized shape / callout note block (e.g., Note, Warning, Tip, Quote banner).
+ */
+data class ShapeBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val shapeType: String = "NOTE", // NOTE, WARNING, SUCCESS, QUOTE
+    val title: String = "Important Note",
+    val content: String = "",
+    val backgroundColorHex: String = "#EFF6FF",
+    val borderColorHex: String = "#3B82F6"
 ) : BlockElement
 
 /**
@@ -143,7 +183,8 @@ data class RichDocument(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val layoutConfig: PageLayoutConfig = PageLayoutConfig(),
-    val blocks: List<BlockElement> = listOf(ParagraphBlock())
+    val blocks: List<BlockElement> = listOf(ParagraphBlock()),
+    val passwordHash: String? = null // Non-null when document is password-protected
 ) {
     val wordCount: Int
         get() = blocks.filterIsInstance<ParagraphBlock>().sumOf { block ->
@@ -152,6 +193,9 @@ data class RichDocument(
 
     val characterCount: Int
         get() = blocks.filterIsInstance<ParagraphBlock>().sumOf { it.text.length }
+
+    val isPasswordProtected: Boolean
+        get() = !passwordHash.isNullOrBlank()
 
     val plainTextSnippet: String
         get() = blocks.filterIsInstance<ParagraphBlock>()

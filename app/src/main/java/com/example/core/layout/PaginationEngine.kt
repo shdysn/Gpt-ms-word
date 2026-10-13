@@ -276,6 +276,51 @@ object PaginationEngine {
                         }
                     }
                 }
+
+                is com.example.data.model.TableOfContentsBlock -> {
+                    val tocHeight = 120f
+                    if (currentHeight + tocHeight > printableHeightPt && currentPage.isNotEmpty()) {
+                        commitCurrentPageAndStartNew()
+                    }
+                    currentPage.add(
+                        TableOfContentsPageItem(
+                            originalBlockIndex = blockIndex,
+                            originalBlock = block,
+                            heightPt = tocHeight
+                        )
+                    )
+                    currentHeight += tocHeight
+                }
+
+                is com.example.data.model.SignatureBlock -> {
+                    val sigHeight = 90f
+                    if (currentHeight + sigHeight > printableHeightPt && currentPage.isNotEmpty()) {
+                        commitCurrentPageAndStartNew()
+                    }
+                    currentPage.add(
+                        SignaturePageItem(
+                            originalBlockIndex = blockIndex,
+                            originalBlock = block,
+                            heightPt = sigHeight
+                        )
+                    )
+                    currentHeight += sigHeight
+                }
+
+                is com.example.data.model.ShapeBlock -> {
+                    val shapeHeight = 75f
+                    if (currentHeight + shapeHeight > printableHeightPt && currentPage.isNotEmpty()) {
+                        commitCurrentPageAndStartNew()
+                    }
+                    currentPage.add(
+                        ShapePageItem(
+                            originalBlockIndex = blockIndex,
+                            originalBlock = block,
+                            heightPt = shapeHeight
+                        )
+                    )
+                    currentHeight += shapeHeight
+                }
             }
         }
 

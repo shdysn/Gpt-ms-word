@@ -67,6 +67,33 @@ data class PageBreakPageItem(
 ) : PageItem
 
 /**
+ * Table of Contents rendered on a page.
+ */
+data class TableOfContentsPageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.TableOfContentsBlock,
+    override val heightPt: Float = 120f
+) : PageItem
+
+/**
+ * Verified Digital Signature rendered on a page.
+ */
+data class SignaturePageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.SignatureBlock,
+    override val heightPt: Float = 90f
+) : PageItem
+
+/**
+ * Stylized shape / callout note rendered on a page.
+ */
+data class ShapePageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.ShapeBlock,
+    override val heightPt: Float = 75f
+) : PageItem
+
+/**
  * Physical page breakdown containing laid out items, header, and footer.
  */
 data class DocumentPage(

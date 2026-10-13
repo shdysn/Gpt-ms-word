@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -66,12 +67,35 @@ fun ImageBlockView(
             .padding(vertical = 4.dp),
         horizontalAlignment = imageAlignment
     ) {
+        val imageCornerRadius = imageBlock.cornerRadiusDp.coerceIn(0, 40).dp
+        val imageBorderColor = try {
+            Color(android.graphics.Color.parseColor(imageBlock.borderColorHex))
+        } catch (_: Exception) { Color(0xFFCBD5E1) }
+        val imageBorderThickness = if (imageBlock.borderThicknessDp > 0) imageBlock.borderThicknessDp.dp else 1.dp
+
+        val colorFilter = when (imageBlock.filterMode) {
+            "GRAYSCALE" -> androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0f) }
+            )
+            "SEPIA" -> androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                androidx.compose.ui.graphics.ColorMatrix(
+                    floatArrayOf(
+                        0.393f, 0.769f, 0.189f, 0f, 0f,
+                        0.349f, 0.686f, 0.168f, 0f, 0f,
+                        0.272f, 0.534f, 0.131f, 0f, 0f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+            )
+            else -> null
+        }
+
         Box(
             modifier = Modifier
                 .width(scaledWidthDp)
                 .height(scaledHeightDp)
-                .clip(RoundedCornerShape(8.dp))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(imageCornerRadius))
+                .border(imageBorderThickness, imageBorderColor, RoundedCornerShape(imageCornerRadius))
                 .clickable { onEditProperties() }
                 .testTag("image_block_${imageBlock.id}")
         ) {
@@ -82,7 +106,10 @@ fun ImageBlockView(
                     .build(),
                 contentDescription = imageBlock.caption.ifBlank { "Document image" },
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
+                colorFilter = colorFilter,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(rotationZ = imageBlock.rotationDegrees),
                 loading = {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
