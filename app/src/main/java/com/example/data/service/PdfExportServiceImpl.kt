@@ -470,6 +470,11 @@ class PdfExportServiceImpl : DocumentExportService {
             }
 
             // 5. Render page items
+            if (layout.columnCount == 2) {
+                val colDividerX = leftMargin + (contentWidth - 18f) / 2f + 9f
+                canvas.drawLine(colDividerX, topMargin + 8f, colDividerX, pageHeight - bottomMargin - 8f, dividerPaint)
+            }
+
             var cursorY = topMargin + 14f
 
             for (item in docPage.items) {

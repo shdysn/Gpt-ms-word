@@ -373,7 +373,8 @@ fun EditorScreen(
                         onQuickAddTableCol = { id -> viewModel.addTableColumn(id) },
                         onQuickDeleteTableCol = { id -> viewModel.deleteTableColumn(id, -1) },
                         onEditImageProperties = { img -> selectedImageForProperties = img },
-                        onOpenPageLayoutDialog = { showLayoutDialog = true }
+                        onOpenPageLayoutDialog = { showLayoutDialog = true },
+                        onRefreshTOC = viewModel::refreshTableOfContents
                     )
                 }
 

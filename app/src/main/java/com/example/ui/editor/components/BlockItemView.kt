@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -103,7 +104,8 @@ fun BlockItemView(
     onEditImageProperties: () -> Unit = {},
     documentBlocks: List<BlockElement> = emptyList(),
     paginatedPages: List<com.example.core.layout.DocumentPage> = emptyList(),
-    onNavigateToBlock: (Int) -> Unit = {}
+    onNavigateToBlock: (Int) -> Unit = {},
+    onRefreshTOC: () -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -476,6 +478,13 @@ fun BlockItemView(
                             color = if (isDarkPage) Color(0xFFF1F5F9) else Color(0xFF0F172A),
                             modifier = Modifier.weight(1f)
                         )
+                        IconButton(
+                            onClick = onRefreshTOC,
+                            modifier = Modifier.size(24.dp).testTag("refresh_toc_btn")
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh Table of Contents", tint = WordPrimary, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         if (canDeleteBlock) {
                             IconButton(onClick = onDeleteBlock, modifier = Modifier.size(24.dp)) {
                                 Icon(Icons.Default.Delete, contentDescription = "Delete TOC", tint = Color.Gray, modifier = Modifier.size(14.dp))

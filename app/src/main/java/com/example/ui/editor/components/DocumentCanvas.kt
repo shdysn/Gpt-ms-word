@@ -1,5 +1,6 @@
 package com.example.ui.editor.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.layout.DocumentPage
 import com.example.core.layout.PaginationEngine
+import com.example.data.model.BlockElement
 import com.example.data.model.ImageBlock
 import com.example.data.model.ListType
 import com.example.data.model.ParagraphBlock
@@ -75,7 +77,8 @@ fun DocumentCanvas(
     onEditImageProperties: (ImageBlock) -> Unit = {},
     onOpenPageLayoutDialog: () -> Unit = {},
     onSelectionChangedForBlock: (Int, TextRange) -> Unit = { _, _ -> },
-    onSplitParagraph: (Int, Int) -> Unit = { _, _ -> }
+    onSplitParagraph: (Int, Int) -> Unit = { _, _ -> },
+    onRefreshTOC: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -216,7 +219,11 @@ fun DocumentCanvas(
                                 onDeleteOrMergeWithPrevious = {}
                             )
                         } else {
-                            page.items.forEach { pageItem ->
+                            val contentItems = page.items.filter { it !is com.example.core.layout.FootnotePageItem }
+                            val footnoteItems = page.items.filterIsInstance<com.example.core.layout.FootnotePageItem>()
+
+                            @Composable
+                            fun RenderPageItem(pageItem: com.example.core.layout.PageItem) {
                                 when (pageItem) {
                                     is com.example.core.layout.ParagraphPageItem -> {
                                         val block = (document.blocks.getOrNull(pageItem.originalBlockIndex) as? ParagraphBlock) ?: pageItem.originalBlock
@@ -275,7 +282,11 @@ fun DocumentCanvas(
                                                 onSplitParagraph(pageItem.originalBlockIndex, sliceStart + cursorOffset)
                                             },
                                             onDeleteBlock = { onDeleteBlockById(block.id) },
-                                            onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(pageItem.originalBlockIndex) }
+                                            onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(pageItem.originalBlockIndex) },
+                                            documentBlocks = document.blocks,
+                                            paginatedPages = paginatedPages,
+                                            onNavigateToBlock = { onBlockSelected(it) },
+                                            onRefreshTOC = onRefreshTOC
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                     }
@@ -365,6 +376,7 @@ fun DocumentCanvas(
                                             }
                                         }
                                     }
+
                                     is com.example.core.layout.TableOfContentsPageItem -> {
                                         BlockItemView(
                                             block = pageItem.originalBlock,
@@ -379,7 +391,8 @@ fun DocumentCanvas(
                                             onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) },
                                             documentBlocks = document.blocks,
                                             paginatedPages = paginatedPages,
-                                            onNavigateToBlock = { onBlockSelected(it) }
+                                            onNavigateToBlock = { onBlockSelected(it) },
+                                            onRefreshTOC = onRefreshTOC
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                     }
@@ -427,10 +440,61 @@ fun DocumentCanvas(
                                             onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
                                             onSelectionChanged = {},
                                             onTextChanged = { _, _ -> },
-                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) },
+                                            documentBlocks = document.blocks,
+                                            paginatedPages = paginatedPages,
+                                            onNavigateToBlock = { onBlockSelected(it) },
+                                            onRefreshTOC = onRefreshTOC
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                     }
+                                }
+                            }
+
+                            // 2-Column Newspaper Layout vs Standard 1-Column Layout
+                            val isTwoColumn = page.layout.columnCount == 2
+                            if (isTwoColumn && contentItems.size > 1) {
+                                val mid = (contentItems.size + 1) / 2
+                                val leftItems = contentItems.take(mid)
+                                val rightItems = contentItems.drop(mid)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        leftItems.forEach { item ->
+                                            RenderPageItem(item)
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .width(1.dp)
+                                            .heightIn(min = 60.dp)
+                                            .background(if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0))
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        rightItems.forEach { item ->
+                                            RenderPageItem(item)
+                                        }
+                                    }
+                                }
+                            } else {
+                                contentItems.forEach { item ->
+                                    RenderPageItem(item)
+                                }
+                            }
+
+                            // Docked Footnotes at bottom of page above footer
+                            if (footnoteItems.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                HorizontalDivider(
+                                    color = if (isDarkPage) Color(0xFF475569) else Color(0xFFCBD5E1),
+                                    thickness = 1.dp,
+                                    modifier = Modifier.width(90.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                footnoteItems.forEach { fnItem ->
+                                    RenderPageItem(fnItem)
                                 }
                             }
                         }
@@ -482,43 +546,76 @@ fun DocumentCanvas(
                 modifier = Modifier.fillMaxWidth(),
                 color = pageBgColor
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                ) {
-                    document.blocks.forEachIndexed { index, block ->
-                        val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
-                            globalListNumbers[index] ?: 1
-                        } else {
-                            null
-                        }
+                @Composable
+                fun RenderContinuousBlock(index: Int, block: BlockElement) {
+                    val itemNumber = if (block is ParagraphBlock && block.listType == ListType.NUMBERED) {
+                        globalListNumbers[index] ?: 1
+                    } else {
+                        null
+                    }
 
-                        BlockItemView(
-                            block = block,
-                            itemNumber = itemNumber,
-                            isActive = index == activeBlockIndex,
-                            isDarkPage = isDarkPage,
-                            zoomScale = zoomScale,
-                            canDeleteBlock = document.blocks.size > 1,
-                            onFocus = { onBlockSelected(index) },
-                            onSelectionChanged = { sel -> onSelectionChangedForBlock(index, sel) },
-                            onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
-                            onEnterPressed = { cursorOffset -> onSplitParagraph(index, cursorOffset) },
-                            onDeleteBlock = { onDeleteBlockById(block.id) },
-                            onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(index) },
-                            onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
-                            onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
-                            onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
-                            onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
-                            onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
-                            onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
-                            onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) },
-                            documentBlocks = document.blocks,
-                            paginatedPages = paginatedPages,
-                            onNavigateToBlock = { onBlockSelected(it) }
+                    BlockItemView(
+                        block = block,
+                        itemNumber = itemNumber,
+                        isActive = index == activeBlockIndex,
+                        isDarkPage = isDarkPage,
+                        zoomScale = zoomScale,
+                        canDeleteBlock = document.blocks.size > 1,
+                        onFocus = { onBlockSelected(index) },
+                        onSelectionChanged = { sel -> onSelectionChangedForBlock(index, sel) },
+                        onTextChanged = { newText, sel -> onUpdateBlockText(index, newText, sel) },
+                        onEnterPressed = { cursorOffset -> onSplitParagraph(index, cursorOffset) },
+                        onDeleteBlock = { onDeleteBlockById(block.id) },
+                        onDeleteOrMergeWithPrevious = { onDeleteOrMergeWithPrevious(index) },
+                        onEditTableProperties = { if (block is TableBlock) onEditTableProperties(block) },
+                        onEditTableCell = { r, c -> if (block is TableBlock) onEditTableCell(block, r, c) },
+                        onAddTableRow = { if (block is TableBlock) onQuickAddTableRow(block.id) },
+                        onDeleteTableRow = { if (block is TableBlock) onQuickDeleteTableRow(block.id) },
+                        onAddTableCol = { if (block is TableBlock) onQuickAddTableCol(block.id) },
+                        onDeleteTableCol = { if (block is TableBlock) onQuickDeleteTableCol(block.id) },
+                        onEditImageProperties = { if (block is ImageBlock) onEditImageProperties(block) },
+                        documentBlocks = document.blocks,
+                        paginatedPages = paginatedPages,
+                        onNavigateToBlock = { onBlockSelected(it) },
+                        onRefreshTOC = onRefreshTOC
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (document.layoutConfig.columnCount == 2 && document.blocks.size > 1) {
+                    val mid = (document.blocks.size + 1) / 2
+                    val leftBlocks = document.blocks.mapIndexed { idx, b -> idx to b }.take(mid)
+                    val rightBlocks = document.blocks.mapIndexed { idx, b -> idx to b }.drop(mid)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            leftBlocks.forEach { (index, block) ->
+                                RenderContinuousBlock(index, block)
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .heightIn(min = 60.dp)
+                                .background(if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0))
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            rightBlocks.forEach { (index, block) ->
+                                RenderContinuousBlock(index, block)
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        document.blocks.forEachIndexed { index, block ->
+                            RenderContinuousBlock(index, block)
+                        }
                     }
                 }
             }

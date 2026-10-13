@@ -1563,6 +1563,9 @@ class EditorViewModel(
         executeCommand(
             DeleteBlockCommand(index = index, deletedBlock = block)
         )
+        if (block is com.example.data.model.FootnoteBlock) {
+            renumberFootnotes()
+        }
         _activeBlockIndex.value = (_activeBlockIndex.value - 1).coerceAtLeast(0)
     }
 
@@ -2211,15 +2214,57 @@ class EditorViewModel(
         val doc = _document.value ?: return
         val currentNotes = doc.blocks.filterIsInstance<com.example.data.model.FootnoteBlock>()
         val nextNoteNumber = currentNotes.size + 1
-        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, doc.blocks.size)
+        val activeIndex = _activeBlockIndex.value
+        val activeBlock = doc.blocks.getOrNull(activeIndex)
 
+        // Automatically append or link superscript marker to active paragraph text
+        if (activeBlock is ParagraphBlock) {
+            val superscriptMark = when (nextNoteNumber) {
+                1 -> "¹"
+                2 -> "²"
+                3 -> "³"
+                4 -> "⁴"
+                5 -> "⁵"
+                else -> "[$nextNoteNumber]"
+            }
+            val updatedText = if (referenceText.isNotBlank() && activeBlock.text.contains(referenceText)) {
+                activeBlock.text.replaceFirst(referenceText, "$referenceText$superscriptMark")
+            } else {
+                if (activeBlock.text.isBlank()) superscriptMark else "${activeBlock.text} $superscriptMark"
+            }
+            updateParagraphText(activeIndex, updatedText)
+        }
+
+        val insertIndex = (activeIndex + 1).coerceIn(0, doc.blocks.size)
         val footnote = com.example.data.model.FootnoteBlock(
             noteNumber = nextNoteNumber,
-            referenceText = referenceText,
+            referenceText = referenceText.ifBlank { "Citation $nextNoteNumber" },
             noteContent = noteContent
         )
         executeCommand(InsertBlockCommand(insertIndex, footnote))
-        _statusMessage.value = "Footnote [$nextNoteNumber] inserted"
+        renumberFootnotes()
+        _statusMessage.value = "Footnote [$nextNoteNumber] linked & inserted"
+    }
+
+    fun renumberFootnotes() {
+        val doc = _document.value ?: return
+        var counter = 1
+        val updatedBlocks = doc.blocks.map { block ->
+            if (block is com.example.data.model.FootnoteBlock) {
+                block.copy(noteNumber = counter++)
+            } else block
+        }
+        _document.value = doc.copy(blocks = updatedBlocks)
+    }
+
+    fun refreshTableOfContents() {
+        val doc = _document.value ?: return
+        val hasToc = doc.blocks.any { it is com.example.data.model.TableOfContentsBlock }
+        if (hasToc) {
+            // Trigger state change so TOC recombines live heading data
+            _document.value = doc.copy(updatedAt = System.currentTimeMillis())
+            _statusMessage.value = "Table of Contents synchronized"
+        }
     }
 
     fun setPageBorder(style: com.example.core.layout.PageBorderStyle, colorHex: String) {
