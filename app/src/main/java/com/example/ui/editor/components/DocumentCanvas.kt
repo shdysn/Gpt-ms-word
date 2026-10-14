@@ -455,6 +455,38 @@ fun DocumentCanvas(
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                     }
+
+                                    is com.example.core.layout.ColumnBreakPageItem -> {
+                                        BlockItemView(
+                                            block = pageItem.originalBlock,
+                                            itemNumber = null,
+                                            isActive = false,
+                                            isDarkPage = isDarkPage,
+                                            zoomScale = zoomScale,
+                                            canDeleteBlock = document.blocks.size > 1,
+                                            onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                            onSelectionChanged = {},
+                                            onTextChanged = { _, _ -> },
+                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+
+                                    is com.example.core.layout.SectionBreakPageItem -> {
+                                        BlockItemView(
+                                            block = pageItem.originalBlock,
+                                            itemNumber = null,
+                                            isActive = false,
+                                            isDarkPage = isDarkPage,
+                                            zoomScale = zoomScale,
+                                            canDeleteBlock = document.blocks.size > 1,
+                                            onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
+                                            onSelectionChanged = {},
+                                            onTextChanged = { _, _ -> },
+                                            onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                    }
                                 }
                             }
 

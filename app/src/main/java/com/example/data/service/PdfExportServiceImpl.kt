@@ -967,6 +967,14 @@ class PdfExportServiceImpl : DocumentExportService {
                         canvas.drawText(noteLabel, leftMargin, cursorY + 8f, fnPaint)
                         cursorY += 18f
                     }
+
+                    is com.example.core.layout.ColumnBreakPageItem -> {
+                        cursorY += item.heightPt
+                    }
+
+                    is com.example.core.layout.SectionBreakPageItem -> {
+                        cursorY += item.heightPt
+                    }
                 }
             }
 
