@@ -67,6 +67,24 @@ data class PageBreakPageItem(
 ) : PageItem
 
 /**
+ * Marker for an explicit column break.
+ */
+data class ColumnBreakPageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.ColumnBreakBlock,
+    override val heightPt: Float = 16f
+) : PageItem
+
+/**
+ * Marker for an explicit section break.
+ */
+data class SectionBreakPageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.SectionBreakBlock,
+    override val heightPt: Float = 24f
+) : PageItem
+
+/**
  * Resolved heading entry for Table of Contents navigation.
  */
 data class TocHeadingEntry(

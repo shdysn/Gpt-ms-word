@@ -57,6 +57,18 @@ object PaginationEngine {
                     commitCurrentPageAndStartNew()
                 }
 
+                is com.example.data.model.ColumnBreakBlock -> {
+                    currentPage.add(ColumnBreakPageItem(originalBlockIndex = blockIndex, originalBlock = block))
+                    commitCurrentPageAndStartNew()
+                }
+
+                is com.example.data.model.SectionBreakBlock -> {
+                    currentPage.add(SectionBreakPageItem(originalBlockIndex = blockIndex, originalBlock = block))
+                    if (block.isNextPage) {
+                        commitCurrentPageAndStartNew()
+                    }
+                }
+
                 is DividerBlock -> {
                     val dividerHeight = 16f
                     if (currentHeight + dividerHeight > printableHeightPt && currentPage.isNotEmpty()) {

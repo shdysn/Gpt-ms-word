@@ -16,7 +16,13 @@ data class ActiveFormatting(
     val textColorHex: String? = null,
     val highlightColorHex: String? = null,
     val fontFamilyName: String? = null,
-    val linkUrl: String? = null
+    val linkUrl: String? = null,
+    val letterSpacingSp: Float? = null,
+    val underlineStyle: com.example.data.model.UnderlineStyle = com.example.data.model.UnderlineStyle.NONE,
+    val underlineColorHex: String? = null,
+    val strikethroughStyle: com.example.data.model.StrikethroughStyle = com.example.data.model.StrikethroughStyle.NONE,
+    val shadowColorHex: String? = null,
+    val isOutline: Boolean = false
 )
 
 /**
@@ -43,16 +49,37 @@ object SpanOperations {
         return ActiveFormatting(
             isBold = targetSpans.any { it.isBold },
             isItalic = targetSpans.any { it.isItalic },
-            isUnderline = targetSpans.any { it.isUnderline },
-            isStrikethrough = targetSpans.any { it.isStrikethrough },
+            isUnderline = targetSpans.any { it.isUnderline || it.underlineStyle != com.example.data.model.UnderlineStyle.NONE },
+            isStrikethrough = targetSpans.any { it.isStrikethrough || it.strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE },
             isSuperscript = targetSpans.any { it.isSuperscript },
             isSubscript = targetSpans.any { it.isSubscript },
             fontSizeSp = targetSpans.lastOrNull { it.fontSizeSp != null }?.fontSizeSp,
             textColorHex = targetSpans.lastOrNull { it.textColorHex != null }?.textColorHex,
             highlightColorHex = targetSpans.lastOrNull { it.highlightColorHex != null }?.highlightColorHex,
             fontFamilyName = targetSpans.lastOrNull { it.fontFamilyName != null }?.fontFamilyName,
-            linkUrl = targetSpans.lastOrNull { it.linkUrl != null }?.linkUrl
+            linkUrl = targetSpans.lastOrNull { it.linkUrl != null }?.linkUrl,
+            letterSpacingSp = targetSpans.lastOrNull { it.letterSpacingSp != null }?.letterSpacingSp,
+            underlineStyle = targetSpans.lastOrNull { it.underlineStyle != com.example.data.model.UnderlineStyle.NONE }?.underlineStyle ?: com.example.data.model.UnderlineStyle.NONE,
+            underlineColorHex = targetSpans.lastOrNull { it.underlineColorHex != null }?.underlineColorHex,
+            strikethroughStyle = targetSpans.lastOrNull { it.strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE }?.strikethroughStyle ?: com.example.data.model.StrikethroughStyle.NONE,
+            shadowColorHex = targetSpans.lastOrNull { it.shadowColorHex != null }?.shadowColorHex,
+            isOutline = targetSpans.any { it.isOutline }
         )
+    }
+
+    /**
+     * Clears all formatting from spans in target range [start, end].
+     * If start == end, clears all spans in the entire paragraph.
+     */
+    fun clearFormatting(spans: List<InlineSpan>, start: Int, end: Int, textLength: Int): List<InlineSpan> {
+        val s = start.coerceIn(0, textLength)
+        val e = end.coerceIn(s, textLength)
+        if (s == e) {
+            // No selection -> clear entire paragraph
+            return emptyList()
+        }
+        val sliced = sliceSpansAtBoundaries(spans, s, e)
+        return sliced.filter { it.end <= s || it.start >= e }
     }
 
     /**

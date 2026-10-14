@@ -36,6 +36,74 @@ enum class ListType {
 }
 
 /**
+ * Underline styles matching Microsoft Word.
+ */
+enum class UnderlineStyle {
+    NONE,
+    SINGLE,
+    DOUBLE,
+    DOTTED,
+    WAVY
+}
+
+/**
+ * Strikethrough styles matching Microsoft Word.
+ */
+enum class StrikethroughStyle {
+    NONE,
+    SINGLE,
+    DOUBLE
+}
+
+/**
+ * Vertical alignment within table cells.
+ */
+enum class CellVerticalAlignment {
+    TOP,
+    CENTER,
+    BOTTOM
+}
+
+/**
+ * Tab Stop alignment and leader styles.
+ */
+enum class TabAlignment {
+    LEFT,
+    CENTER,
+    RIGHT,
+    DECIMAL
+}
+
+enum class TabLeader {
+    NONE,
+    DOT,
+    HYPHEN,
+    LINE
+}
+
+data class TabStop(
+    val positionPt: Float,
+    val alignment: TabAlignment = TabAlignment.LEFT,
+    val leader: TabLeader = TabLeader.NONE
+)
+
+/**
+ * Custom named style defined by the user.
+ */
+data class CustomStyle(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val fontSizeSp: Float = 15f,
+    val isBold: Boolean = false,
+    val isItalic: Boolean = false,
+    val textColorHex: String? = null,
+    val spaceBeforePt: Float = 0f,
+    val spaceAfterPt: Float = 0f,
+    val lineSpacingMultiplier: Float = 1.25f,
+    val firstLineIndentPt: Float = 0f
+)
+
+/**
  * Inline style span applied to sub-ranges of text in a paragraph.
  */
 data class InlineSpan(
@@ -51,7 +119,16 @@ data class InlineSpan(
     val textColorHex: String? = null,
     val highlightColorHex: String? = null,
     val fontFamilyName: String? = null,
-    val linkUrl: String? = null
+    val linkUrl: String? = null,
+    val letterSpacingSp: Float? = null,
+    val underlineStyle: UnderlineStyle = if (isUnderline) UnderlineStyle.SINGLE else UnderlineStyle.NONE,
+    val underlineColorHex: String? = null,
+    val strikethroughStyle: StrikethroughStyle = if (isStrikethrough) StrikethroughStyle.SINGLE else StrikethroughStyle.NONE,
+    val shadowDx: Float? = null,
+    val shadowDy: Float? = null,
+    val shadowRadius: Float? = null,
+    val shadowColorHex: String? = null,
+    val isOutline: Boolean = false
 )
 
 /**
@@ -76,7 +153,14 @@ data class ParagraphBlock(
     val lineSpacingMultiplier: Float = 1.25f,
     val spaceBeforePt: Float = 0f,
     val spaceAfterPt: Float = 0f,
-    val leftIndentPt: Float = 0f
+    val leftIndentPt: Float = 0f,
+    val firstLineIndentPt: Float = 0f,
+    val hangingIndentPt: Float = 0f,
+    val dropCapLines: Int = 0, // 0 = disabled, 2..4 = lines tall drop cap
+    val listLevel: Int = 0, // 0..4 for multi-level hierarchical list numbering
+    val isChecklist: Boolean = false,
+    val isChecked: Boolean = false,
+    val tabStops: List<TabStop> = emptyList()
 ) : BlockElement
 
 /**
@@ -88,7 +172,16 @@ data class TableCell(
     val isItalic: Boolean = false,
     val backgroundColorHex: String? = null,
     val alignment: TextAlignment = TextAlignment.START,
-    val widthPt: Float? = null
+    val widthPt: Float? = null,
+    val colSpan: Int = 1,
+    val rowSpan: Int = 1,
+    val isMergedCovered: Boolean = false,
+    val verticalAlignment: CellVerticalAlignment = CellVerticalAlignment.TOP,
+    val borderTopWidthPt: Float? = null,
+    val borderBottomWidthPt: Float? = null,
+    val borderLeftWidthPt: Float? = null,
+    val borderRightWidthPt: Float? = null,
+    val paddingPt: Float = 6f
 )
 
 /**
@@ -210,6 +303,25 @@ data class PageBreakBlock(
 ) : BlockElement
 
 /**
+ * Explicit column break block for multi-column layouts.
+ */
+data class ColumnBreakBlock(
+    override val id: String = UUID.randomUUID().toString()
+) : BlockElement
+
+/**
+ * Section break block allowing independent page orientations, headers, and footers.
+ */
+data class SectionBreakBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val sectionName: String = "Section",
+    val orientation: String = "PORTRAIT", // PORTRAIT, LANDSCAPE
+    val isNextPage: Boolean = true, // true = Next Page break, false = Continuous
+    val headerText: String = "",
+    val footerText: String = ""
+) : BlockElement
+
+/**
  * Complete in-memory model of a Rich Document.
  */
 data class RichDocument(
@@ -223,7 +335,8 @@ data class RichDocument(
     val passwordHash: String? = null, // Non-null when document is password-protected
     val comments: List<DocumentComment> = emptyList(),
     val trackedChanges: List<TrackedChange> = emptyList(),
-    val isTrackChangesEnabled: Boolean = false
+    val isTrackChangesEnabled: Boolean = false,
+    val customStyles: List<CustomStyle> = emptyList()
 ) {
     val wordCount: Int
         get() = blocks.filterIsInstance<ParagraphBlock>().sumOf { block ->

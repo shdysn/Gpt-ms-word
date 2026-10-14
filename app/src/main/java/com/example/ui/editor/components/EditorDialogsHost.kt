@@ -110,6 +110,14 @@ fun EditorDialogsHost(
     onDismissPageBordersDialog: () -> Unit = {},
     showPageColorDialog: Boolean = false,
     onDismissPageColorDialog: () -> Unit = {},
+    showTypographyEffectsDialog: Boolean = false,
+    onDismissTypographyEffectsDialog: () -> Unit = {},
+    showParagraphSpacingDialog: Boolean = false,
+    onDismissParagraphSpacingDialog: () -> Unit = {},
+    showCreateCustomStyleDialog: Boolean = false,
+    onDismissCreateCustomStyleDialog: () -> Unit = {},
+    selectedCellForProperties: Triple<TableBlock, Int, Int>? = null,
+    onDismissCellProperties: () -> Unit = {},
     safDocxSaveLauncher: ActivityResultLauncher<String>,
     safPdfSaveLauncher: ActivityResultLauncher<String>
 ) {
@@ -611,6 +619,84 @@ fun EditorDialogsHost(
             onDismiss = onDismissPageColorDialog,
             onApply = { colorHex ->
                 viewModel.setPageBackgroundColor(colorHex)
+            }
+        )
+    }
+
+    // Typography & Effects Dialog (Letter Spacing, Advanced Underline, Shadows)
+    if (showTypographyEffectsDialog) {
+        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+        TypographyAndEffectsDialog(
+            initialLetterSpacingSp = activeFormatting.letterSpacingSp,
+            initialUnderlineStyle = activeFormatting.underlineStyle,
+            initialUnderlineColorHex = activeFormatting.underlineColorHex,
+            initialStrikethroughStyle = activeFormatting.strikethroughStyle,
+            initialShadowColorHex = activeFormatting.shadowColorHex,
+            onDismiss = onDismissTypographyEffectsDialog,
+            onApply = { letterSpacingSp, underlineStyle, underlineColorHex, strikethroughStyle, shadowColorHex ->
+                viewModel.applyTypographyEffects(letterSpacingSp, underlineStyle, underlineColorHex, strikethroughStyle, shadowColorHex)
+                onDismissTypographyEffectsDialog()
+            }
+        )
+    }
+
+    // Paragraph Spacing & Indents Dialog (First Line, Hanging, Space Before/After, Drop Cap)
+    if (showParagraphSpacingDialog && activeParagraph != null) {
+        ParagraphSpacingAndIndentsDialog(
+            initialFirstLinePt = activeParagraph.firstLineIndentPt,
+            initialHangingPt = activeParagraph.hangingIndentPt,
+            initialSpaceBeforePt = activeParagraph.spaceBeforePt,
+            initialSpaceAfterPt = activeParagraph.spaceAfterPt,
+            initialDropCapLines = activeParagraph.dropCapLines,
+            onDismiss = onDismissParagraphSpacingDialog,
+            onApply = { firstLinePt, hangingPt, spaceBeforePt, spaceAfterPt, dropCapLines ->
+                viewModel.updateParagraphIndents(firstLinePt, hangingPt, spaceBeforePt, spaceAfterPt, dropCapLines)
+                onDismissParagraphSpacingDialog()
+            }
+        )
+    }
+
+    // Create Custom Style Dialog
+    if (showCreateCustomStyleDialog && activeParagraph != null) {
+        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+        val templateStyle = com.example.data.model.CustomStyle(
+            name = "My Style",
+            fontSizeSp = activeFormatting.fontSizeSp ?: 15f,
+            isBold = activeFormatting.isBold,
+            isItalic = activeFormatting.isItalic,
+            textColorHex = activeFormatting.textColorHex,
+            spaceBeforePt = activeParagraph.spaceBeforePt,
+            spaceAfterPt = activeParagraph.spaceAfterPt,
+            lineSpacingMultiplier = activeParagraph.lineSpacingMultiplier,
+            firstLineIndentPt = activeParagraph.firstLineIndentPt
+        )
+        CreateCustomStyleDialog(
+            initialStyle = templateStyle,
+            onDismiss = onDismissCreateCustomStyleDialog,
+            onSave = { style ->
+                viewModel.saveCustomStyle(style)
+                onDismissCreateCustomStyleDialog()
+            }
+        )
+    }
+
+    // Table Cell Properties Dialog (Vertical Alignment, Shading, Cell Merge / Split)
+    selectedCellForProperties?.let { (table, r, c) ->
+        val cell = table.cells.getOrNull(r)?.getOrNull(c) ?: TableCell()
+        TableCellPropertiesDialog(
+            cell = cell,
+            onDismiss = onDismissCellProperties,
+            onApply = { vAlign, bgHex ->
+                viewModel.updateTableCellFormatting(table.id, r, c, vAlign, bgHex)
+                onDismissCellProperties()
+            },
+            onMergeCells = {
+                viewModel.mergeTableCells(table.id, r, c, 2)
+                onDismissCellProperties()
+            },
+            onSplitCell = {
+                viewModel.splitTableCell(table.id, r, c)
+                onDismissCellProperties()
             }
         )
     }

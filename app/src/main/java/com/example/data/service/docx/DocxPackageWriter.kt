@@ -571,6 +571,15 @@ class DocxPackageWriter(private val context: Context?) {
                 is PageBreakBlock -> {
                     sb.append("""<w:p><w:r><w:br w:type="page"/></w:r></w:p>""")
                 }
+                is com.example.data.model.ColumnBreakBlock -> {
+                    sb.append("""<w:p><w:r><w:br w:type="column"/></w:r></w:p>""")
+                }
+                is com.example.data.model.SectionBreakBlock -> {
+                    val orient = if (block.orientation.equals("LANDSCAPE", ignoreCase = true)) "landscape" else "portrait"
+                    val (w, h) = if (orient == "landscape") 16838 to 11906 else 11906 to 16838
+                    val typeVal = if (block.isNextPage) "nextPage" else "continuous"
+                    sb.append("""<w:p><w:pPr><w:sectPr><w:type w:val="$typeVal"/><w:pgSz w:w="$w" w:h="$h" w:orient="$orient"/></w:sectPr></w:pPr></w:p>""")
+                }
                 is com.example.data.model.TableOfContentsBlock -> {
                     sb.append("""<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:spacing w:before="240" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="32"/><w:color w:val="0F172A"/></w:rPr><w:t>${escapeXml(block.title)}</w:t></w:r></w:p>""")
                     for (b in document.blocks) {

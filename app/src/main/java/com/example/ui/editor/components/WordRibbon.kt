@@ -111,12 +111,22 @@ fun WordRibbon(
     onOpenFootnoteDialog: () -> Unit = {},
     onOpenPageBordersDialog: () -> Unit = {},
     onOpenPageColorDialog: () -> Unit = {},
+    showCommentsDialog: Boolean = false,
     onOpenCommentsDialog: () -> Unit = {},
+    showTrackChangesDialog: Boolean = false,
     onOpenTrackChangesDialog: () -> Unit = {},
-    onOpenSmartWritingDialog: () -> Unit = {}
+    onOpenSmartWritingDialog: () -> Unit = {},
+    onClearFormatting: () -> Unit = { viewModel.clearFormatting() },
+    onChangeCase: (com.example.editor.engine.CaseType) -> Unit = { viewModel.changeCase(it) },
+    onOpenTypographyEffectsDialog: () -> Unit = {},
+    onOpenParagraphSpacingDialog: () -> Unit = {},
+    onToggleChecklist: () -> Unit = { viewModel.toggleChecklist() },
+    onCreateCustomStyle: () -> Unit = {},
+    onApplyCustomStyle: (com.example.data.model.CustomStyle) -> Unit = { viewModel.applyCustomStyle(it) }
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
     val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
+    val currentDocument by viewModel.document.collectAsStateWithLifecycle()
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -222,7 +232,15 @@ fun WordRibbon(
                             onToggleRtl = viewModel::toggleRtl,
                             onSetLineSpacing = viewModel::setLineSpacing,
                             isFormatPainterActive = isFormatPainterActive,
-                            onToggleFormatPainter = viewModel::toggleFormatPainter
+                            onToggleFormatPainter = viewModel::toggleFormatPainter,
+                            onClearFormatting = onClearFormatting,
+                            onChangeCase = onChangeCase,
+                            onOpenTypographyEffectsDialog = onOpenTypographyEffectsDialog,
+                            onOpenParagraphSpacingDialog = onOpenParagraphSpacingDialog,
+                            onToggleChecklist = onToggleChecklist,
+                            customStyles = currentDocument?.customStyles ?: emptyList(),
+                            onApplyCustomStyle = onApplyCustomStyle,
+                            onCreateCustomStyle = onCreateCustomStyle
                         )
                     }
 

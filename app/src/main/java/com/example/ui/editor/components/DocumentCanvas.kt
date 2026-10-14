@@ -78,7 +78,8 @@ fun DocumentCanvas(
     onOpenPageLayoutDialog: () -> Unit = {},
     onSelectionChangedForBlock: (Int, TextRange) -> Unit = { _, _ -> },
     onSplitParagraph: (Int, Int) -> Unit = { _, _ -> },
-    onRefreshTOC: () -> Unit = {}
+    onRefreshTOC: () -> Unit = {},
+    onToggleChecklistItem: (String) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -116,9 +117,14 @@ fun DocumentCanvas(
 
             pagesToDisplay.forEachIndexed { pageIdx, page ->
                 if (showRuler && pageIdx == 0) {
+                    val activePara = document.blocks.getOrNull(activeBlockIndex) as? ParagraphBlock
                     DocumentRulerBar(
                         layout = document.layoutConfig,
-                        maxSheetWidth = scaledMaxSheetWidth
+                        maxSheetWidth = scaledMaxSheetWidth,
+                        firstLineIndentPt = activePara?.firstLineIndentPt ?: 0f,
+                        hangingIndentPt = activePara?.hangingIndentPt ?: 0f,
+                        leftIndentPt = activePara?.leftIndentPt ?: 0f,
+                        tabStops = activePara?.tabStops ?: emptyList()
                     )
                 }
 
@@ -286,7 +292,8 @@ fun DocumentCanvas(
                                             documentBlocks = document.blocks,
                                             paginatedPages = paginatedPages,
                                             onNavigateToBlock = { onBlockSelected(it) },
-                                            onRefreshTOC = onRefreshTOC
+                                            onRefreshTOC = onRefreshTOC,
+                                            onToggleChecklistItem = onToggleChecklistItem
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                     }
@@ -536,9 +543,14 @@ fun DocumentCanvas(
             val isDarkPage = isColorDarkHex(document.layoutConfig.pageBackgroundHex)
 
             if (showRuler) {
+                val activePara = document.blocks.getOrNull(activeBlockIndex) as? ParagraphBlock
                 DocumentRulerBar(
                     layout = document.layoutConfig,
-                    maxSheetWidth = 920.dp
+                    maxSheetWidth = 920.dp,
+                    firstLineIndentPt = activePara?.firstLineIndentPt ?: 0f,
+                    hangingIndentPt = activePara?.hangingIndentPt ?: 0f,
+                    leftIndentPt = activePara?.leftIndentPt ?: 0f,
+                    tabStops = activePara?.tabStops ?: emptyList()
                 )
             }
 
@@ -577,7 +589,8 @@ fun DocumentCanvas(
                         documentBlocks = document.blocks,
                         paginatedPages = paginatedPages,
                         onNavigateToBlock = { onBlockSelected(it) },
-                        onRefreshTOC = onRefreshTOC
+                        onRefreshTOC = onRefreshTOC,
+                        onToggleChecklistItem = onToggleChecklistItem
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                 }

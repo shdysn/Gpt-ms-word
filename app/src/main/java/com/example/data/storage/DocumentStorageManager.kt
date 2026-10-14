@@ -375,6 +375,15 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("indentationLevel", block.indentationLevel)
                         blockObj.put("isRtl", block.isRtl)
                         blockObj.put("lineSpacing", block.lineSpacingMultiplier.toDouble())
+                        blockObj.put("firstLineIndentPt", block.firstLineIndentPt.toDouble())
+                        blockObj.put("hangingIndentPt", block.hangingIndentPt.toDouble())
+                        blockObj.put("spaceBeforePt", block.spaceBeforePt.toDouble())
+                        blockObj.put("spaceAfterPt", block.spaceAfterPt.toDouble())
+                        blockObj.put("leftIndentPt", block.leftIndentPt.toDouble())
+                        blockObj.put("dropCapLines", block.dropCapLines)
+                        blockObj.put("listLevel", block.listLevel)
+                        blockObj.put("isChecklist", block.isChecklist)
+                        blockObj.put("isChecked", block.isChecked)
 
                         val spansArray = JSONArray()
                         for (span in block.spans) {
@@ -392,6 +401,15 @@ class DocumentStorageManager(private val context: Context) {
                                 span.highlightColorHex?.let { put("highlightColorHex", it) }
                                 span.fontFamilyName?.let { put("fontFamilyName", it) }
                                 span.linkUrl?.let { put("linkUrl", it) }
+                                span.letterSpacingSp?.let { put("letterSpacingSp", it.toDouble()) }
+                                put("underlineStyle", span.underlineStyle.name)
+                                span.underlineColorHex?.let { put("underlineColorHex", it) }
+                                put("strikethroughStyle", span.strikethroughStyle.name)
+                                span.shadowDx?.let { put("shadowDx", it.toDouble()) }
+                                span.shadowDy?.let { put("shadowDy", it.toDouble()) }
+                                span.shadowRadius?.let { put("shadowRadius", it.toDouble()) }
+                                span.shadowColorHex?.let { put("shadowColorHex", it) }
+                                put("isOutline", span.isOutline)
                             }
                             spansArray.put(spanObj)
                         }
@@ -418,6 +436,14 @@ class DocumentStorageManager(private val context: Context) {
                                     put("isItalic", cell.isItalic)
                                     put("alignment", cell.alignment.name)
                                     cell.backgroundColorHex?.let { put("bg", it) }
+                                    put("colSpan", cell.colSpan)
+                                    put("rowSpan", cell.rowSpan)
+                                    put("isMergedCovered", cell.isMergedCovered)
+                                    put("vAlign", cell.verticalAlignment.name)
+                                    cell.borderTopWidthPt?.let { put("bt", it.toDouble()) }
+                                    cell.borderBottomWidthPt?.let { put("bb", it.toDouble()) }
+                                    cell.borderLeftWidthPt?.let { put("bl", it.toDouble()) }
+                                    cell.borderRightWidthPt?.let { put("br", it.toDouble()) }
                                 }
                                 rowArray.put(cellObj)
                             }
@@ -480,10 +506,42 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("type", "page_break")
                         blockObj.put("id", block.id)
                     }
+                    is com.example.data.model.ColumnBreakBlock -> {
+                        blockObj.put("type", "column_break")
+                        blockObj.put("id", block.id)
+                    }
+                    is com.example.data.model.SectionBreakBlock -> {
+                        blockObj.put("type", "section_break")
+                        blockObj.put("id", block.id)
+                        blockObj.put("sectionName", block.sectionName)
+                        blockObj.put("orientation", block.orientation)
+                        blockObj.put("isNextPage", block.isNextPage)
+                        blockObj.put("headerText", block.headerText)
+                        blockObj.put("footerText", block.footerText)
+                    }
                 }
                 blocksArray.put(blockObj)
             }
             put("blocks", blocksArray)
+
+            // Custom Styles
+            val stylesArr = JSONArray()
+            for (cs in doc.customStyles) {
+                val sObj = JSONObject().apply {
+                    put("id", cs.id)
+                    put("name", cs.name)
+                    put("fontSizeSp", cs.fontSizeSp.toDouble())
+                    put("isBold", cs.isBold)
+                    put("isItalic", cs.isItalic)
+                    cs.textColorHex?.let { put("textColorHex", it) }
+                    put("spaceBeforePt", cs.spaceBeforePt.toDouble())
+                    put("spaceAfterPt", cs.spaceAfterPt.toDouble())
+                    put("lineSpacingMultiplier", cs.lineSpacingMultiplier.toDouble())
+                    put("firstLineIndentPt", cs.firstLineIndentPt.toDouble())
+                }
+                stylesArr.put(sObj)
+            }
+            put("customStyles", stylesArr)
 
             // Review & Tracking
             put("isTrackChangesEnabled", doc.isTrackChangesEnabled)
@@ -609,27 +667,61 @@ class DocumentStorageManager(private val context: Context) {
                     val indentationLevel = bObj.optInt("indentationLevel", 0)
                     val isRtl = bObj.optBoolean("isRtl", false)
                     val lineSpacing = bObj.optDouble("lineSpacing", 1.25).toFloat()
+                    val firstLineIndentPt = bObj.optDouble("firstLineIndentPt", 0.0).toFloat()
+                    val hangingIndentPt = bObj.optDouble("hangingIndentPt", 0.0).toFloat()
+                    val spaceBeforePt = bObj.optDouble("spaceBeforePt", 0.0).toFloat()
+                    val spaceAfterPt = bObj.optDouble("spaceAfterPt", 0.0).toFloat()
+                    val leftIndentPt = bObj.optDouble("leftIndentPt", 0.0).toFloat()
+                    val dropCapLines = bObj.optInt("dropCapLines", 0)
+                    val listLevel = bObj.optInt("listLevel", 0)
+                    val isChecklist = bObj.optBoolean("isChecklist", false)
+                    val isChecked = bObj.optBoolean("isChecked", false)
 
                     val spans = mutableListOf<InlineSpan>()
                     val spansArr = bObj.optJSONArray("spans")
                     if (spansArr != null) {
                         for (j in 0 until spansArr.length()) {
                             val sObj = spansArr.getJSONObject(j)
+                            val isUnderline = sObj.optBoolean("isUnderline", false)
+                            val uStyleStr = sObj.optString("underlineStyle", if (isUnderline) "SINGLE" else "NONE")
+                            val uStyle = try {
+                                com.example.data.model.UnderlineStyle.valueOf(uStyleStr)
+                            } catch (_: Exception) {
+                                if (isUnderline) com.example.data.model.UnderlineStyle.SINGLE else com.example.data.model.UnderlineStyle.NONE
+                            }
+
+                            val isStrikethrough = sObj.optBoolean("isStrikethrough", false)
+                            val sStyleStr = sObj.optString("strikethroughStyle", if (isStrikethrough) "SINGLE" else "NONE")
+                            val sStyle = try {
+                                com.example.data.model.StrikethroughStyle.valueOf(sStyleStr)
+                            } catch (_: Exception) {
+                                if (isStrikethrough) com.example.data.model.StrikethroughStyle.SINGLE else com.example.data.model.StrikethroughStyle.NONE
+                            }
+
                             spans.add(
                                 InlineSpan(
                                     start = sObj.optInt("start", 0),
                                     end = sObj.optInt("end", 0),
                                     isBold = sObj.optBoolean("isBold", false),
                                     isItalic = sObj.optBoolean("isItalic", false),
-                                    isUnderline = sObj.optBoolean("isUnderline", false),
-                                    isStrikethrough = sObj.optBoolean("isStrikethrough", false),
+                                    isUnderline = isUnderline || (uStyle != com.example.data.model.UnderlineStyle.NONE),
+                                    isStrikethrough = isStrikethrough || (sStyle != com.example.data.model.StrikethroughStyle.NONE),
                                     isSuperscript = sObj.optBoolean("isSuperscript", false),
                                     isSubscript = sObj.optBoolean("isSubscript", false),
                                     fontSizeSp = if (sObj.has("fontSizeSp")) sObj.getDouble("fontSizeSp").toFloat() else null,
                                     textColorHex = if (sObj.has("textColorHex")) sObj.getString("textColorHex") else null,
                                     highlightColorHex = if (sObj.has("highlightColorHex")) sObj.getString("highlightColorHex") else null,
                                     fontFamilyName = if (sObj.has("fontFamilyName")) sObj.getString("fontFamilyName") else null,
-                                    linkUrl = if (sObj.has("linkUrl")) sObj.getString("linkUrl") else null
+                                    linkUrl = if (sObj.has("linkUrl")) sObj.getString("linkUrl") else null,
+                                    letterSpacingSp = if (sObj.has("letterSpacingSp")) sObj.getDouble("letterSpacingSp").toFloat() else null,
+                                    underlineStyle = uStyle,
+                                    underlineColorHex = if (sObj.has("underlineColorHex")) sObj.getString("underlineColorHex") else null,
+                                    strikethroughStyle = sStyle,
+                                    shadowDx = if (sObj.has("shadowDx")) sObj.getDouble("shadowDx").toFloat() else null,
+                                    shadowDy = if (sObj.has("shadowDy")) sObj.getDouble("shadowDy").toFloat() else null,
+                                    shadowRadius = if (sObj.has("shadowRadius")) sObj.getDouble("shadowRadius").toFloat() else null,
+                                    shadowColorHex = if (sObj.has("shadowColorHex")) sObj.getString("shadowColorHex") else null,
+                                    isOutline = sObj.optBoolean("isOutline", false)
                                 )
                             )
                         }
@@ -645,7 +737,16 @@ class DocumentStorageManager(private val context: Context) {
                             listType = listType,
                             indentationLevel = indentationLevel,
                             isRtl = isRtl,
-                            lineSpacingMultiplier = lineSpacing
+                            lineSpacingMultiplier = lineSpacing,
+                            firstLineIndentPt = firstLineIndentPt,
+                            hangingIndentPt = hangingIndentPt,
+                            spaceBeforePt = spaceBeforePt,
+                            spaceAfterPt = spaceAfterPt,
+                            leftIndentPt = leftIndentPt,
+                            dropCapLines = dropCapLines,
+                            listLevel = listLevel,
+                            isChecklist = isChecklist,
+                            isChecked = isChecked
                         )
                     )
                 }
@@ -672,13 +773,24 @@ class DocumentStorageManager(private val context: Context) {
                                 val cellAlign = try {
                                     TextAlignment.valueOf(cObj.optString("alignment", "START"))
                                 } catch (e: Exception) { TextAlignment.START }
+                                val vAlign = try {
+                                    com.example.data.model.CellVerticalAlignment.valueOf(cObj.optString("vAlign", "TOP"))
+                                } catch (_: Exception) { com.example.data.model.CellVerticalAlignment.TOP }
                                 row.add(
                                     TableCell(
                                         text = cObj.optString("text", ""),
                                         isBold = cObj.optBoolean("isBold", false),
                                         isItalic = cObj.optBoolean("isItalic", false),
                                         backgroundColorHex = if (cObj.has("bg") && !cObj.isNull("bg")) cObj.getString("bg") else null,
-                                        alignment = cellAlign
+                                        alignment = cellAlign,
+                                        colSpan = cObj.optInt("colSpan", 1),
+                                        rowSpan = cObj.optInt("rowSpan", 1),
+                                        isMergedCovered = cObj.optBoolean("isMergedCovered", false),
+                                        verticalAlignment = vAlign,
+                                        borderTopWidthPt = if (cObj.has("bt")) cObj.getDouble("bt").toFloat() else null,
+                                        borderBottomWidthPt = if (cObj.has("bb")) cObj.getDouble("bb").toFloat() else null,
+                                        borderLeftWidthPt = if (cObj.has("bl")) cObj.getDouble("bl").toFloat() else null,
+                                        borderRightWidthPt = if (cObj.has("br")) cObj.getDouble("br").toFloat() else null
                                     )
                                 )
                             }
@@ -770,11 +882,47 @@ class DocumentStorageManager(private val context: Context) {
                 }
                 "divider" -> blocks.add(DividerBlock(id = blockId))
                 "page_break" -> blocks.add(PageBreakBlock(id = blockId))
+                "column_break" -> blocks.add(com.example.data.model.ColumnBreakBlock(id = blockId))
+                "section_break" -> {
+                    blocks.add(
+                        com.example.data.model.SectionBreakBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            sectionName = bObj.optString("sectionName", "Section"),
+                            orientation = bObj.optString("orientation", "PORTRAIT"),
+                            isNextPage = bObj.optBoolean("isNextPage", true),
+                            headerText = bObj.optString("headerText", ""),
+                            footerText = bObj.optString("footerText", "")
+                        )
+                    )
+                }
             }
         }
 
         if (blocks.isEmpty()) {
             blocks.add(ParagraphBlock())
+        }
+
+        // Custom Styles deserialization
+        val customStyles = mutableListOf<com.example.data.model.CustomStyle>()
+        val stylesArr = root.optJSONArray("customStyles")
+        if (stylesArr != null) {
+            for (i in 0 until stylesArr.length()) {
+                val sObj = stylesArr.getJSONObject(i)
+                customStyles.add(
+                    com.example.data.model.CustomStyle(
+                        id = sObj.optString("id", java.util.UUID.randomUUID().toString()),
+                        name = sObj.optString("name", "Custom Style"),
+                        fontSizeSp = sObj.optDouble("fontSizeSp", 15.0).toFloat(),
+                        isBold = sObj.optBoolean("isBold", false),
+                        isItalic = sObj.optBoolean("isItalic", false),
+                        textColorHex = if (sObj.has("textColorHex")) sObj.getString("textColorHex") else null,
+                        spaceBeforePt = sObj.optDouble("spaceBeforePt", 0.0).toFloat(),
+                        spaceAfterPt = sObj.optDouble("spaceAfterPt", 0.0).toFloat(),
+                        lineSpacingMultiplier = sObj.optDouble("lineSpacingMultiplier", 1.25).toFloat(),
+                        firstLineIndentPt = sObj.optDouble("firstLineIndentPt", 0.0).toFloat()
+                    )
+                )
+            }
         }
 
         // Review & Tracking deserialization
@@ -827,7 +975,8 @@ class DocumentStorageManager(private val context: Context) {
             passwordHash = passwordHash,
             comments = comments,
             trackedChanges = trackedChanges,
-            isTrackChangesEnabled = isTrackChangesEnabled
+            isTrackChangesEnabled = isTrackChangesEnabled,
+            customStyles = customStyles
         )
     }
 }

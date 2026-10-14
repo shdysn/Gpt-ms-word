@@ -1230,6 +1230,208 @@ class EditorViewModel(
         }
     }
 
+    fun clearFormatting() {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        val sel = _selection.value
+        executeCommand(
+            com.example.editor.engine.ClearFormattingCommand(
+                blockId = block.id,
+                selectionStart = sel.min,
+                selectionEnd = sel.max,
+                oldParagraph = block
+            )
+        )
+        _statusMessage.value = "Formatting cleared"
+    }
+
+    fun changeCase(caseType: com.example.editor.engine.CaseType) {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        val sel = _selection.value
+        executeCommand(
+            com.example.editor.engine.ChangeCaseCommand(
+                blockId = block.id,
+                selectionStart = sel.min,
+                selectionEnd = sel.max,
+                caseType = caseType,
+                oldParagraph = block
+            )
+        )
+        _statusMessage.value = "Case changed to ${caseType.label}"
+    }
+
+    fun setLetterSpacing(letterSpacingSp: Float?) {
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(letterSpacingSp = letterSpacingSp)
+                }
+            },
+            onPending = { it.copy(letterSpacingSp = letterSpacingSp) }
+        )
+    }
+
+    fun applyTypographyEffects(
+        letterSpacingSp: Float?,
+        underlineStyle: com.example.data.model.UnderlineStyle,
+        underlineColorHex: String?,
+        strikethroughStyle: com.example.data.model.StrikethroughStyle,
+        shadowColorHex: String?
+    ) {
+        applyStyleToSelectionOrPending(
+            onSelection = { spans, s, e, len ->
+                com.example.editor.engine.SpanOperations.applyExplicitStyle(spans, s, e, len) { span ->
+                    span.copy(
+                        letterSpacingSp = letterSpacingSp,
+                        underlineStyle = underlineStyle,
+                        underlineColorHex = underlineColorHex,
+                        isUnderline = underlineStyle != com.example.data.model.UnderlineStyle.NONE,
+                        strikethroughStyle = strikethroughStyle,
+                        isStrikethrough = strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE,
+                        shadowColorHex = shadowColorHex,
+                        shadowDx = if (shadowColorHex != null) 2f else null,
+                        shadowDy = if (shadowColorHex != null) 2f else null,
+                        shadowRadius = if (shadowColorHex != null) 3f else null
+                    )
+                }
+            },
+            onPending = {
+                it.copy(
+                    letterSpacingSp = letterSpacingSp,
+                    underlineStyle = underlineStyle,
+                    underlineColorHex = underlineColorHex,
+                    isUnderline = underlineStyle != com.example.data.model.UnderlineStyle.NONE,
+                    strikethroughStyle = strikethroughStyle,
+                    isStrikethrough = strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE,
+                    shadowColorHex = shadowColorHex
+                )
+            }
+        )
+        _statusMessage.value = "Typography effects applied"
+    }
+
+    fun updateParagraphIndents(
+        firstLinePt: Float,
+        hangingPt: Float,
+        spaceBeforePt: Float,
+        spaceAfterPt: Float,
+        dropCapLines: Int
+    ) {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        executeCommand(
+            com.example.editor.engine.UpdateParagraphIndentsCommand(
+                blockId = block.id,
+                oldParagraph = block,
+                newFirstLineIndentPt = firstLinePt,
+                newHangingIndentPt = hangingPt,
+                newSpaceBeforePt = spaceBeforePt,
+                newSpaceAfterPt = spaceAfterPt,
+                newDropCapLines = dropCapLines
+            )
+        )
+        _statusMessage.value = "Paragraph indents and spacing updated"
+    }
+
+    fun toggleChecklist() {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        executeCommand(
+            com.example.editor.engine.ToggleChecklistCommand(
+                blockId = block.id,
+                oldParagraph = block
+            )
+        )
+    }
+
+    fun toggleChecklistItem(paragraphId: String) {
+        val currentDoc = _document.value ?: return
+        val block = currentDoc.blocks.firstOrNull { it.id == paragraphId } as? ParagraphBlock ?: return
+        executeCommand(
+            com.example.editor.engine.ToggleChecklistItemCommand(
+                blockId = block.id,
+                wasChecked = block.isChecked
+            )
+        )
+    }
+
+    fun setListLevel(level: Int) {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        executeCommand(
+            com.example.editor.engine.SetListLevelCommand(
+                blockId = block.id,
+                oldLevel = block.listLevel,
+                newLevel = level
+            )
+        )
+    }
+
+    fun insertColumnBreak() {
+        val currentDoc = _document.value ?: return
+        val insertIndex = _activeBlockIndex.value + 1
+        val newBlock = com.example.data.model.ColumnBreakBlock()
+        executeCommand(
+            InsertBlockCommand(index = insertIndex, block = newBlock)
+        )
+        _activeBlockIndex.value = insertIndex
+        _statusMessage.value = "Column break inserted"
+    }
+
+    fun insertSectionBreak(orientation: String = "PORTRAIT", isNextPage: Boolean = true, sectionName: String = "Section") {
+        val currentDoc = _document.value ?: return
+        val insertIndex = _activeBlockIndex.value + 1
+        val newBlock = com.example.data.model.SectionBreakBlock(
+            sectionName = sectionName,
+            orientation = orientation,
+            isNextPage = isNextPage
+        )
+        executeCommand(
+            InsertBlockCommand(index = insertIndex, block = newBlock)
+        )
+        _activeBlockIndex.value = insertIndex
+        _statusMessage.value = "Section break ($orientation) inserted"
+    }
+
+    fun addTabStop(positionPt: Float, alignment: com.example.data.model.TabAlignment = com.example.data.model.TabAlignment.LEFT) {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        val newTab = com.example.data.model.TabStop(positionPt = positionPt, alignment = alignment)
+        val updatedBlock = block.copy(tabStops = block.tabStops + newTab)
+        val updatedBlocks = currentDoc.blocks.toMutableList()
+        updatedBlocks[activeIdx] = updatedBlock
+        _document.value = currentDoc.copy(blocks = updatedBlocks)
+        _statusMessage.value = "Tab stop added at ${positionPt.toInt()} pt"
+    }
+
+    fun saveCustomStyle(style: com.example.data.model.CustomStyle) {
+        executeCommand(
+            com.example.editor.engine.SaveCustomStyleCommand(style)
+        )
+        _statusMessage.value = "Custom style '${style.name}' saved"
+    }
+
+    fun applyCustomStyle(style: com.example.data.model.CustomStyle) {
+        val currentDoc = _document.value ?: return
+        val activeIdx = _activeBlockIndex.value
+        val block = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock ?: return
+        executeCommand(
+            com.example.editor.engine.ApplyCustomStyleCommand(
+                blockId = block.id,
+                oldParagraph = block,
+                style = style
+            )
+        )
+        _statusMessage.value = "Applied style '${style.name}'"
+    }
+
     // ----------------------------------------------------
     // Find & Replace Operations
     // ----------------------------------------------------
@@ -2289,6 +2491,57 @@ class EditorViewModel(
         }
         val updated = currentTable.copy(cells = updatedCells)
         executeCommand(UpdateTableBlockCommand(currentTable.id, currentTable, updated))
+    }
+
+    fun mergeTableCells(tableId: String, row: Int, col: Int, span: Int = 2) {
+        val currentDoc = _document.value ?: return
+        val table = currentDoc.blocks.filterIsInstance<TableBlock>().firstOrNull { it.id == tableId } ?: return
+        executeCommand(
+            com.example.editor.engine.MergeTableCellsCommand(
+                blockId = tableId,
+                oldTable = table,
+                row = row,
+                col = col,
+                horizontalSpan = span
+            )
+        )
+        _statusMessage.value = "Table cells merged"
+    }
+
+    fun splitTableCell(tableId: String, row: Int, col: Int) {
+        val currentDoc = _document.value ?: return
+        val table = currentDoc.blocks.filterIsInstance<TableBlock>().firstOrNull { it.id == tableId } ?: return
+        executeCommand(
+            com.example.editor.engine.SplitTableCellCommand(
+                blockId = tableId,
+                oldTable = table,
+                row = row,
+                col = col
+            )
+        )
+        _statusMessage.value = "Table cell split"
+    }
+
+    fun updateTableCellFormatting(
+        tableId: String,
+        row: Int,
+        col: Int,
+        verticalAlignment: com.example.data.model.CellVerticalAlignment,
+        bgHex: String?
+    ) {
+        val currentDoc = _document.value ?: return
+        val table = currentDoc.blocks.filterIsInstance<TableBlock>().firstOrNull { it.id == tableId } ?: return
+        executeCommand(
+            com.example.editor.engine.UpdateTableCellFormattingCommand(
+                blockId = tableId,
+                oldTable = table,
+                row = row,
+                col = col,
+                verticalAlignment = verticalAlignment,
+                backgroundColorHex = bgHex
+            )
+        )
+        _statusMessage.value = "Cell properties updated"
     }
 
     // ----------------------------------------------------

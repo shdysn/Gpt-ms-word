@@ -140,6 +140,18 @@ fun InsertRibbonControls(
         onClick = { viewModel.insertPageBreak() }
     )
 
+    RibbonActionButton(
+        icon = Icons.Default.VerticalSplit,
+        label = "Column Break",
+        onClick = { viewModel.insertColumnBreak() }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.ViewColumn,
+        label = "Section Break",
+        onClick = { viewModel.insertSectionBreak() }
+    )
+
     Box(
         modifier = Modifier
             .height(20.dp)
@@ -224,6 +236,18 @@ fun LayoutRibbonControls(
         label = "2 Columns",
         isSelected = layout.columnCount == 2,
         onClick = { viewModel.setColumnCount(2) }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.VerticalSplit,
+        label = "Column Break",
+        onClick = { viewModel.insertColumnBreak() }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.ViewColumn,
+        label = "Section Break",
+        onClick = { viewModel.insertSectionBreak() }
     )
 
     Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))

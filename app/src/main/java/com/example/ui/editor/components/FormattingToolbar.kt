@@ -92,6 +92,14 @@ fun FormattingToolbar(
     onSetLineSpacing: (Float) -> Unit = {},
     isFormatPainterActive: Boolean = false,
     onToggleFormatPainter: () -> Unit = {},
+    onClearFormatting: () -> Unit = {},
+    onChangeCase: (com.example.editor.engine.CaseType) -> Unit = {},
+    onOpenTypographyEffectsDialog: () -> Unit = {},
+    onOpenParagraphSpacingDialog: () -> Unit = {},
+    onToggleChecklist: () -> Unit = {},
+    customStyles: List<com.example.data.model.CustomStyle> = emptyList(),
+    onApplyCustomStyle: (com.example.data.model.CustomStyle) -> Unit = {},
+    onCreateCustomStyle: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var styleMenuExpanded by remember { mutableStateOf(false) }
@@ -100,6 +108,7 @@ fun FormattingToolbar(
     var textColorMenuExpanded by remember { mutableStateOf(false) }
     var highlightMenuExpanded by remember { mutableStateOf(false) }
     var lineSpacingMenuExpanded by remember { mutableStateOf(false) }
+    var caseMenuExpanded by remember { mutableStateOf(false) }
 
     val isRtl = activeParagraph?.isRtl == true
     val currentHeadingStyle = activeParagraph?.headingStyle ?: HeadingStyle.NORMAL
@@ -290,6 +299,58 @@ fun FormattingToolbar(
 
                 ToolbarDivider()
 
+                // Clear Formatting (One-click reset)
+                IconButton(
+                    onClick = onClearFormatting,
+                    modifier = Modifier.size(36.dp).testTag("format_clear_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FormatPaint, // or Clear formatting
+                        contentDescription = "Clear All Formatting",
+                        tint = Color(0xFFEF4444)
+                    )
+                }
+
+                // Change Case (Aa)
+                Box {
+                    FormatTextToggleButton(
+                        text = "Aa",
+                        label = "Change Case",
+                        isActive = false,
+                        onClick = { caseMenuExpanded = true },
+                        tag = "format_change_case"
+                    )
+
+                    DropdownMenu(
+                        expanded = caseMenuExpanded,
+                        onDismissRequest = { caseMenuExpanded = false }
+                    ) {
+                        com.example.editor.engine.CaseType.entries.forEach { caseType ->
+                            DropdownMenuItem(
+                                text = { Text(caseType.label, fontSize = 13.sp) },
+                                onClick = {
+                                    caseMenuExpanded = false
+                                    onChangeCase(caseType)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Text Effects & Typography (Letter Spacing, Shadows, Glow, Advanced Underlines)
+                IconButton(
+                    onClick = onOpenTypographyEffectsDialog,
+                    modifier = Modifier.size(36.dp).testTag("format_typography_effects_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Title,
+                        contentDescription = "Text Effects & Spacing",
+                        tint = WordPrimary
+                    )
+                }
+
+                ToolbarDivider()
+
                 // Text Color Picker
                 Box {
                     IconButton(
@@ -444,6 +505,42 @@ fun FormattingToolbar(
                                 }
                             )
                         }
+
+                        if (customStyles.isNotEmpty()) {
+                            HorizontalDivider()
+                            customStyles.forEach { cs ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "★ ${cs.name}",
+                                            fontSize = 13.sp,
+                                            fontWeight = if (cs.isBold) FontWeight.Bold else FontWeight.Normal,
+                                            color = WordPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        styleMenuExpanded = false
+                                        onApplyCustomStyle(cs)
+                                    }
+                                )
+                            }
+                        }
+
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "+ Create New Style...",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WordPrimary
+                                )
+                            },
+                            onClick = {
+                                styleMenuExpanded = false
+                                onCreateCustomStyle()
+                            }
+                        )
                     }
                 }
 
@@ -527,7 +624,7 @@ fun FormattingToolbar(
 
                 ToolbarDivider()
 
-                // Bulleted & Numbered Lists
+                // Bulleted, Numbered, and Checklist Lists
                 FormatToggleButton(
                     icon = Icons.AutoMirrored.Filled.FormatListBulleted,
                     label = "Bulleted List",
@@ -541,6 +638,13 @@ fun FormattingToolbar(
                     isActive = currentListType == ListType.NUMBERED,
                     onClick = { onToggleListType(ListType.NUMBERED) },
                     tag = "list_numbered"
+                )
+                FormatToggleButton(
+                    icon = Icons.Default.CheckCircle,
+                    label = "Checklist",
+                    isActive = activeParagraph?.isChecklist == true,
+                    onClick = onToggleChecklist,
+                    tag = "list_checklist"
                 )
 
                 ToolbarDivider()
@@ -556,10 +660,22 @@ fun FormattingToolbar(
                 FormatToggleButton(
                     icon = Icons.AutoMirrored.Filled.FormatIndentIncrease,
                     label = "Increase Indent",
-                    isActive = (activeParagraph?.indentationLevel ?: 0) > 0,
+                    isActive = (activeParagraph?.indentationLevel ?: 0) > 0 || (activeParagraph?.listLevel ?: 0) > 0,
                     onClick = onIncreaseIndent,
                     tag = "indent_increase"
                 )
+
+                // Paragraph Spacing & Indents Dialog
+                IconButton(
+                    onClick = onOpenParagraphSpacingDialog,
+                    modifier = Modifier.size(36.dp).testTag("paragraph_spacing_indents_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "First Line Indents & Spacing",
+                        tint = if ((activeParagraph?.firstLineIndentPt ?: 0f) > 0f || (activeParagraph?.hangingIndentPt ?: 0f) > 0f || (activeParagraph?.dropCapLines ?: 0) > 0) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
                 ToolbarDivider()
 

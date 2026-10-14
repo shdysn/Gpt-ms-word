@@ -105,7 +105,8 @@ fun BlockItemView(
     documentBlocks: List<BlockElement> = emptyList(),
     paginatedPages: List<com.example.core.layout.DocumentPage> = emptyList(),
     onNavigateToBlock: (Int) -> Unit = {},
-    onRefreshTOC: () -> Unit = {}
+    onRefreshTOC: () -> Unit = {},
+    onToggleChecklistItem: (String) -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -190,7 +191,11 @@ fun BlockItemView(
                 }
             }
 
-            val indentPadding = if (block.leftIndentPt > 0f) (block.leftIndentPt * zoomScale).dp else (block.indentationLevel * 20 * zoomScale).dp
+            val indentPadding = if (block.leftIndentPt > 0f) {
+                (block.leftIndentPt * zoomScale).dp
+            } else {
+                ((block.indentationLevel + block.listLevel) * 20 * zoomScale).dp
+            }
             val spaceBeforeDp = (block.spaceBeforePt * zoomScale).dp
             val spaceAfterDp = (block.spaceAfterPt * zoomScale).dp
 
@@ -204,11 +209,35 @@ fun BlockItemView(
                         .clickable(onClick = onFocus),
                     verticalAlignment = Alignment.Top
                 ) {
+                    // Checklist Checkbox
+                    if (block.isChecklist) {
+                        IconButton(
+                            onClick = { onToggleChecklistItem(block.id) },
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(end = 4.dp)
+                                .testTag("checklist_checkbox_${block.id}")
+                        ) {
+                            Icon(
+                                imageVector = if (block.isChecked) Icons.Default.CheckCircle else Icons.Default.CheckCircle,
+                                contentDescription = if (block.isChecked) "Completed" else "Todo",
+                                tint = if (block.isChecked) Color(0xFF10B981) else (if (isDarkPage) Color(0xFF64748B) else Color(0xFFCBD5E1)),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
                     // List prefix
                     when (block.listType) {
                         ListType.BULLET -> {
+                            val bulletChar = when (block.listLevel % 4) {
+                                1 -> "◦ "
+                                2 -> "▪ "
+                                3 -> "▫ "
+                                else -> "• "
+                            }
                             Text(
-                                text = "• ",
+                                text = bulletChar,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = baseFontSize,
                                 color = if (isDarkPage) Color(0xFF60A5FA) else WordPrimary,
@@ -216,12 +245,23 @@ fun BlockItemView(
                             )
                         }
                         ListType.NUMBERED -> {
-                            val formattedNumber = BidiUtils.formatListNumber(
-                                number = itemNumber ?: 1,
-                                isRtl = block.isRtl,
-                                useUrduNumerals = false,
-                                indentationLevel = block.indentationLevel
-                            )
+                            val rawNum = itemNumber ?: 1
+                            val formattedNumber = when (block.listLevel % 3) {
+                                1 -> "${('a'.code + ((rawNum - 1) % 26)).toChar()}."
+                                2 -> when (rawNum % 5) {
+                                    1 -> "i."
+                                    2 -> "ii."
+                                    3 -> "iii."
+                                    4 -> "iv."
+                                    else -> "v."
+                                }
+                                else -> BidiUtils.formatListNumber(
+                                    number = rawNum,
+                                    isRtl = block.isRtl,
+                                    useUrduNumerals = false,
+                                    indentationLevel = block.indentationLevel
+                                )
+                            }
                             Text(
                                 text = formattedNumber,
                                 fontWeight = FontWeight.SemiBold,
@@ -233,9 +273,34 @@ fun BlockItemView(
                         ListType.NONE -> Unit
                     }
 
+                    // Drop Cap Preview
+                    if (block.dropCapLines > 0 && block.text.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = WordPrimary.copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, WordPrimary.copy(alpha = 0.35f)),
+                            modifier = Modifier.padding(end = 8.dp, top = 2.dp)
+                        ) {
+                            Text(
+                                text = block.text.take(1),
+                                fontSize = (baseFontSize.value * 2.2f).sp,
+                                fontWeight = FontWeight.Bold,
+                                color = WordPrimary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
+                        val textIndent = if (block.firstLineIndentPt != 0f || block.hangingIndentPt != 0f) {
+                            androidx.compose.ui.text.style.TextIndent(
+                                firstLine = (block.firstLineIndentPt * zoomScale).sp,
+                                restLine = (block.hangingIndentPt * zoomScale).sp
+                            )
+                        } else null
+
                         BasicTextField(
                             value = textFieldValue,
                             onValueChange = { newTfv ->
@@ -261,10 +326,12 @@ fun BlockItemView(
                                 fontFamily = effectiveFontFamily,
                                 fontWeight = if (block.headingStyle.isBold) FontWeight.Bold else FontWeight.Normal,
                                 fontStyle = if (block.headingStyle == HeadingStyle.QUOTE) FontStyle.Italic else FontStyle.Normal,
-                                color = defaultTextColor,
+                                color = if (block.isChecked) (if (isDarkPage) Color(0xFF64748B) else Color(0xFF94A3B8)) else defaultTextColor,
                                 textAlign = align,
                                 textDirection = textDirection,
-                                lineHeight = baseFontSize * (if (block.isRtl) block.lineSpacingMultiplier.coerceAtLeast(1.4f) else block.lineSpacingMultiplier)
+                                lineHeight = baseFontSize * (if (block.isRtl) block.lineSpacingMultiplier.coerceAtLeast(1.4f) else block.lineSpacingMultiplier),
+                                textIndent = textIndent,
+                                textDecoration = if (block.isChecked) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
                             ),
                             cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                             modifier = Modifier
@@ -445,6 +512,76 @@ fun BlockItemView(
                             tint = WordPrimary,
                             modifier = Modifier.size(14.dp)
                         )
+                    }
+                }
+            }
+        }
+
+        is com.example.data.model.ColumnBreakBlock -> {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFF0284C7).copy(alpha = 0.4f))
+                Text(
+                    text = " COLUMN BREAK ",
+                    fontSize = 10.sp,
+                    color = Color(0xFF0284C7),
+                    fontWeight = FontWeight.Bold
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFF0284C7).copy(alpha = 0.4f))
+                if (canDeleteBlock) {
+                    IconButton(
+                        onClick = onDeleteBlock,
+                        modifier = Modifier.size(24.dp).testTag("delete_col_break_${block.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove Column Break",
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        is com.example.data.model.SectionBreakBlock -> {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = Color(0xFF6366F1).copy(alpha = 0.08f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.35f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "§ SECTION BREAK: ${block.sectionName} (${block.orientation}, ${if (block.isNextPage) "Next Page" else "Continuous"})",
+                        fontSize = 10.sp,
+                        color = Color(0xFF6366F1),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (canDeleteBlock) {
+                        IconButton(
+                            onClick = onDeleteBlock,
+                            modifier = Modifier.size(20.dp).testTag("delete_section_break_${block.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Remove Section Break",
+                                tint = Color(0xFF6366F1),
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
                     }
                 }
             }

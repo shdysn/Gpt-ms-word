@@ -74,14 +74,27 @@ object EditorEngineIntegration {
                 }
 
                 val isLink = span.linkUrl != null
+                val hasUnderline = span.isUnderline || isLink || span.underlineStyle != com.example.data.model.UnderlineStyle.NONE
+                val hasStrikethrough = span.isStrikethrough || span.strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE
+
                 val decoration = when {
-                    (span.isUnderline || isLink) && span.isStrikethrough -> TextDecoration.combine(
+                    hasUnderline && hasStrikethrough -> TextDecoration.combine(
                         listOf(TextDecoration.Underline, TextDecoration.LineThrough)
                     )
-                    span.isUnderline || isLink -> TextDecoration.Underline
-                    span.isStrikethrough -> TextDecoration.LineThrough
+                    hasUnderline -> TextDecoration.Underline
+                    hasStrikethrough -> TextDecoration.LineThrough
                     else -> null
                 }
+
+                val letterSpacing = span.letterSpacingSp?.let { (it * zoomScale).sp } ?: androidx.compose.ui.unit.TextUnit.Unspecified
+
+                val shadow = if (span.shadowColorHex != null || span.shadowDx != null || span.shadowDy != null) {
+                    androidx.compose.ui.graphics.Shadow(
+                        color = span.shadowColorHex?.let { parseColorSafe(it) } ?: androidx.compose.ui.graphics.Color(0x80000000),
+                        offset = androidx.compose.ui.geometry.Offset((span.shadowDx ?: 2f) * zoomScale, (span.shadowDy ?: 2f) * zoomScale),
+                        blurRadius = (span.shadowRadius ?: 3f) * zoomScale
+                    )
+                } else null
 
                 val spanStyle = SpanStyle(
                     fontWeight = if (span.isBold) FontWeight.Bold else null,
@@ -90,6 +103,8 @@ object EditorEngineIntegration {
                     fontSize = computedFontSize,
                     fontFamily = fontFamily,
                     baselineShift = baselineShift,
+                    letterSpacing = letterSpacing,
+                    shadow = shadow,
                     color = span.textColorHex?.let { parseColorSafe(it) } ?: if (isLink) androidx.compose.ui.graphics.Color(0xFF185ABD) else androidx.compose.ui.graphics.Color.Unspecified,
                     background = span.highlightColorHex?.let { parseColorSafe(it) } ?: androidx.compose.ui.graphics.Color.Transparent
                 )
@@ -100,6 +115,30 @@ object EditorEngineIntegration {
                 }
             }
         }
+    }
+
+    /**
+     * Builds paragraph layout style incorporating text alignment, direction, line spacing,
+     * and First Line / Hanging indents.
+     */
+    fun buildParagraphStyle(paragraph: ParagraphBlock, zoomScale: Float = 1f): ParagraphStyle {
+        val firstLineIndent = (paragraph.firstLineIndentPt * zoomScale).sp
+        val restLineIndent = (paragraph.hangingIndentPt * zoomScale).sp
+        val indent = if (paragraph.firstLineIndentPt != 0f || paragraph.hangingIndentPt != 0f) {
+            androidx.compose.ui.text.style.TextIndent(firstLine = firstLineIndent, restLine = restLineIndent)
+        } else null
+
+        return ParagraphStyle(
+            textAlign = when (paragraph.alignment) {
+                TextAlignment.START -> TextAlign.Start
+                TextAlignment.CENTER -> TextAlign.Center
+                TextAlignment.END -> TextAlign.End
+                TextAlignment.JUSTIFY -> TextAlign.Justify
+            },
+            textDirection = if (paragraph.isRtl) TextDirection.Rtl else TextDirection.Ltr,
+            lineHeight = (18f * paragraph.lineSpacingMultiplier * zoomScale).sp,
+            textIndent = indent
+        )
     }
 
     /**

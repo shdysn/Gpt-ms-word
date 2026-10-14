@@ -146,7 +146,11 @@ fun EditorScreen(
     var showPageColorDialog by remember { mutableStateOf(false) }
     var selectedTableForProperties by remember { mutableStateOf<TableBlock?>(null) }
     var selectedCellForEdit by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
+    var selectedCellForProperties by remember { mutableStateOf<Triple<TableBlock, Int, Int>?>(null) }
     var selectedImageForProperties by remember { mutableStateOf<ImageBlock?>(null) }
+    var showTypographyEffectsDialog by remember { mutableStateOf(false) }
+    var showParagraphSpacingDialog by remember { mutableStateOf(false) }
+    var showCreateCustomStyleDialog by remember { mutableStateOf(false) }
 
     // Voice Typing Dictation Launcher
     val voiceTypingLauncher = rememberLauncherForActivityResult(
@@ -304,8 +308,14 @@ fun EditorScreen(
                 onOpenPageBordersDialog = { showPageBordersDialog = true },
                 onOpenPageColorDialog = { showPageColorDialog = true },
                 onOpenCommentsDialog = { showCommentsDialog = true },
-                onOpenTrackChangesDialog = { showTrackChangesDialog = true },
                 onOpenSmartWritingDialog = { showSmartWritingDialog = true },
+                onClearFormatting = { viewModel.clearFormatting() },
+                onChangeCase = { viewModel.changeCase(it) },
+                onOpenTypographyEffectsDialog = { showTypographyEffectsDialog = true },
+                onOpenParagraphSpacingDialog = { showParagraphSpacingDialog = true },
+                onToggleChecklist = { viewModel.toggleChecklist() },
+                onCreateCustomStyle = { showCreateCustomStyleDialog = true },
+                onApplyCustomStyle = { viewModel.applyCustomStyle(it) },
                 onStartVoiceTyping = {
                     try {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -374,7 +384,8 @@ fun EditorScreen(
                         onQuickDeleteTableCol = { id -> viewModel.deleteTableColumn(id, -1) },
                         onEditImageProperties = { img -> selectedImageForProperties = img },
                         onOpenPageLayoutDialog = { showLayoutDialog = true },
-                        onRefreshTOC = viewModel::refreshTableOfContents
+                        onRefreshTOC = viewModel::refreshTableOfContents,
+                        onToggleChecklistItem = { viewModel.toggleChecklistItem(it) }
                     )
                 }
 
@@ -541,6 +552,14 @@ fun EditorScreen(
         onDismissPageBordersDialog = { showPageBordersDialog = false },
         showPageColorDialog = showPageColorDialog,
         onDismissPageColorDialog = { showPageColorDialog = false },
+        showTypographyEffectsDialog = showTypographyEffectsDialog,
+        onDismissTypographyEffectsDialog = { showTypographyEffectsDialog = false },
+        showParagraphSpacingDialog = showParagraphSpacingDialog,
+        onDismissParagraphSpacingDialog = { showParagraphSpacingDialog = false },
+        showCreateCustomStyleDialog = showCreateCustomStyleDialog,
+        onDismissCreateCustomStyleDialog = { showCreateCustomStyleDialog = false },
+        selectedCellForProperties = selectedCellForProperties,
+        onDismissCellProperties = { selectedCellForProperties = null },
         safDocxSaveLauncher = safDocxSaveLauncher,
         safPdfSaveLauncher = safPdfSaveLauncher
     )

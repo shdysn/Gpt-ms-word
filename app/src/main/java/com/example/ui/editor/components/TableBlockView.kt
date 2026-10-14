@@ -202,6 +202,10 @@ fun TableBlockView(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     for (c in 0 until table.columnCount) {
                         val cell = table.cells.getOrNull(r)?.getOrNull(c) ?: TableCell()
+                        if (cell.isMergedCovered) {
+                            // Covered by a previous cell's colSpan or rowSpan -> do not render duplicate slot
+                            continue
+                        }
 
                         val cellBg = when {
                             cell.backgroundColorHex != null -> try {
@@ -225,23 +229,41 @@ fun TableBlockView(
                             isDarkPage
                         }
 
-                        val colWeight = table.columnWidthWeights.getOrNull(c) ?: 1f
+                        val spanMultiplier = cell.colSpan.coerceAtLeast(1)
+                        val baseColWeight = (0 until spanMultiplier).sumOf { offset ->
+                            (table.columnWidthWeights.getOrNull(c + offset) ?: 1f).toDouble()
+                        }.toFloat().coerceAtLeast(0.05f)
+
+                        val cellContentAlignment = when (cell.verticalAlignment) {
+                            com.example.data.model.CellVerticalAlignment.CENTER -> when (cell.alignment) {
+                                TextAlignment.CENTER -> Alignment.Center
+                                TextAlignment.END -> Alignment.CenterEnd
+                                else -> Alignment.CenterStart
+                            }
+                            com.example.data.model.CellVerticalAlignment.BOTTOM -> when (cell.alignment) {
+                                TextAlignment.CENTER -> Alignment.BottomCenter
+                                TextAlignment.END -> Alignment.BottomEnd
+                                else -> Alignment.BottomStart
+                            }
+                            com.example.data.model.CellVerticalAlignment.TOP -> when (cell.alignment) {
+                                TextAlignment.CENTER -> Alignment.TopCenter
+                                TextAlignment.END -> Alignment.TopEnd
+                                else -> Alignment.TopStart
+                            }
+                        }
+
                         Box(
                             modifier = Modifier
-                                .weight(colWeight.coerceAtLeast(0.05f))
+                                .weight(baseColWeight)
                                 .border(
                                     width = 0.5.dp,
                                     color = if (table.hasBorders) tableBorderColor else Color(0xFFE2E8F0)
                                 )
                                 .background(cellBg)
                                 .clickable { onEditCell(r, c) }
-                                .padding(8.dp)
+                                .padding(horizontal = (cell.paddingPt * zoomScale).dp.coerceAtLeast(4.dp), vertical = (cell.paddingPt * 0.75f * zoomScale).dp.coerceAtLeast(4.dp))
                                 .testTag("table_cell_${table.id}_${r}_$c"),
-                            contentAlignment = when (cell.alignment) {
-                                TextAlignment.CENTER -> Alignment.Center
-                                TextAlignment.END -> Alignment.CenterEnd
-                                else -> Alignment.CenterStart
-                            }
+                            contentAlignment = cellContentAlignment
                         ) {
                             Text(
                                 text = cell.text.ifBlank { "—" },
