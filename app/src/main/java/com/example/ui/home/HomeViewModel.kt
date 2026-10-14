@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -25,6 +24,9 @@ class HomeViewModel(
     private val repository: DocumentRepository,
     private val preferencesManager: PreferencesManager
 ) : ViewModel() {
+
+    private val exportImportHelper = HomeExportImportHelper(repository)
+    private val templateManager = HomeTemplateManager(repository)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -49,14 +51,7 @@ class HomeViewModel(
     ) { query, filter, sortOrder ->
         Triple(query, filter, sortOrder)
     }.flatMapLatest { (query, filter, sortOrder) ->
-        val flow = if (query.isBlank()) {
-            repository.getAllDocuments()
-        } else {
-            repository.searchDocuments(query.trim())
-        }
-        flow.map { list ->
-            HomeDocumentFilter.filterAndSort(list, filter, sortOrder)
-        }
+        templateManager.searchAndFilterDocuments(query, filter, sortOrder)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -93,25 +88,9 @@ class HomeViewModel(
         initialValue = true
     )
 
-    fun setAutosaveEnabled(enabled: Boolean) {
-        viewModelScope.launch { preferencesManager.setAutosaveEnabled(enabled) }
-    }
-
-    fun setDefaultRtl(isRtl: Boolean) {
-        viewModelScope.launch { preferencesManager.setDefaultRtl(isRtl) }
-    }
-
-    fun setShowWordCount(show: Boolean) {
-        viewModelScope.launch { preferencesManager.setShowWordCount(show) }
-    }
-
-    fun setShowRuler(show: Boolean) {
-        viewModelScope.launch { preferencesManager.setShowRuler(show) }
-    }
-
     init {
         viewModelScope.launch {
-            repository.initializeDefaultDocumentsIfEmpty()
+            templateManager.initializeDefaultDocumentsIfEmpty()
         }
         viewModelScope.launch {
             preferencesManager.sortOrder.collect { orderName ->
@@ -124,150 +103,66 @@ class HomeViewModel(
         }
     }
 
-    fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun onFilterChanged(filter: HomeFilter) {
-        _activeFilter.value = filter
-    }
-
+    fun setAutosaveEnabled(enabled: Boolean) = viewModelScope.launch { preferencesManager.setAutosaveEnabled(enabled) }
+    fun setDefaultRtl(isRtl: Boolean) = viewModelScope.launch { preferencesManager.setDefaultRtl(isRtl) }
+    fun setShowWordCount(show: Boolean) = viewModelScope.launch { preferencesManager.setShowWordCount(show) }
+    fun setShowRuler(show: Boolean) = viewModelScope.launch { preferencesManager.setShowRuler(show) }
+    fun onSearchQueryChanged(query: String) { _searchQuery.value = query }
+    fun onFilterChanged(filter: HomeFilter) { _activeFilter.value = filter }
     fun onSortOrderChanged(order: DocumentSortOrder) {
         _sortOrder.value = order
-        viewModelScope.launch {
-            preferencesManager.setSortOrder(order.name)
-        }
+        viewModelScope.launch { preferencesManager.setSortOrder(order.name) }
     }
-
-    fun toggleViewMode() {
-        _isGridView.value = !_isGridView.value
-    }
-
-    fun clearInfoMessage() {
-        _infoMessage.value = null
-    }
+    fun toggleViewMode() { _isGridView.value = !_isGridView.value }
+    fun clearInfoMessage() { _infoMessage.value = null }
 
     fun createDocument(title: String, template: TemplateType, onCreated: (String) -> Unit) {
         viewModelScope.launch {
-            when (val res = repository.createDocument(title, template)) {
-                is DocumentResult.Success -> {
-                    onCreated(res.data.id)
-                }
-                is DocumentResult.Failure -> {
-                    _infoMessage.value = "Failed to create document: ${res.error.message}"
-                }
+            when (val res = templateManager.createFromTemplate(title, template)) {
+                is DocumentResult.Success -> onCreated(res.data.id)
+                is DocumentResult.Failure -> _infoMessage.value = "Failed to create document: ${res.error.message}"
             }
         }
     }
 
     fun duplicateDocument(id: String) {
         viewModelScope.launch {
-            when (val res = repository.duplicateDocument(id)) {
-                is DocumentResult.Success -> {
-                    _infoMessage.value = "Duplicated '${res.data.title}'"
-                }
-                is DocumentResult.Failure -> {
-                    _infoMessage.value = "Duplicate failed: ${res.error.message}"
-                }
+            when (val res = templateManager.duplicateDocument(id)) {
+                is DocumentResult.Success -> _infoMessage.value = "Duplicated '${res.data.title}'"
+                is DocumentResult.Failure -> _infoMessage.value = "Duplicate failed: ${res.error.message}"
             }
         }
     }
 
-    fun renameDocument(id: String, newTitle: String) {
-        viewModelScope.launch {
-            repository.renameDocument(id, newTitle)
-        }
+    fun renameDocument(id: String, newTitle: String) = viewModelScope.launch { repository.renameDocument(id, newTitle) }
+    fun deleteDocument(id: String) = viewModelScope.launch {
+        repository.deleteDocument(id)
+        _infoMessage.value = "Document deleted"
+    }
+    fun togglePinned(id: String, currentPinned: Boolean) = viewModelScope.launch { repository.togglePinned(id, !currentPinned) }
+
+    fun exportDocumentToPdf(context: Context, docId: String, onComplete: (File?) -> Unit) = viewModelScope.launch {
+        val file = exportImportHelper.exportPdf(context, docId) { msg -> _infoMessage.value = msg }
+        onComplete(file)
     }
 
-    fun deleteDocument(id: String) {
-        viewModelScope.launch {
-            repository.deleteDocument(id)
-            _infoMessage.value = "Document deleted"
-        }
+    fun exportDocumentToDocx(context: Context, docId: String, onComplete: (File?) -> Unit) = viewModelScope.launch {
+        val file = exportImportHelper.exportDocx(context, docId) { msg -> _infoMessage.value = msg }
+        onComplete(file)
     }
 
-    fun togglePinned(id: String, currentPinned: Boolean) {
-        viewModelScope.launch {
-            repository.togglePinned(id, !currentPinned)
-        }
+    fun printDocument(context: Context, docId: String) = viewModelScope.launch {
+        exportImportHelper.printDocument(context, docId) { err -> _infoMessage.value = err }
     }
 
-    fun exportDocumentToPdf(context: Context, docId: String, onComplete: (File?) -> Unit) {
-        viewModelScope.launch {
-            when (val docRes = repository.getDocument(docId)) {
-                is DocumentResult.Success -> {
-                    val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    val sanitizedTitle = docRes.data.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                    val outFile = File(exportDir, "$sanitizedTitle.pdf")
-                    when (val exportRes = repository.exportToPdf(context, docRes.data, outFile)) {
-                        is DocumentResult.Success -> {
-                            _infoMessage.value = "PDF exported: ${outFile.name}"
-                            onComplete(outFile)
-                        }
-                        is DocumentResult.Failure -> {
-                            _infoMessage.value = "PDF export error: ${exportRes.error.message}"
-                            onComplete(null)
-                        }
-                    }
-                }
-                is DocumentResult.Failure -> {
-                    _infoMessage.value = "Could not load document: ${docRes.error.message}"
-                    onComplete(null)
-                }
-            }
-        }
-    }
-
-    fun exportDocumentToDocx(context: Context, docId: String, onComplete: (File?) -> Unit) {
-        viewModelScope.launch {
-            when (val docRes = repository.getDocument(docId)) {
-                is DocumentResult.Success -> {
-                    val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
-                    val sanitizedTitle = docRes.data.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
-                    val outFile = File(exportDir, "$sanitizedTitle.docx")
-                    when (val exportRes = repository.exportToDocx(context, docRes.data, outFile)) {
-                        is DocumentResult.Success -> {
-                            _infoMessage.value = "Word Document (.docx) exported: ${outFile.name}"
-                            onComplete(outFile)
-                        }
-                        is DocumentResult.Failure -> {
-                            _infoMessage.value = "DOCX export error: ${exportRes.error.message}"
-                            onComplete(null)
-                        }
-                    }
-                }
-                is DocumentResult.Failure -> {
-                    _infoMessage.value = "Could not load document: ${docRes.error.message}"
-                    onComplete(null)
-                }
-            }
-        }
-    }
-
-    fun printDocument(context: Context, docId: String) {
-        viewModelScope.launch {
-            when (val docRes = repository.getDocument(docId)) {
-                is DocumentResult.Success -> {
-                    repository.printDocument(context, docRes.data)
-                }
-                is DocumentResult.Failure -> {
-                    _infoMessage.value = "Could not load document for print: ${docRes.error.message}"
-                }
-            }
-        }
-    }
-
-    fun importDocument(context: Context, uri: Uri, onImported: (String) -> Unit) {
-        viewModelScope.launch {
-            when (val res = repository.importFromUri(context, uri)) {
-                is DocumentResult.Success -> {
-                    _infoMessage.value = "Imported '${res.data.title}'"
-                    onImported(res.data.id)
-                }
-                is DocumentResult.Failure -> {
-                    _infoMessage.value = "Import failed: ${res.error.message}"
-                }
-            }
-        }
+    fun importDocument(context: Context, uri: Uri, onImported: (String) -> Unit) = viewModelScope.launch {
+        exportImportHelper.importFromUri(
+            context, uri,
+            onSuccess = { id, title ->
+                _infoMessage.value = "Imported '$title'"
+                onImported(id)
+            },
+            onError = { err -> _infoMessage.value = err }
+        )
     }
 }

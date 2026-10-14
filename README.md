@@ -198,21 +198,27 @@ Jab user **"Procedure 2"** (ya "Phase 2") bole, to mandarja zail 8 canvas aur ed
 
 ---
 
-### 🔹 Procedure 3: Core Engine & ViewModel Coordinator (جب "Procedure 3" کا ذکر ہو تو یہ لاگو کریں)
-Jab user **"Procedure 3"** (ya "Phase 3") bole, to ViewModel aur Core Engine files ko modularize karein:
+### 🔹 Procedure 3: Core Engine & ViewModel Coordinator [COMPLETED & VERIFIED]
+Procedure 3 ki تمام ViewModel اور Core Engine files کو modularize کر کے ہر file کو **300 lines سے کم** (45 - 291 lines) کر دیا گیا ہے:
 
-1. **`EditorViewModel.kt` (2,907 lines → Coordinator + 5 Delegate Managers under `ui/editor/viewmodel/`):**
-   - `EditorFormattingManager.kt` (~250 lines): Bold, italic, color, fonts, alignments, lists, styles.
-   - `EditorTableManager.kt` (~250 lines): Add/remove rows/cols, merge cells, cell border styles.
-   - `EditorBlockManager.kt` (~250 lines): Insert paragraph, image, shape, split blocks, delete block.
-   - `EditorExportManager.kt` (~200 lines): Dispatch export to PDF, DOCX, EPUB, TXT, Print.
-   - `EditorHistoryManager.kt` (~200 lines): Undo/Redo stack, autosave ticks, crash recovery snapshots.
-   - Keep `EditorViewModel.kt` (~240 lines) as lightweight unified state coordinator delegating to managers.
-2. **`HomeViewModel.kt` (333 lines → 2 Files):**
-   - Extract `HomeTemplateManager.kt` (~140 lines: Template seeding, search filter logic).
-   - Keep `HomeViewModel.kt` under 200 lines.
-3. **`EditorEngineIntegration.kt` (403 lines), `SpanOperations.kt` (367 lines), `StyleCommands.kt` (366 lines):**
-   - Modularize span manipulation and command execution helpers into clean files under 240 lines.
+- [x] **`EditorViewModel.kt`**: 212 lines (Coordinator) + specialized delegate managers under `ui/editor/viewmodel/`:
+   - `EditorFormattingManager.kt` (228 lines)
+   - `EditorParagraphFormattingManager.kt` (222 lines)
+   - `EditorTableManager.kt` (138 lines)
+   - `EditorTableCellFormatManager.kt` (145 lines)
+   - `EditorBlockManager.kt` (245 lines) + `EditorBlockUtils.kt` (71 lines)
+   - `EditorMediaBlockManager.kt` (191 lines)
+   - `EditorExportManager.kt` (201 lines)
+   - `EditorHistoryManager.kt` (189 lines)
+   - `EditorReviewManager.kt` (104 lines)
+   - `EditorReviewAndSecurityManager.kt` (291 lines)
+   - `EditorTextCanvasManager.kt` (270 lines) + `EditorTextCanvasReconciler.kt` (127 lines)
+   - `EditorTtsManager.kt` (151 lines)
+- [x] **`HomeViewModel.kt`**: 168 lines + `HomeTemplateManager.kt` (46 lines) + `HomeExportImportHelper.kt` (84 lines)
+- [x] **Core Engine & Commands**:
+   - `EditorEngineIntegration.kt` (225 lines) + `ContinuousAnnotatedTextBuilder.kt` (152 lines) + `SpellCheckEngine.kt` (52 lines)
+   - `SpanOperations.kt` (218 lines) + `ActiveFormatting.kt` (72 lines) + `SpanShiftOperations.kt` (124 lines)
+   - `StyleCommands.kt` (154 lines) + `ListAndCustomStyleCommands.kt` (218 lines)
 
 ---
 

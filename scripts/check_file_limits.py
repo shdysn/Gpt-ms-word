@@ -38,7 +38,7 @@ PHASE_1_FILES = [
     "app/src/main/java/com/example/ui/editor/components/EditorQuickFormatBar.kt",
 ]
 
-# Files strictly enforced for Phase 2 (Canvas, Toolbars, Blocks, Ribbon & Home VM)
+# Files strictly enforced for Phase 2 (Canvas, Toolbars, Blocks & Ribbon)
 PHASE_2_FILES = [
     "app/src/main/java/com/example/ui/editor/components/WordRibbon.kt",
     "app/src/main/java/com/example/ui/editor/components/WordRibbonContent.kt",
@@ -58,9 +58,38 @@ PHASE_2_FILES = [
     "app/src/main/java/com/example/ui/editor/components/blocks/ParagraphPillsView.kt",
     "app/src/main/java/com/example/ui/editor/components/blocks/SpecialBlocksView.kt",
     "app/src/main/java/com/example/ui/editor/components/blocks/SignatureBlockItem.kt",
+]
+
+# Files strictly enforced for Phase 3 (ViewModel Coordinator, Engine & Helpers)
+PHASE_3_FILES = [
+    "app/src/main/java/com/example/ui/editor/EditorViewModel.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorFormattingManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorParagraphFormattingManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorTableManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorTableCellFormatManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorBlockManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorBlockUtils.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorMediaBlockManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorExportManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorHistoryManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorReviewManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorReviewAndSecurityManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorTextCanvasManager.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorTextCanvasReconciler.kt",
+    "app/src/main/java/com/example/ui/editor/viewmodel/EditorTtsManager.kt",
     "app/src/main/java/com/example/ui/home/HomeViewModel.kt",
+    "app/src/main/java/com/example/ui/home/HomeTemplateManager.kt",
+    "app/src/main/java/com/example/ui/home/HomeExportImportHelper.kt",
     "app/src/main/java/com/example/ui/home/HomeState.kt",
     "app/src/main/java/com/example/ui/home/HomeDocumentFilter.kt",
+    "app/src/main/java/com/example/editor/engine/EditorEngineIntegration.kt",
+    "app/src/main/java/com/example/editor/engine/ContinuousAnnotatedTextBuilder.kt",
+    "app/src/main/java/com/example/editor/engine/SpellCheckEngine.kt",
+    "app/src/main/java/com/example/editor/engine/SpanOperations.kt",
+    "app/src/main/java/com/example/editor/engine/ActiveFormatting.kt",
+    "app/src/main/java/com/example/editor/engine/SpanShiftOperations.kt",
+    "app/src/main/java/com/example/editor/engine/commands/StyleCommands.kt",
+    "app/src/main/java/com/example/editor/engine/commands/ListAndCustomStyleCommands.kt",
 ]
 
 def count_lines(filepath):
@@ -96,20 +125,21 @@ def main():
     print("=" * 65)
     
     proc1_ok, proc1_violations = check_file_group("Procedure 1 / Phase 1: UI Screens & Dialogs", PHASE_1_FILES)
-    proc2_ok, proc2_violations = check_file_group("Procedure 2 / Phase 2: Canvas, Toolbars, Blocks & ViewModels", PHASE_2_FILES)
+    proc2_ok, proc2_violations = check_file_group("Procedure 2 / Phase 2: Canvas, Toolbars, Blocks & Ribbon", PHASE_2_FILES)
+    proc3_ok, proc3_violations = check_file_group("Procedure 3 / Phase 3: Core Engine & ViewModel Coordinator", PHASE_3_FILES)
     
-    total_violations = proc1_violations + proc2_violations
+    total_violations = proc1_violations + proc2_violations + proc3_violations
     
     print("-" * 65)
-    if proc1_ok and proc2_ok:
-        print("🎉 Procedure 1 & 2 Status: 100% COMPLIANT! All monitored files are < 300 lines.")
+    if proc1_ok and proc2_ok and proc3_ok:
+        print("🎉 Procedure 1, 2 & 3 Status: 100% COMPLIANT! All monitored files are < 300 lines.")
     else:
         print(f"❌ Violations Found: {len(total_violations)}")
 
     # Audit rest of repository to inform developer of pending procedures
     print("\n[Repository Audit] Files pending future procedures (> 300 lines):")
     pending_count = 0
-    enforced_set = set(PHASE_1_FILES + PHASE_2_FILES)
+    enforced_set = set(PHASE_1_FILES + PHASE_2_FILES + PHASE_3_FILES)
     for root, _, files in os.walk("app/src/main/java"):
         for file in files:
             if file.endswith(".kt"):
@@ -121,14 +151,14 @@ def main():
                     pending_count += 1
                     print(f"  ⏳ {lines:4d} lines: {full_path}")
 
-    print(f"\nTotal files pending future procedures (Procedure 3, 4): {pending_count}")
+    print(f"\nTotal files pending future procedures (Procedure 4): {pending_count}")
     print("=" * 65)
 
     if total_violations:
         print("❌ Build check failed due to regression violations!")
         sys.exit(1)
     else:
-        print("✅ Procedure 1 & 2 Anti-Regression verification passed successfully!")
+        print("✅ Procedure 1, 2 & 3 Anti-Regression verification passed successfully!")
         sys.exit(0)
 
 if __name__ == "__main__":

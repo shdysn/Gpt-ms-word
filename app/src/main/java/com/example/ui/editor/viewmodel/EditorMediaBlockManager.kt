@@ -1,0 +1,191 @@
+package com.example.ui.editor.viewmodel
+
+import android.content.Context
+import android.net.Uri
+import com.example.data.model.DrawingBlock
+import com.example.data.model.DrawingStroke
+import com.example.data.model.ImageBlock
+import com.example.data.model.ShapeBlock
+import com.example.data.model.SignatureBlock
+import com.example.data.model.TextBoxBlock
+import com.example.data.model.TextAlignment
+import com.example.data.storage.DocumentStorageManager
+import com.example.editor.engine.InsertBlockCommand
+import com.example.editor.engine.UpdateBlockCommand
+import com.example.editor.engine.UpdateImageBlockCommand
+import com.example.ui.editor.EditorViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * Manages media and graphics blocks: images, shapes, canvas inking, signatures, and floating text boxes.
+ */
+class EditorMediaBlockManager(
+    private val vm: EditorViewModel
+) {
+    fun insertImageFromUri(context: Context, sourceUri: Uri, caption: String = "") {
+        val storageManager = DocumentStorageManager(context)
+        val persistentUri = storageManager.persistImageFromUri(sourceUri)
+        insertImage(persistentUri, caption)
+    }
+
+    fun insertImage(uri: String, caption: String = "") {
+        val insertIndex = vm.activeBlockIndex.value + 1
+        val imageBlock = ImageBlock(imageUri = uri, caption = caption)
+        vm.executeCommand(InsertBlockCommand(index = insertIndex, block = imageBlock))
+        vm.setActiveBlock(insertIndex)
+    }
+
+    fun updateImageProperties(
+        blockId: String,
+        widthDp: Int? = null,
+        heightDp: Int? = null,
+        alignment: TextAlignment? = null,
+        caption: String? = null,
+        aspectRatio: Float? = null,
+        wrapMode: String? = null,
+        filterMode: String? = null,
+        cornerRadiusDp: Int? = null
+    ) {
+        val currentDoc = vm.currentDocument ?: return
+        val oldBlock = currentDoc.blocks.firstOrNull { it.id == blockId } as? ImageBlock ?: return
+        val newWidth = widthDp ?: oldBlock.widthDp
+        val newRatio = aspectRatio ?: oldBlock.aspectRatio
+        val newHeight = heightDp ?: if (widthDp != null && newRatio > 0) (widthDp / newRatio).toInt() else oldBlock.heightDp
+
+        val newBlock = oldBlock.copy(
+            widthDp = newWidth.coerceIn(60, 600),
+            heightDp = newHeight.coerceIn(60, 600),
+            alignment = alignment ?: oldBlock.alignment,
+            caption = caption ?: oldBlock.caption,
+            aspectRatio = newRatio,
+            wrapMode = wrapMode ?: oldBlock.wrapMode,
+            filterMode = filterMode ?: oldBlock.filterMode,
+            cornerRadiusDp = cornerRadiusDp ?: oldBlock.cornerRadiusDp
+        )
+
+        vm.executeCommand(
+            UpdateImageBlockCommand(blockId, oldBlock, newBlock, "Format Picture Properties")
+        )
+    }
+
+    fun updateImageWrapMode(blockId: String, wrapMode: String) {
+        val doc = vm.currentDocument ?: return
+        val currentImg = doc.blocks.filterIsInstance<ImageBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = currentImg.copy(wrapMode = wrapMode)
+        vm.executeCommand(UpdateImageBlockCommand(blockId, currentImg, updated))
+    }
+
+    fun updateImageFormatting(
+        blockId: String,
+        filterMode: String,
+        cornerRadiusDp: Int,
+        borderThicknessDp: Int,
+        borderColorHex: String,
+        rotationDegrees: Float
+    ) {
+        val doc = vm.currentDocument ?: return
+        val currentImg = doc.blocks.filterIsInstance<ImageBlock>().firstOrNull { it.id == blockId } ?: return
+        val updatedImg = currentImg.copy(
+            filterMode = filterMode,
+            cornerRadiusDp = cornerRadiusDp,
+            borderThicknessDp = borderThicknessDp,
+            borderColorHex = borderColorHex,
+            rotationDegrees = rotationDegrees
+        )
+        vm.executeCommand(UpdateImageBlockCommand(currentImg.id, currentImg, updatedImg))
+        vm.showStatusMessage("Image properties updated")
+    }
+
+    fun insertSignature(signerName: String, signerTitle: String, strokeHex: String, points: String) {
+        val insertIndex = (vm.activeBlockIndex.value + 1).coerceIn(0, (vm.currentDocument?.blocks?.size ?: 0))
+        val dateStr = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
+        val sigBlock = SignatureBlock(
+            svgPoints = points,
+            signerName = signerName,
+            signerTitle = signerTitle,
+            signedDate = dateStr,
+            strokeColorHex = strokeHex
+        )
+        vm.executeCommand(InsertBlockCommand(insertIndex, sigBlock))
+        vm.showStatusMessage("Digital Signature inserted")
+    }
+
+    fun insertShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String) {
+        insertVectorShape(shapeType, title, content, bgHex, borderHex)
+    }
+
+    fun insertVectorShape(
+        shapeType: String,
+        title: String,
+        content: String,
+        bgHex: String,
+        borderHex: String,
+        strokeWidthPt: Float = 1.5f,
+        widthDp: Int = 220,
+        heightDp: Int = 110
+    ) {
+        val insertIndex = (vm.activeBlockIndex.value + 1).coerceIn(0, (vm.currentDocument?.blocks?.size ?: 0))
+        val shapeBlock = ShapeBlock(
+            shapeType = shapeType,
+            title = title,
+            content = content,
+            backgroundColorHex = bgHex,
+            borderColorHex = borderHex,
+            strokeWidthPt = strokeWidthPt,
+            widthDp = widthDp,
+            heightDp = heightDp
+        )
+        vm.executeCommand(InsertBlockCommand(insertIndex, shapeBlock))
+        vm.showStatusMessage("Vector Shape ($shapeType) inserted")
+    }
+
+    fun insertDrawing(heightDp: Int = 180) {
+        val insertIndex = (vm.activeBlockIndex.value + 1).coerceIn(0, (vm.currentDocument?.blocks?.size ?: 0))
+        val drawingBlock = DrawingBlock(heightDp = heightDp, backgroundColorHex = null)
+        vm.executeCommand(InsertBlockCommand(insertIndex, drawingBlock))
+        vm.showStatusMessage("Inking Canvas inserted")
+    }
+
+    fun updateDrawingStrokes(blockId: String, strokes: List<DrawingStroke>) {
+        val doc = vm.currentDocument ?: return
+        val currentDrawing = doc.blocks.filterIsInstance<DrawingBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = currentDrawing.copy(strokes = strokes)
+        vm.executeCommand(UpdateBlockCommand(blockId, updated))
+    }
+
+    fun insertTextBox(text: String = "Type text here...") {
+        val insertIndex = (vm.activeBlockIndex.value + 1).coerceIn(0, (vm.currentDocument?.blocks?.size ?: 0))
+        val tbBlock = TextBoxBlock(
+            text = text,
+            widthDp = 180,
+            heightDp = 100,
+            backgroundColorHex = "#FFFFFF",
+            borderColorHex = "#2563EB",
+            borderWidthPt = 1.5f
+        )
+        vm.executeCommand(InsertBlockCommand(insertIndex, tbBlock))
+        vm.showStatusMessage("Floating Text Box inserted")
+    }
+
+    fun updateTextBox(
+        blockId: String,
+        text: String,
+        widthDp: Int = 180,
+        heightDp: Int = 100,
+        bgHex: String = "#FFFFFF",
+        borderHex: String = "#2563EB"
+    ) {
+        val doc = vm.currentDocument ?: return
+        val block = doc.blocks.filterIsInstance<TextBoxBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = block.copy(
+            text = text,
+            widthDp = widthDp,
+            heightDp = heightDp,
+            backgroundColorHex = bgHex,
+            borderColorHex = borderHex
+        )
+        vm.executeCommand(UpdateBlockCommand(blockId, updated))
+    }
+}

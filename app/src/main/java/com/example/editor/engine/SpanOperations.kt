@@ -3,29 +3,6 @@ package com.example.editor.engine
 import com.example.data.model.InlineSpan
 
 /**
- * Snapshot of active character formatting attributes at cursor or across a selection.
- */
-data class ActiveFormatting(
-    val isBold: Boolean = false,
-    val isItalic: Boolean = false,
-    val isUnderline: Boolean = false,
-    val isStrikethrough: Boolean = false,
-    val isSuperscript: Boolean = false,
-    val isSubscript: Boolean = false,
-    val fontSizeSp: Float? = null,
-    val textColorHex: String? = null,
-    val highlightColorHex: String? = null,
-    val fontFamilyName: String? = null,
-    val linkUrl: String? = null,
-    val letterSpacingSp: Float? = null,
-    val underlineStyle: com.example.data.model.UnderlineStyle = com.example.data.model.UnderlineStyle.NONE,
-    val underlineColorHex: String? = null,
-    val strikethroughStyle: com.example.data.model.StrikethroughStyle = com.example.data.model.StrikethroughStyle.NONE,
-    val shadowColorHex: String? = null,
-    val isOutline: Boolean = false
-)
-
-/**
  * Mathematical interval algebra for Rich Text inline span ranges.
  * Handles boundary splitting, range mutations, continuous typing span expansion,
  * and adjacent span normalization.
@@ -36,35 +13,7 @@ object SpanOperations {
      * Inspects active formatting at a specific cursor offset or across a selection range.
      */
     fun queryFormatting(spans: List<InlineSpan>, start: Int, end: Int): ActiveFormatting {
-        val targetSpans = if (start == end) {
-            // Cursor position: pick spans covering the character before or at the cursor
-            spans.filter { it.start <= start && it.end >= start }
-        } else {
-            // Range selection: pick spans overlapping the selection
-            spans.filter { it.start < end && it.end > start }
-        }
-
-        if (targetSpans.isEmpty()) return ActiveFormatting()
-
-        return ActiveFormatting(
-            isBold = targetSpans.any { it.isBold },
-            isItalic = targetSpans.any { it.isItalic },
-            isUnderline = targetSpans.any { it.isUnderline || it.underlineStyle != com.example.data.model.UnderlineStyle.NONE },
-            isStrikethrough = targetSpans.any { it.isStrikethrough || it.strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE },
-            isSuperscript = targetSpans.any { it.isSuperscript },
-            isSubscript = targetSpans.any { it.isSubscript },
-            fontSizeSp = targetSpans.lastOrNull { it.fontSizeSp != null }?.fontSizeSp,
-            textColorHex = targetSpans.lastOrNull { it.textColorHex != null }?.textColorHex,
-            highlightColorHex = targetSpans.lastOrNull { it.highlightColorHex != null }?.highlightColorHex,
-            fontFamilyName = targetSpans.lastOrNull { it.fontFamilyName != null }?.fontFamilyName,
-            linkUrl = targetSpans.lastOrNull { it.linkUrl != null }?.linkUrl,
-            letterSpacingSp = targetSpans.lastOrNull { it.letterSpacingSp != null }?.letterSpacingSp,
-            underlineStyle = targetSpans.lastOrNull { it.underlineStyle != com.example.data.model.UnderlineStyle.NONE }?.underlineStyle ?: com.example.data.model.UnderlineStyle.NONE,
-            underlineColorHex = targetSpans.lastOrNull { it.underlineColorHex != null }?.underlineColorHex,
-            strikethroughStyle = targetSpans.lastOrNull { it.strikethroughStyle != com.example.data.model.StrikethroughStyle.NONE }?.strikethroughStyle ?: com.example.data.model.StrikethroughStyle.NONE,
-            shadowColorHex = targetSpans.lastOrNull { it.shadowColorHex != null }?.shadowColorHex,
-            isOutline = targetSpans.any { it.isOutline }
-        )
+        return ActiveFormatting.queryFormatting(spans, start, end)
     }
 
     /**
@@ -176,7 +125,7 @@ object SpanOperations {
     /**
      * Splits spans that cross the boundary points 's' or 'e'.
      */
-    private fun sliceSpansAtBoundaries(spans: List<InlineSpan>, s: Int, e: Int): List<InlineSpan> {
+    fun sliceSpansAtBoundaries(spans: List<InlineSpan>, s: Int, e: Int): List<InlineSpan> {
         val sliced = mutableListOf<InlineSpan>()
         for (span in spans) {
             if (span.start < s && span.end > s) {
@@ -203,7 +152,7 @@ object SpanOperations {
     /**
      * Merges adjacent spans with identical formatting attributes and removes unformatted/empty spans.
      */
-    private fun normalizeAndMerge(spans: List<InlineSpan>): List<InlineSpan> {
+    fun normalizeAndMerge(spans: List<InlineSpan>): List<InlineSpan> {
         val valid = spans.filter { it.start < it.end && hasAnyFormatting(it) }.sortedBy { it.start }
         if (valid.isEmpty()) return emptyList()
 
@@ -216,7 +165,6 @@ object SpanOperations {
                 current = current.copy(end = next.end)
             } else {
                 merged.add(current)
-                current = next
             }
         }
         merged.add(current)
@@ -244,10 +192,6 @@ object SpanOperations {
             a.linkUrl == b.linkUrl
     }
 
-    /**
-     * Shifts and updates span boundaries when the underlying string content is modified.
-     * Preserves formatting and applies pending formatting to freshly typed characters.
-     */
     fun shiftSpansOnTextChange(
         spans: List<InlineSpan>,
         editOffset: Int,
@@ -255,64 +199,11 @@ object SpanOperations {
         insertedLength: Int,
         pendingFormatting: ActiveFormatting? = null
     ): List<InlineSpan> {
-        val result = mutableListOf<InlineSpan>()
-        val delta = insertedLength - deletedLength
-        val editEnd = editOffset + deletedLength
-
-        for (span in spans) {
-            if (span.end <= editOffset) {
-                // Strictly before edit: completely unchanged
-                result.add(span)
-            } else if (span.start >= editEnd) {
-                // Strictly after edit: shift offsets by delta
-                result.add(span.copy(start = span.start + delta, end = span.end + delta))
-            } else {
-                // Overlaps edit range
-                val newStart = when {
-                    span.start <= editOffset -> span.start
-                    span.start < editEnd -> editOffset
-                    else -> span.start + delta
-                }
-
-                val newEnd = when {
-                    span.end <= editEnd -> editOffset + insertedLength
-                    else -> span.end + delta
-                }
-
-                if (newStart < newEnd) {
-                    result.add(span.copy(start = newStart, end = newEnd))
-                }
-            }
-        }
-
-        // If text was inserted and there was explicit pending formatting, add a span for the inserted text
-        if (insertedLength > 0 && pendingFormatting != null && hasAnyFormatting(pendingFormatting)) {
-            result.add(
-                InlineSpan(
-                    start = editOffset,
-                    end = editOffset + insertedLength,
-                    isBold = pendingFormatting.isBold,
-                    isItalic = pendingFormatting.isItalic,
-                    isUnderline = pendingFormatting.isUnderline,
-                    isStrikethrough = pendingFormatting.isStrikethrough,
-                    isSuperscript = pendingFormatting.isSuperscript,
-                    isSubscript = pendingFormatting.isSubscript,
-                    fontSizeSp = pendingFormatting.fontSizeSp,
-                    textColorHex = pendingFormatting.textColorHex,
-                    highlightColorHex = pendingFormatting.highlightColorHex,
-                    fontFamilyName = pendingFormatting.fontFamilyName,
-                    linkUrl = pendingFormatting.linkUrl
-                )
-            )
-        }
-
-        return normalizeAndMerge(result)
+        return SpanShiftOperations.shiftSpansOnTextChange(
+            spans, editOffset, deletedLength, insertedLength, pendingFormatting
+        )
     }
 
-    /**
-     * Performs find and replace across text while accurately shifting all formatting
-     * spans (Bold, Italic, Color, Hyperlinks) so styling remains on the correct characters.
-     */
     fun replaceTextAndShiftSpans(
         text: String,
         spans: List<InlineSpan>,
@@ -320,48 +211,8 @@ object SpanOperations {
         replace: String,
         ignoreCase: Boolean = true
     ): Pair<String, List<InlineSpan>> {
-        if (find.isEmpty() || !text.contains(find, ignoreCase = ignoreCase)) {
-            return Pair(text, spans)
-        }
-
-        val matchIndices = mutableListOf<Int>()
-        var searchIdx = 0
-        while (searchIdx <= text.length - find.length) {
-            val idx = text.indexOf(find, searchIdx, ignoreCase = ignoreCase)
-            if (idx == -1) break
-            matchIndices.add(idx)
-            searchIdx = idx + find.length
-        }
-
-        if (matchIndices.isEmpty()) return Pair(text, spans)
-
-        var currentText = text
-        var currentSpans = spans
-
-        // Process replacements from right-to-left so earlier offsets are not mutated
-        for (i in matchIndices.indices.reversed()) {
-            val matchStart = matchIndices[i]
-            val deletedLen = find.length
-            val insertedLen = replace.length
-
-            currentSpans = shiftSpansOnTextChange(
-                spans = currentSpans,
-                editOffset = matchStart,
-                deletedLength = deletedLen,
-                insertedLength = insertedLen,
-                pendingFormatting = null
-            )
-
-            currentText = currentText.substring(0, matchStart) + replace + currentText.substring(matchStart + deletedLen)
-        }
-
-        return Pair(currentText, currentSpans)
-    }
-
-    private fun hasAnyFormatting(f: ActiveFormatting): Boolean {
-        return f.isBold || f.isItalic || f.isUnderline || f.isStrikethrough ||
-            f.isSuperscript || f.isSubscript || f.fontSizeSp != null ||
-            f.textColorHex != null || f.highlightColorHex != null ||
-            f.fontFamilyName != null || f.linkUrl != null
+        return SpanShiftOperations.replaceTextAndShiftSpans(
+            text, spans, find, replace, ignoreCase
+        )
     }
 }
