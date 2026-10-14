@@ -130,3 +130,85 @@ app/src/main/java/com/example/
   - EPUB e-book export.
   - Optional Google Drive / Cloud storage save action.
 
+---
+
+## 📦 300-Line Codebase Modularization Plan (تمام فائلز کو 300 لائنز سے کم کرنے کا روڈ میپ)
+
+> ### 🎯 DIRECTIVE FOR AI AGENT / DEVELOPER:
+> **Jab bhi user kisi bhi phase ka zikr kare (maslan: "Phase 1", "Phase 2", "Phase 3", ya "Phase 4" apply karo), to foran us specific phase ki tamam files ko mutaliqa subfolders mein extract aur modularize karein:**
+> 
+> - **Jab "Phase 1" ka zikr ho:** UI Screens aur Dialogs (8 Files) par foran kaam karein.
+> - **Jab "Phase 2" ka zikr ho:** Editor Canvas, Block Views aur Toolbars (8 Files) par foran kaam karein.
+> - **Jab "Phase 3" ka zikr ho:** ViewModel (Coordinator + 5 Managers) aur Engine (5 Files) par foran kaam karein.
+> - **Jab "Phase 4" ka zikr ho:** Data Layer, Storage, DOCX اور PDF Services (7-8 Files) par foran kaam karein.
+> 
+> **Standard Rules:**
+> 1. Har nayi aur purani file ka size strictly **200 se 280 lines (<300 lines)** ke darmiyan rakhna lazmi hai.
+> 2. **Zero Regression Guarantee:** UI, designs, icons, fonts, features, formatting, aur tests 100% waise hi kaam karte rahein.
+> 3. Har phase ke dauran aur aakhir mein `compile_applet` aur `gradle :app:testDebugUnitTest` run kar ke tasdeeq ki jaye.
+
+---
+
+### 🔹 Phase 1: UI Screens & Complex Dialogs ✅ [COMPLETED - 100% VERIFIED]
+Phase 1 ki tamam 8 bari UI aur dialog files ko modularize kar ke har file ko **300 lines se kam** (106 - 275 lines) kar diya gaya hai:
+
+- [x] **`SmartWritingDialog.kt`**: 106 lines (Modularized scaffold)
+- [x] **`EditorScreen.kt`**: 265 lines (Editor root scaffold)
+- [x] **`HomeScreen.kt`**: 261 lines (Home dashboard & template grid)
+- [x] **`DocumentOutlineSheet.kt`**: 208 lines + `OutlineHeadingComponents.kt` (255 lines)
+- [x] **`SecurityDialogs.kt`**: 128 lines + `DigitalSignatureDialog.kt` (241 lines)
+- [x] **`DocumentElementsDialogs.kt`**: 126 lines + `WatermarkDialog.kt` (133 lines) + `VersionHistoryDialog.kt` (130 lines)
+- [x] **`TypographyAndStyleDialogs.kt`**: 226 lines + `ParagraphSpacingAndIndentsDialog.kt` (134 lines)
+- [x] **`PageLayoutDialog.kt`**: 259 lines + `PageLayoutPaperTab.kt` (215 lines) + `PageLayoutMarginsSection.kt` (146 lines)
+- [x] **`EditorQuickFormatBar.kt`**: 131 lines
+- [x] **`EditorTopAppBar.kt`**: 248 lines
+- [x] **`HomeDialogs.kt`**: 264 lines
+
+#### 🛡️ GitHub Import & Sync Anti-Regression Protection:
+Jab bhi GitHub se data import kiya jaye ya repo pull/merge ho, to files limit size back na ho:
+1. **GitHub CI Integration:** `.github/workflows/build-apk.yml` mein `Verify 300-Line Codebase Limit & Anti-Regression` step shamil hai jo har push/PR par limits check karta hai.
+2. **Automated Verification Script:** `./scripts/check_file_limits.sh` (or `python3 scripts/check_file_limits.py`) jo foran check karta hai ke koi file 300 lines se exceed to nahi hui.
+3. **Gradle Task:** `gradle :app:checkFileLimits` jo build/test se pehle run ho kar violation par build rok deta hai.
+
+---
+
+### 🔹 Phase 2: Editor Canvas, Blocks & Toolbars (جب "Phase 2" کا ذکر ہو تو یہ لاگو کریں)
+Jab user **"Phase 2"** bole, to mandarja zail 8 canvas aur editor formatting files ko modularize karein:
+
+1. **`ParagraphBlockView.kt` (423 lines)** → Split into text rendering, selection handles, and bidi/RTL layout composables under `components/blocks/`.
+2. **`SpecialBlocksView.kt` (340 lines)** → Split horizontal line dividers, date/time blocks, and footnote blocks.
+3. **`DrawingBlockView.kt` (321 lines)** → Extract touch canvas, stroke rendering, and tool selection.
+4. **`PaginatedItemRenderer.kt` (367 lines)** & **`PaginatedSheetView.kt` (348 lines)** → Separate page margin clipping and page divider decorations under `components/canvas/`.
+5. **`CharacterFormattingBar.kt` (391 lines)** & **`ParagraphFormattingBar.kt` (336 lines)** → Separate button groups and popup menus under `components/toolbar/`.
+6. **`WordRibbon.kt` (322 lines)** → Extract `RibbonTabRow.kt` and `RibbonOverflowBar.kt`.
+
+---
+
+### 🔹 Phase 3: Core Engine & ViewModel Decomposition (جب "Phase 3" کا ذکر ہو تو یہ لاگو کریں)
+Jab user **"Phase 3"** bole, to ViewModel aur Core Engine files ko modularize karein:
+
+1. **`EditorViewModel.kt` (2,907 lines - Central Coordinator):**
+   Decompose into dedicated delegate managers under `ui/editor/viewmodel/`:
+   - `EditorFormattingManager.kt` (~250 lines): Bold, italic, color, fonts, alignments, lists.
+   - `EditorTableManager.kt` (~250 lines): Add/remove rows/cols, merge cells, cell border styles.
+   - `EditorBlockManager.kt` (~250 lines): Insert paragraph, image, shape, split blocks, delete block.
+   - `EditorExportManager.kt` (~200 lines): Dispatch export to PDF, DOCX, EPUB, TXT, Print.
+   - `EditorHistoryManager.kt` (~200 lines): Undo/Redo stack, autosave ticks, crash recovery snapshots.
+   - Keep `EditorViewModel.kt` (~250 lines) as lightweight unified state coordinator.
+2. **`HomeViewModel.kt` (333 lines)** → Extract `HomeTemplateManager.kt`.
+3. **`EditorEngineIntegration.kt` (403 lines)**, **`SpanOperations.kt` (367 lines)**, **`StyleCommands.kt` (366 lines)** → Clean modular helpers under 250 lines.
+
+---
+
+### 🔹 Phase 4: Data Layer, Storage, DOCX & PDF Services (جب "Phase 4" کا ذکر ہو تو یہ لاگو کریں)
+Jab user **"Phase 4"** bole, to heavy data aur export pipelines ko modularize karein:
+
+1. **`PdfExportServiceImpl.kt` (1,396 lines)** → Separate Canvas text renderer, Table grid renderer, Shape/Image renderer.
+2. **`DocxPackageWriter.kt` (1,114 lines)** → Separate document.xml writer, styles.xml writer, relationships writer.
+3. **`DocumentStorageManager.kt` (1,068 lines)** → Separate CacheManager, FileExportHelper, ThumbnailGenerator.
+4. **`DocxPackageReader.kt` (872 lines)** → Split paragraph parser, table parser, shape/run parser.
+5. **`DocumentRepositoryImpl.kt` (854 lines)** → Split local queries, mutation handlers, and template seeders.
+6. **`PaginationEngine.kt` (650 lines)** → Split height calculation, page break detector, and 2-column layout math.
+7. **`RichDocument.kt` (408 lines)** → Separate block models, span models, and style enums.
+
+

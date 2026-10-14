@@ -142,3 +142,10 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register<Exec>("checkFileLimits") {
+  group = "verification"
+  description = "Verifies 300-line modularization limits and prevents code size regression."
+  workingDir = rootDir
+  commandLine("python3", "${rootDir}/scripts/check_file_limits.py")
+}

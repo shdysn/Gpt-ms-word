@@ -54,6 +54,11 @@ jobs:
             keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           fi
 
+      - name: Verify 300-Line Codebase Limit & Anti-Regression (Phase 1)
+        run: |
+          chmod +x scripts/check_file_limits.sh
+          ./scripts/check_file_limits.sh
+
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest --continue
         continue-on-error: true

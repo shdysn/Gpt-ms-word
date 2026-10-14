@@ -1,0 +1,97 @@
+package com.example.ui.editor
+
+import android.content.Context
+import android.net.Uri
+import androidx.activity.result.ActivityResultLauncher
+import androidx.compose.runtime.Composable
+import com.example.data.model.ParagraphBlock
+import com.example.data.model.RichDocument
+import com.example.ui.editor.components.EditorDialogsHost
+
+@Composable
+fun EditorDialogsWiring(
+    viewModel: EditorViewModel,
+    document: RichDocument?,
+    context: Context,
+    actualPageCount: Int,
+    activeParagraph: ParagraphBlock?,
+    dState: EditorDialogsState,
+    onNavigateBack: () -> Unit,
+    safDocxSaveLauncher: ActivityResultLauncher<String>,
+    safPdfSaveLauncher: ActivityResultLauncher<String>
+) {
+    EditorDialogsHost(
+        viewModel = viewModel,
+        document = document,
+        context = context,
+        actualPageCount = actualPageCount,
+        activeParagraph = activeParagraph,
+        showTitleEditDialog = dState.showTitleEditDialog,
+        onDismissTitleEdit = { dState.showTitleEditDialog = false },
+        showSaveOptionsDialog = dState.showSaveOptionsDialog,
+        onDismissSaveOptions = { dState.showSaveOptionsDialog = false },
+        onOpenSaveAs = { dState.showSaveAsDialog = true },
+        showExportOptionsDialog = dState.showExportOptionsDialog,
+        onDismissExportOptions = { dState.showExportOptionsDialog = false },
+        onOpenExportPdf = { dState.showExportPdfDialog = true },
+        showSaveAsDialog = dState.showSaveAsDialog,
+        onDismissSaveAs = { dState.showSaveAsDialog = false },
+        showDiscardDialog = dState.showDiscardDialog,
+        onDismissDiscard = { dState.showDiscardDialog = false },
+        onNavigateBack = onNavigateBack,
+        showTableDialog = dState.showTableDialog,
+        onDismissTableDialog = { dState.showTableDialog = false },
+        selectedTableForProperties = dState.selectedTableForProperties,
+        onDismissTableProperties = { dState.selectedTableForProperties = null },
+        selectedCellForEdit = dState.selectedCellForEdit,
+        onDismissCellEdit = { dState.selectedCellForEdit = null },
+        selectedImageForProperties = dState.selectedImageForProperties,
+        onDismissImageProperties = { dState.selectedImageForProperties = null },
+        showHeaderFooterDialog = dState.showHeaderFooterDialog,
+        onDismissHeaderFooter = { dState.showHeaderFooterDialog = false },
+        showPageNumberDialog = dState.showPageNumberDialog,
+        onDismissPageNumber = { dState.showPageNumberDialog = false },
+        showLinkDialog = dState.showLinkDialog,
+        onDismissLinkDialog = { dState.showLinkDialog = false },
+        showLayoutDialog = dState.showLayoutDialog,
+        onDismissLayoutDialog = { dState.showLayoutDialog = false },
+        showExportPdfDialog = dState.showExportPdfDialog,
+        onDismissExportPdf = { dState.showExportPdfDialog = false },
+        onOpenPageSetupFromPdf = { dState.showLayoutDialog = true },
+        showStatsDialog = dState.showStatsDialog,
+        onDismissStatsDialog = { dState.showStatsDialog = false },
+        isDocumentLocked = viewModel.isDocumentLocked.value,
+        showSignatureDialog = dState.showSignatureDialog,
+        onDismissSignatureDialog = { dState.showSignatureDialog = false },
+        showShapeDialog = dState.showShapeDialog,
+        onDismissShapeDialog = { dState.showShapeDialog = false },
+        showWatermarkDialog = dState.showWatermarkDialog,
+        onDismissWatermarkDialog = { dState.showWatermarkDialog = false },
+        showPasswordDialog = dState.showPasswordDialog,
+        onDismissPasswordDialog = { dState.showPasswordDialog = false },
+        showVersionHistoryDialog = dState.showVersionHistoryDialog,
+        onDismissVersionHistoryDialog = { dState.showVersionHistoryDialog = false },
+        showCommentsDialog = dState.showCommentsDialog,
+        onDismissCommentsDialog = { dState.showCommentsDialog = false },
+        showTrackChangesDialog = dState.showTrackChangesDialog,
+        onDismissTrackChangesDialog = { dState.showTrackChangesDialog = false },
+        showSmartWritingDialog = dState.showSmartWritingDialog,
+        onDismissSmartWritingDialog = { dState.showSmartWritingDialog = false },
+        showFootnoteDialog = dState.showFootnoteDialog,
+        onDismissFootnoteDialog = { dState.showFootnoteDialog = false },
+        showPageBordersDialog = dState.showPageBordersDialog,
+        onDismissPageBordersDialog = { dState.showPageBordersDialog = false },
+        showPageColorDialog = dState.showPageColorDialog,
+        onDismissPageColorDialog = { dState.showPageColorDialog = false },
+        showTypographyEffectsDialog = dState.showTypographyEffectsDialog,
+        onDismissTypographyEffectsDialog = { dState.showTypographyEffectsDialog = false },
+        showParagraphSpacingDialog = dState.showParagraphSpacingDialog,
+        onDismissParagraphSpacingDialog = { dState.showParagraphSpacingDialog = false },
+        showCreateCustomStyleDialog = dState.showCreateCustomStyleDialog,
+        onDismissCreateCustomStyleDialog = { dState.showCreateCustomStyleDialog = false },
+        selectedCellForProperties = dState.selectedCellForProperties,
+        onDismissCellProperties = { dState.selectedCellForProperties = null },
+        safDocxSaveLauncher = safDocxSaveLauncher,
+        safPdfSaveLauncher = safPdfSaveLauncher
+    )
+}
