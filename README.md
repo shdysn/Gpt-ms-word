@@ -77,3 +77,56 @@ app/src/main/java/com/example/
 - Sensitive credentials and keys are wired exclusively via the **Secrets Gradle Plugin** using `.env` / `.env.example`.
 - Never commit `.env` containing sensitive keys.
 - Do not use or create `local.properties` in AI Studio.
+
+---
+
+## 🗺️ Implementation Roadmap & Phased Directives (فیچرز کا لائحہ عمل و روڈ میپ)
+
+> **DEVELOPER DIRECTIVE FOR FUTURE IMPORT / SESSIONS:**  
+> Jab bhi yeh app dobara import ki jaye ya mazeed taraqqi di jaye, mandarja zail phases ko ba-tartib complete kiya jaye:
+
+### ✅ Phase 1: Visual Polish, Watermark & Navigation (COMPLETED)
+- [x] **Watermark System:** Full diagonal (-45°) and horizontal watermarks with presets (`CONFIDENTIAL`, `DRAFT`, `URGENT`, `SAMPLE`) and custom Urdu/English text, rendered on canvas and exported into PDF.
+- [x] **Page Borders & Background Colors:** Single Thin, Thick, Double, Dashed borders and Ivory/Cream/Parchment/Dark paper presets.
+- [x] **Document Outline Navigation Sheet (`DocumentOutlineSheet.kt`):** Semantic headings hierarchy tree (Title, H1, H2, H3), section word counts, page numbers, search filter, and 1-click jump navigation.
+- [x] **Live Status Bar:** Clickable page counter (`Page X of Y`), live word & character statistics, estimated reading time (`~X min`), and RTL language indicator.
+
+---
+
+### ⏳ Phase 2: Drawing, Inking & Vector Shapes (Next Phase / اگلا مرحلہ)
+- [ ] **Draw Ribbon Tab (Freehand Inking):**
+  - Add dedicated **Draw** tab in `WordRibbon.kt` and `RibbonControls.kt`.
+  - Tools: Pen, Highlighter, Eraser, Stroke Width Slider (1pt–8pt), and Color Swatches.
+  - Touch & Stylus / S-Pen drawing canvas layer over pages with stroke point serialization.
+  - Export drawn ink strokes into PDF canvas (`PdfExportServiceImpl`) and OOXML drawing markup.
+- [ ] **Vector Shapes Gallery:**
+  - Support arbitrary geometric shapes (Rectangle, Rounded Rectangle, Oval/Circle, Right/Left/Up/Down Arrows, Star, Diamond, Callout Speech Bubble).
+  - Configurable fill color, outline stroke thickness, rotation, and interior editable text.
+
+---
+
+### ⏳ Phase 3: Layout Refinement, Text Wrapping & Advanced Headers (مرحلہ 3)
+- [ ] **Image Text Wrapping:**
+  - Reflow text around images with wrapping modes: `IN_LINE`, `SQUARE`, `BEHIND_TEXT`, `IN_FRONT_OF_TEXT`.
+  - Floating image positioning with gesture-based drag & resize handles.
+- [ ] **Floating Text Boxes:**
+  - Draggable, resizable text containers that can be placed anywhere on the sheet canvas.
+- [ ] **Advanced Header & Footer Customization:**
+  - **Different First Page:** Suppress headers/footers on title or cover pages.
+  - **Different Odd & Even Pages:** Dual-page gutter headers for professional book and booklet publishing.
+  - Extended page numbering: Roman numerals (`i, ii, iii`), Letters (`A, B, C`), and `Page X of Y`.
+
+---
+
+### ⏳ Phase 4: Real-time Typo Squiggles, OCR Scanner & Extended Formats (مرحلہ 4)
+- [ ] **Real-time Spellcheck Squiggly Lines:**
+  - Visual wavy red underline below misspelled words directly inside `BasicTextField` during live typing.
+  - Quick popup with correction suggestions on tapping misspelled words.
+- [ ] **Camera OCR Document Scanner:**
+  - Camera capture to scan printed physical papers directly into editable document text using on-device text recognition.
+- [ ] **Extended File Formats & Cloud Backup:**
+  - Markdown (`.md`) import/export.
+  - Plain Text (`.txt`) import/export.
+  - EPUB e-book export.
+  - Optional Google Drive / Cloud storage save action.
+

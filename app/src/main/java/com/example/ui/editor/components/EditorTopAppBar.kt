@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Description
@@ -60,12 +61,14 @@ fun EditorTopAppBar(
     canRedo: Boolean,
     viewMode: EditorViewMode,
     isFindReplaceVisible: Boolean,
+    isOutlineVisible: Boolean = false,
     onBackClick: () -> Unit,
     onTitleClick: () -> Unit,
     onUndoClick: () -> Unit,
     onRedoClick: () -> Unit,
     onToggleViewMode: () -> Unit,
     onToggleFindReplace: () -> Unit,
+    onToggleOutline: () -> Unit = {},
     onSaveClick: () -> Unit,
     onExportClick: () -> Unit,
     onPageSetupClick: () -> Unit,
@@ -150,6 +153,17 @@ fun EditorTopAppBar(
             }
 
             IconButton(
+                onClick = onToggleOutline,
+                modifier = Modifier.testTag("action_document_outline")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ListAlt,
+                    contentDescription = "Document Outline",
+                    tint = if (isOutlineVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            IconButton(
                 onClick = onToggleFindReplace,
                 modifier = Modifier.testTag("action_find_replace")
             ) {
@@ -169,6 +183,15 @@ fun EditorTopAppBar(
                     expanded = showOptionsMenu,
                     onDismissRequest = { showOptionsMenu = false }
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("Document Outline") },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, tint = WordPrimary) },
+                        onClick = {
+                            showOptionsMenu = false
+                            onToggleOutline()
+                        },
+                        modifier = Modifier.testTag("menu_document_outline")
+                    )
                     DropdownMenuItem(
                         text = { Text("Save...") },
                         leadingIcon = { Icon(Icons.Default.Save, contentDescription = null, tint = WordPrimary) },

@@ -63,6 +63,7 @@ import com.example.data.model.ImageBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.TableBlock
 import com.example.ui.editor.components.DocumentCanvas
+import com.example.ui.editor.components.DocumentOutlineSheet
 import com.example.ui.editor.components.EditorDialogsHost
 import com.example.ui.editor.components.EditorRecoveryBanner
 import com.example.ui.editor.components.EditorStatusBar
@@ -151,6 +152,7 @@ fun EditorScreen(
     var showTypographyEffectsDialog by remember { mutableStateOf(false) }
     var showParagraphSpacingDialog by remember { mutableStateOf(false) }
     var showCreateCustomStyleDialog by remember { mutableStateOf(false) }
+    var showOutlineSheet by remember { mutableStateOf(false) }
 
     // Voice Typing Dictation Launcher
     val voiceTypingLauncher = rememberLauncherForActivityResult(
@@ -234,12 +236,14 @@ fun EditorScreen(
                     canRedo = canRedo,
                     viewMode = viewMode,
                     isFindReplaceVisible = isFindReplaceVisible,
+                    isOutlineVisible = showOutlineSheet,
                     onBackClick = handleBackNavigation,
                     onTitleClick = { showTitleEditDialog = true },
                     onUndoClick = { viewModel.undo() },
                     onRedoClick = { viewModel.redo() },
                     onToggleViewMode = { viewModel.toggleViewMode() },
                     onToggleFindReplace = { viewModel.toggleFindReplace() },
+                    onToggleOutline = { showOutlineSheet = !showOutlineSheet },
                     onSaveClick = { showSaveOptionsDialog = true },
                     onExportClick = { showExportOptionsDialog = true },
                     onPageSetupClick = { showLayoutDialog = true },
@@ -316,6 +320,7 @@ fun EditorScreen(
                 onToggleChecklist = { viewModel.toggleChecklist() },
                 onCreateCustomStyle = { showCreateCustomStyleDialog = true },
                 onApplyCustomStyle = { viewModel.applyCustomStyle(it) },
+                onOpenOutline = { showOutlineSheet = true },
                 onStartVoiceTyping = {
                     try {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -563,4 +568,17 @@ fun EditorScreen(
         safDocxSaveLauncher = safDocxSaveLauncher,
         safPdfSaveLauncher = safPdfSaveLauncher
     )
+
+    if (showOutlineSheet && document != null) {
+        DocumentOutlineSheet(
+            document = document!!,
+            paginatedPages = paginatedPages,
+            activeBlockIndex = activeBlockIndex,
+            onDismiss = { showOutlineSheet = false },
+            onNavigateToHeading = { blockIdx, pageIdx ->
+                viewModel.setActiveBlock(blockIdx)
+                showOutlineSheet = false
+            }
+        )
+    }
 }

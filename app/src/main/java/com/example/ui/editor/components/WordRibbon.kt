@@ -122,7 +122,8 @@ fun WordRibbon(
     onOpenParagraphSpacingDialog: () -> Unit = {},
     onToggleChecklist: () -> Unit = { viewModel.toggleChecklist() },
     onCreateCustomStyle: () -> Unit = {},
-    onApplyCustomStyle: (com.example.data.model.CustomStyle) -> Unit = { viewModel.applyCustomStyle(it) }
+    onApplyCustomStyle: (com.example.data.model.CustomStyle) -> Unit = { viewModel.applyCustomStyle(it) },
+    onOpenOutline: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
     val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
@@ -320,7 +321,8 @@ fun WordRibbon(
                         ) {
                             ViewRibbonControls(
                                 viewModel = viewModel,
-                                onOpenLayoutDialog = onOpenLayoutDialog
+                                onOpenLayoutDialog = onOpenLayoutDialog,
+                                onOpenOutline = onOpenOutline
                             )
                         }
                     }

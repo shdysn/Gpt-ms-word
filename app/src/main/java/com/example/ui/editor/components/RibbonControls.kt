@@ -410,13 +410,22 @@ fun ReviewRibbonControls(
 @Composable
 fun ViewRibbonControls(
     viewModel: EditorViewModel,
-    onOpenLayoutDialog: () -> Unit = {}
+    onOpenLayoutDialog: () -> Unit = {},
+    onOpenOutline: () -> Unit = {}
 ) {
     val currentViewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
     val canvasPaperMode by viewModel.canvasPaperMode.collectAsStateWithLifecycle()
     val showRuler by viewModel.showRuler.collectAsStateWithLifecycle()
     val showWordCount by viewModel.showWordCount.collectAsStateWithLifecycle()
+
+    RibbonActionButton(
+        icon = Icons.AutoMirrored.Filled.ListAlt,
+        label = "Document Outline",
+        onClick = onOpenOutline
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
     // Canvas Paper Theme
     RibbonToggleButton(

@@ -87,6 +87,10 @@ fun EditorStatusBar(
     activeBlock: ParagraphBlock?,
     onOpenLayoutDialog: () -> Unit = {}
 ) {
+    val totalWords = document?.wordCount ?: 0
+    val totalChars = document?.characterCount ?: 0
+    val readingMins = (totalWords / 200).coerceAtLeast(1)
+
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 4.dp,
@@ -105,20 +109,43 @@ fun EditorStatusBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Clickable Page Number indicator
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.padding(end = 2.dp)
+                ) {
+                    Text(
+                        text = "Page $currentPageNumber of $totalPages",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+
                 if (showWordCount) {
                     Text(
-                        text = "${document?.wordCount ?: 0} words",
+                        text = "$totalWords words",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     Text(
-                        text = "${document?.characterCount ?: 0} chars",
+                        text = "$totalChars chars",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        text = "~$readingMins min",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text("•", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                 }
+
                 Text(
                     text = if (activeBlock?.isRtl == true) "Urdu (RTL)" else "English (LTR)",
                     fontSize = 11.sp,
