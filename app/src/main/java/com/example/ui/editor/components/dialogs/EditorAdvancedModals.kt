@@ -1,0 +1,298 @@
+package com.example.ui.editor.components.dialogs
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.CustomStyle
+import com.example.data.model.ParagraphBlock
+import com.example.data.model.RichDocument
+import com.example.data.model.TableCell
+import com.example.data.model.TableBlock
+import com.example.ui.editor.EditorViewModel
+import com.example.ui.editor.components.CommentsDialog
+import com.example.ui.editor.components.DocumentStatisticsDialog
+import com.example.ui.editor.components.InsertFootnoteDialog
+import com.example.ui.editor.components.PageBordersDialog
+import com.example.ui.editor.components.PageColorDialog
+import com.example.ui.editor.components.SmartWritingDialog
+import com.example.ui.editor.components.TrackChangesDialog
+
+@Composable
+fun EditorAdvancedModals(
+    viewModel: EditorViewModel,
+    document: RichDocument?,
+    actualPageCount: Int,
+    activeParagraph: ParagraphBlock?,
+    showStatsDialog: Boolean,
+    onDismissStatsDialog: () -> Unit,
+    showSignatureDialog: Boolean,
+    onDismissSignatureDialog: () -> Unit,
+    showShapeDialog: Boolean,
+    onDismissShapeDialog: () -> Unit,
+    showWatermarkDialog: Boolean,
+    onDismissWatermarkDialog: () -> Unit,
+    showPasswordDialog: Boolean,
+    onDismissPasswordDialog: () -> Unit,
+    showVersionHistoryDialog: Boolean,
+    onDismissVersionHistoryDialog: () -> Unit,
+    showCommentsDialog: Boolean,
+    onDismissCommentsDialog: () -> Unit,
+    showTrackChangesDialog: Boolean,
+    onDismissTrackChangesDialog: () -> Unit,
+    showSmartWritingDialog: Boolean,
+    onDismissSmartWritingDialog: () -> Unit,
+    showFootnoteDialog: Boolean,
+    onDismissFootnoteDialog: () -> Unit,
+    showPageBordersDialog: Boolean,
+    onDismissPageBordersDialog: () -> Unit,
+    showPageColorDialog: Boolean,
+    onDismissPageColorDialog: () -> Unit,
+    showTypographyEffectsDialog: Boolean,
+    onDismissTypographyEffectsDialog: () -> Unit,
+    showParagraphSpacingDialog: Boolean,
+    onDismissParagraphSpacingDialog: () -> Unit,
+    showCreateCustomStyleDialog: Boolean,
+    onDismissCreateCustomStyleDialog: () -> Unit,
+    selectedCellForProperties: Triple<TableBlock, Int, Int>?,
+    onDismissCellProperties: () -> Unit
+) {
+    if (showStatsDialog) {
+        DocumentStatisticsDialog(
+            document = document,
+            actualPageCount = actualPageCount,
+            activeParagraph = activeParagraph,
+            onDismiss = onDismissStatsDialog
+        )
+    }
+
+    if (showSignatureDialog) {
+        DigitalSignatureDialog(
+            onDismiss = onDismissSignatureDialog,
+            onConfirm = { signerName, signerTitle, strokeHex, points ->
+                viewModel.insertSignature(signerName, signerTitle, strokeHex, points)
+                onDismissSignatureDialog()
+            }
+        )
+    }
+
+    if (showShapeDialog) {
+        ShapeInsertDialog(
+            onDismiss = onDismissShapeDialog,
+            onConfirm = { shapeType, title, content, bgHex, borderHex ->
+                viewModel.insertShape(shapeType, title, content, bgHex, borderHex)
+                onDismissShapeDialog()
+            }
+        )
+    }
+
+    if (showWatermarkDialog && document != null) {
+        WatermarkDialog(
+            initialText = document.layoutConfig.watermarkText,
+            onDismiss = onDismissWatermarkDialog,
+            onApply = { text, colorHex, angle ->
+                viewModel.setWatermark(text, colorHex, angle)
+                onDismissWatermarkDialog()
+            },
+            onRemove = {
+                viewModel.removeWatermark()
+                onDismissWatermarkDialog()
+            }
+        )
+    }
+
+    if (showPasswordDialog && document != null) {
+        DocumentPasswordDialog(
+            isCurrentlyLocked = document.isPasswordProtected,
+            onDismiss = onDismissPasswordDialog,
+            onSetPassword = { pwd ->
+                viewModel.setDocumentPassword(pwd)
+                onDismissPasswordDialog()
+            },
+            onRemovePassword = {
+                viewModel.removeDocumentPassword()
+                onDismissPasswordDialog()
+            }
+        )
+    }
+
+    if (showVersionHistoryDialog) {
+        val revisions by viewModel.revisionSnapshots.collectAsStateWithLifecycle()
+        VersionHistoryDialog(
+            revisions = revisions,
+            onDismiss = onDismissVersionHistoryDialog,
+            onCreateSnapshot = {
+                val label = "Version ${revisions.size + 1}"
+                viewModel.createNamedSnapshot(label)
+            },
+            onRestoreRevision = { revId ->
+                viewModel.restoreRevisionSnapshot(revId)
+                onDismissVersionHistoryDialog()
+            }
+        )
+    }
+
+    if (showCommentsDialog && document != null) {
+        val activeBlock = activeParagraph
+        CommentsDialog(
+            comments = document.comments,
+            activeBlockId = activeBlock?.id,
+            onDismiss = onDismissCommentsDialog,
+            onAddComment = { author, text ->
+                viewModel.addComment(
+                    blockId = activeBlock?.id ?: document.blocks.firstOrNull()?.id ?: "",
+                    author = author,
+                    text = text
+                )
+            },
+            onResolveComment = { commentId ->
+                viewModel.resolveComment(commentId)
+            },
+            onDeleteComment = { commentId ->
+                viewModel.deleteComment(commentId)
+            }
+        )
+    }
+
+    if (showTrackChangesDialog && document != null) {
+        TrackChangesDialog(
+            isTrackChangesEnabled = document.isTrackChangesEnabled,
+            trackedChanges = document.trackedChanges,
+            onDismiss = onDismissTrackChangesDialog,
+            onToggleTrackChanges = { enabled ->
+                viewModel.toggleTrackChanges(enabled)
+            },
+            onAcceptChange = { changeId ->
+                viewModel.acceptChange(changeId)
+            },
+            onRejectChange = { changeId ->
+                viewModel.rejectChange(changeId)
+            },
+            onAcceptAll = {
+                viewModel.acceptAllChanges()
+            },
+            onRejectAll = {
+                viewModel.rejectAllChanges()
+            }
+        )
+    }
+
+    if (showSmartWritingDialog) {
+        SmartWritingDialog(
+            document = document,
+            activeParagraph = activeParagraph,
+            onDismiss = onDismissSmartWritingDialog,
+            onApplyRewrite = { paragraphId, newText ->
+                viewModel.applyAiRewrite(paragraphId, newText)
+            },
+            onInsertSummary = { summaryText ->
+                viewModel.insertAiSummary(summaryText)
+            }
+        )
+    }
+
+    if (showFootnoteDialog) {
+        InsertFootnoteDialog(
+            defaultReferenceText = activeParagraph?.text?.take(30) ?: "",
+            onDismiss = onDismissFootnoteDialog,
+            onConfirm = { refText, noteContent ->
+                viewModel.insertFootnote(refText, noteContent)
+                onDismissFootnoteDialog()
+            }
+        )
+    }
+
+    if (showPageBordersDialog && document != null) {
+        PageBordersDialog(
+            initialStyle = document.layoutConfig.borderStyle,
+            initialColorHex = document.layoutConfig.borderColorHex,
+            onDismiss = onDismissPageBordersDialog,
+            onApply = { style, colorHex ->
+                viewModel.setPageBorder(style, colorHex)
+            }
+        )
+    }
+
+    if (showPageColorDialog && document != null) {
+        PageColorDialog(
+            initialColorHex = document.layoutConfig.pageBackgroundHex,
+            onDismiss = onDismissPageColorDialog,
+            onApply = { colorHex ->
+                viewModel.setPageBackgroundColor(colorHex)
+            }
+        )
+    }
+
+    if (showTypographyEffectsDialog) {
+        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+        TypographyAndEffectsDialog(
+            initialLetterSpacingSp = activeFormatting.letterSpacingSp,
+            initialUnderlineStyle = activeFormatting.underlineStyle,
+            initialUnderlineColorHex = activeFormatting.underlineColorHex,
+            initialStrikethroughStyle = activeFormatting.strikethroughStyle,
+            initialShadowColorHex = activeFormatting.shadowColorHex,
+            onDismiss = onDismissTypographyEffectsDialog,
+            onApply = { letterSpacingSp, underlineStyle, underlineColorHex, strikethroughStyle, shadowColorHex ->
+                viewModel.applyTypographyEffects(letterSpacingSp, underlineStyle, underlineColorHex, strikethroughStyle, shadowColorHex)
+                onDismissTypographyEffectsDialog()
+            }
+        )
+    }
+
+    if (showParagraphSpacingDialog && activeParagraph != null) {
+        ParagraphSpacingAndIndentsDialog(
+            initialFirstLinePt = activeParagraph.firstLineIndentPt,
+            initialHangingPt = activeParagraph.hangingIndentPt,
+            initialSpaceBeforePt = activeParagraph.spaceBeforePt,
+            initialSpaceAfterPt = activeParagraph.spaceAfterPt,
+            initialDropCapLines = activeParagraph.dropCapLines,
+            onDismiss = onDismissParagraphSpacingDialog,
+            onApply = { firstLinePt, hangingPt, spaceBeforePt, spaceAfterPt, dropCapLines ->
+                viewModel.updateParagraphIndents(firstLinePt, hangingPt, spaceBeforePt, spaceAfterPt, dropCapLines)
+                onDismissParagraphSpacingDialog()
+            }
+        )
+    }
+
+    if (showCreateCustomStyleDialog && activeParagraph != null) {
+        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+        val templateStyle = CustomStyle(
+            name = "My Style",
+            fontSizeSp = activeFormatting.fontSizeSp ?: 15f,
+            isBold = activeFormatting.isBold,
+            isItalic = activeFormatting.isItalic,
+            textColorHex = activeFormatting.textColorHex,
+            spaceBeforePt = activeParagraph.spaceBeforePt,
+            spaceAfterPt = activeParagraph.spaceAfterPt,
+            lineSpacingMultiplier = activeParagraph.lineSpacingMultiplier,
+            firstLineIndentPt = activeParagraph.firstLineIndentPt
+        )
+        CreateCustomStyleDialog(
+            initialStyle = templateStyle,
+            onDismiss = onDismissCreateCustomStyleDialog,
+            onSave = { style ->
+                viewModel.saveCustomStyle(style)
+                onDismissCreateCustomStyleDialog()
+            }
+        )
+    }
+
+    selectedCellForProperties?.let { (table, r, c) ->
+        val cell = table.cells.getOrNull(r)?.getOrNull(c) ?: TableCell()
+        TableCellPropertiesDialog(
+            cell = cell,
+            onDismiss = onDismissCellProperties,
+            onApply = { vAlign, bgHex ->
+                viewModel.updateTableCellFormatting(table.id, r, c, vAlign, bgHex)
+                onDismissCellProperties()
+            },
+            onMergeCells = {
+                viewModel.mergeTableCells(table.id, r, c, 2)
+                onDismissCellProperties()
+            },
+            onSplitCell = {
+                viewModel.splitTableCell(table.id, r, c)
+                onDismissCellProperties()
+            }
+        )
+    }
+}

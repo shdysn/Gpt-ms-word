@@ -2,56 +2,20 @@ package com.example.ui.editor.components
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.BorderAll
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Draw
-import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.HorizontalRule
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.ListAlt
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.SquareFoot
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.Title
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.VerticalSplit
-import androidx.compose.material.icons.filled.ViewColumn
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.ZoomIn
-import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -63,28 +27,42 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.core.layout.MarginPreset
-import com.example.core.layout.PageBorderStyle
-import com.example.core.layout.PageOrientation
-import com.example.core.layout.PageSize
+import com.example.data.model.CustomStyle
 import com.example.data.model.ParagraphBlock
+import com.example.editor.engine.CaseType
 import com.example.ui.editor.EditorViewModel
-import com.example.ui.editor.EditorViewMode
 import com.example.ui.editor.RibbonTab
+import com.example.ui.editor.components.ribbon.DrawRibbonControls
+import com.example.ui.editor.components.ribbon.InsertRibbonControls
+import com.example.ui.editor.components.ribbon.LayoutRibbonControls
+import com.example.ui.editor.components.ribbon.ReviewRibbonControls
+import com.example.ui.editor.components.ribbon.ViewRibbonControls
 import com.example.ui.theme.WordPrimary
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+
+// Re-export ribbon buttons for backward compatibility
+@Composable
+fun RibbonActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) = com.example.ui.editor.components.ribbon.RibbonActionButton(icon, label, onClick)
+
+@Composable
+fun RibbonToggleButton(
+    icon: ImageVector,
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    tag: String = ""
+) = com.example.ui.editor.components.ribbon.RibbonToggleButton(icon, label, isSelected, onClick, tag)
 
 @Composable
 fun WordRibbon(
@@ -98,33 +76,32 @@ fun WordRibbon(
     onOpenTableDialog: () -> Unit,
     onOpenPhotoPicker: () -> Unit,
     onOpenLinkDialog: () -> Unit,
-    onOpenHeaderFooterDialog: () -> Unit = {},
-    onOpenPageNumberDialog: () -> Unit = {},
-    onOpenLayoutDialog: () -> Unit = {},
-    onOpenSignatureDialog: () -> Unit = {},
-    onOpenShapeDialog: () -> Unit = {},
-    onOpenWatermarkDialog: () -> Unit = {},
-    onOpenPasswordDialog: () -> Unit = {},
-    onOpenVersionHistoryDialog: () -> Unit = {},
-    onOpenStatsDialog: () -> Unit = {},
-    onStartVoiceTyping: () -> Unit = {},
-    onOpenFootnoteDialog: () -> Unit = {},
+    onOpenWatermarkDialog: () -> Unit,
+    onOpenLayoutDialog: () -> Unit,
+    onOpenPasswordDialog: () -> Unit,
+    onOpenVersionHistoryDialog: () -> Unit,
+    onOpenStatsDialog: () -> Unit,
+    onOpenHeaderFooterDialog: () -> Unit,
+    onOpenPageNumberDialog: () -> Unit,
+    onStartVoiceTyping: () -> Unit,
+    onOpenSignatureDialog: () -> Unit,
+    onOpenShapeDialog: () -> Unit,
+    onOpenCommentsDialog: () -> Unit = {},
+    onOpenTrackChangesDialog: () -> Unit = {},
     onOpenPageBordersDialog: () -> Unit = {},
     onOpenPageColorDialog: () -> Unit = {},
-    showCommentsDialog: Boolean = false,
-    onOpenCommentsDialog: () -> Unit = {},
-    showTrackChangesDialog: Boolean = false,
-    onOpenTrackChangesDialog: () -> Unit = {},
+    onOpenFootnoteDialog: () -> Unit = {},
     onOpenSmartWritingDialog: () -> Unit = {},
-    onClearFormatting: () -> Unit = { viewModel.clearFormatting() },
-    onChangeCase: (com.example.editor.engine.CaseType) -> Unit = { viewModel.changeCase(it) },
+    onOpenOcrScanDialog: () -> Unit = {},
+    onOpenOutline: () -> Unit = {},
+    onClearFormatting: () -> Unit = {},
+    onChangeCase: (CaseType) -> Unit = {},
     onOpenTypographyEffectsDialog: () -> Unit = {},
     onOpenParagraphSpacingDialog: () -> Unit = {},
-    onToggleChecklist: () -> Unit = { viewModel.toggleChecklist() },
+    onToggleChecklist: () -> Unit = {},
+    onApplyCustomStyle: (CustomStyle) -> Unit = {},
     onCreateCustomStyle: () -> Unit = {},
-    onApplyCustomStyle: (com.example.data.model.CustomStyle) -> Unit = { viewModel.applyCustomStyle(it) },
-    onOpenOutline: () -> Unit = {},
-    onOpenOcrScanDialog: () -> Unit = {}
+    modifier: Modifier = Modifier
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
     val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
@@ -133,68 +110,65 @@ fun WordRibbon(
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column {
-            val tabs = RibbonTab.entries
-            val selectedIndex = tabs.indexOf(activeTab)
-
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TabRow(
-                    selectedTabIndex = selectedIndex,
+                    selectedTabIndex = activeTab.ordinal,
                     containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = WordPrimary,
-                    modifier = Modifier.weight(1f),
-                    divider = {},
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
+                            modifier = Modifier.tabIndicatorOffset(tabPositions[activeTab.ordinal]),
                             color = WordPrimary,
                             height = 2.5.dp
                         )
-                    }
+                    },
+                    divider = {},
+                    modifier = Modifier.weight(1f)
                 ) {
-                    tabs.forEach { tab ->
+                    RibbonTab.entries.forEach { tab ->
                         val isSelected = activeTab == tab
                         Tab(
                             selected = isSelected,
                             onClick = {
-                                if (isSelected) {
+                                if (isSelected && isRibbonVisible) {
                                     onToggleRibbon()
                                 } else {
+                                    if (!isRibbonVisible) onToggleRibbon()
                                     onTabSelected(tab)
-                                    if (!isRibbonVisible) {
-                                        onToggleRibbon()
-                                    }
                                 }
-                            }
-                        ) {
-                            Box(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            },
+                            text = {
+                                val tabTitle = when (tab) {
+                                    RibbonTab.HOME -> "Home"
+                                    RibbonTab.INSERT -> "Insert"
+                                    RibbonTab.DRAW -> "Draw"
+                                    RibbonTab.LAYOUT -> "Layout"
+                                    RibbonTab.REVIEW -> "Review"
+                                    RibbonTab.VIEW -> "View"
+                                }
                                 Text(
-                                    text = tab.name.lowercase().replaceFirstChar { it.uppercase() },
+                                    text = tabTitle,
+                                    fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    softWrap = false,
                                     color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            }
-                        }
+                            },
+                            modifier = Modifier
+                                .height(40.dp)
+                                .testTag("ribbon_tab_${tab.name.lowercase()}")
+                        )
                     }
                 }
 
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .size(40.dp)
                         .clickable(onClick = onToggleRibbon)
                         .testTag("toggle_ribbon_visibility"),
                     contentAlignment = Alignment.Center
@@ -279,9 +253,7 @@ fun WordRibbon(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            DrawRibbonControls(
-                                viewModel = viewModel
-                            )
+                            DrawRibbonControls(viewModel = viewModel)
                         }
                     }
 
@@ -345,84 +317,6 @@ fun WordRibbon(
                     }
                 }
             }
-        }
-    }
-}
-
-
-
-@Composable
-fun RibbonActionButton(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .height(34.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-}
-
-@Composable
-fun RibbonToggleButton(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    tag: String = ""
-) {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = androidx.compose.foundation.BorderStroke(
-            if (isSelected) 1.dp else 0.5.dp,
-            if (isSelected) WordPrimary else MaterialTheme.colorScheme.outlineVariant
-        ),
-        modifier = Modifier
-            .height(34.dp)
-            .clickable(onClick = onClick)
-            .testTag(tag)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 10.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                modifier = Modifier.size(16.dp),
-                tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

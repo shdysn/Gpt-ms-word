@@ -76,6 +76,14 @@ class DocumentInsertionFeaturesTest {
                 DocumentResult.Success(Unit)
             override suspend fun exportDocxToUri(context: Context, document: RichDocument, targetUri: Uri) =
                 DocumentResult.Success(Unit)
+            override suspend fun exportToMarkdown(context: Context, document: RichDocument, outputFile: File) =
+                DocumentResult.Success(outputFile)
+            override suspend fun exportMarkdownToUri(context: Context, document: RichDocument, targetUri: Uri) =
+                DocumentResult.Success(Unit)
+            override suspend fun exportToEpub(context: Context, document: RichDocument, outputFile: File) =
+                DocumentResult.Success(outputFile)
+            override suspend fun exportEpubToUri(context: Context, document: RichDocument, targetUri: Uri) =
+                DocumentResult.Success(Unit)
         }
         val dummyImportService = object : DocumentImportService {
             override suspend fun importDocumentFromUri(context: Context, uri: Uri) =

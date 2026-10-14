@@ -52,7 +52,7 @@ import java.io.File
 
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import com.example.ui.editor.components.DocumentRevisionSnapshot
+import com.example.data.model.DocumentRevisionSnapshot
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.Date
