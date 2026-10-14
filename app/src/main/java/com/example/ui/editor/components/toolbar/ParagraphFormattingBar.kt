@@ -3,10 +3,8 @@ package com.example.ui.editor.components.toolbar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -17,27 +15,18 @@ import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
 import androidx.compose.material.icons.automirrored.filled.FormatIndentDecrease
 import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignJustify
-import androidx.compose.material.icons.filled.FormatLineSpacing
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -51,7 +40,6 @@ import com.example.data.model.ParagraphBlock
 import com.example.data.model.TextAlignment
 import com.example.editor.engine.ActiveFormatting
 import com.example.ui.theme.WordPrimary
-import kotlin.math.abs
 
 @Composable
 fun ParagraphFormattingBar(
@@ -71,13 +59,11 @@ fun ParagraphFormattingBar(
     onApplyCustomStyle: (CustomStyle) -> Unit,
     onCreateCustomStyle: () -> Unit
 ) {
-    var styleMenuExpanded by remember { mutableStateOf(false) }
-    var lineSpacingMenuExpanded by remember { mutableStateOf(false) }
-
     val isRtl = activeParagraph?.isRtl == true
     val currentHeadingStyle = activeParagraph?.headingStyle ?: HeadingStyle.NORMAL
     val currentAlignment = activeParagraph?.alignment ?: TextAlignment.START
     val currentListType = activeParagraph?.listType ?: ListType.NONE
+    val currentSpacing = activeParagraph?.lineSpacingMultiplier ?: 1.25f
 
     Row(
         modifier = Modifier
@@ -88,89 +74,13 @@ fun ParagraphFormattingBar(
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Paragraph / Heading Style Selector
-        Box {
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier
-                    .height(34.dp)
-                    .clickable { styleMenuExpanded = true }
-                    .testTag("heading_style_selector")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                ) {
-                    Text(
-                        text = currentHeadingStyle.displayName,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = WordPrimary,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Heading Style", modifier = Modifier.size(16.dp), tint = WordPrimary)
-                }
-            }
-
-            DropdownMenu(
-                expanded = styleMenuExpanded,
-                onDismissRequest = { styleMenuExpanded = false }
-            ) {
-                HeadingStyle.entries.forEach { style ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = style.displayName,
-                                fontSize = style.defaultFontSizeSp.coerceIn(12f, 20f).sp,
-                                fontWeight = if (style.isBold || currentHeadingStyle == style) FontWeight.Bold else FontWeight.Normal,
-                                color = if (currentHeadingStyle == style) WordPrimary else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        onClick = {
-                            styleMenuExpanded = false
-                            onSetHeadingStyle(style)
-                        }
-                    )
-                }
-
-                if (customStyles.isNotEmpty()) {
-                    HorizontalDivider()
-                    customStyles.forEach { cs ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = "★ ${cs.name}",
-                                    fontSize = 13.sp,
-                                    fontWeight = if (cs.isBold) FontWeight.Bold else FontWeight.Normal,
-                                    color = WordPrimary
-                                )
-                            },
-                            onClick = {
-                                styleMenuExpanded = false
-                                onApplyCustomStyle(cs)
-                            }
-                        )
-                    }
-                }
-
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = "+ Create New Style...",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = WordPrimary
-                        )
-                    },
-                    onClick = {
-                        styleMenuExpanded = false
-                        onCreateCustomStyle()
-                    }
-                )
-            }
-        }
+        HeadingStyleDropdown(
+            currentHeadingStyle = currentHeadingStyle,
+            customStyles = customStyles,
+            onSetHeadingStyle = onSetHeadingStyle,
+            onApplyCustomStyle = onApplyCustomStyle,
+            onCreateCustomStyle = onCreateCustomStyle
+        )
 
         ToolbarDivider()
 
@@ -203,50 +113,10 @@ fun ParagraphFormattingBar(
             tag = "align_justify"
         )
 
-        Box {
-            IconButton(
-                onClick = { lineSpacingMenuExpanded = true },
-                modifier = Modifier.size(36.dp).testTag("format_line_spacing")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FormatLineSpacing,
-                    contentDescription = "Line Spacing",
-                    tint = if ((activeParagraph?.lineSpacingMultiplier ?: 1.25f) != 1.25f) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            DropdownMenu(
-                expanded = lineSpacingMenuExpanded,
-                onDismissRequest = { lineSpacingMenuExpanded = false }
-            ) {
-                val spacingOptions = listOf(
-                    1.0f to "1.0 (Single)",
-                    1.15f to "1.15 Lines",
-                    1.25f to "1.25 (Word Normal)",
-                    1.5f to "1.5 Lines",
-                    2.0f to "2.0 (Double Spacing)",
-                    2.5f to "2.5 Lines",
-                    3.0f to "3.0 Lines"
-                )
-                val currentSpacing = activeParagraph?.lineSpacingMultiplier ?: 1.25f
-                spacingOptions.forEach { (mult, label) ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = label,
-                                fontSize = 13.sp,
-                                fontWeight = if (abs(currentSpacing - mult) < 0.05f) FontWeight.Bold else FontWeight.Normal,
-                                color = if (abs(currentSpacing - mult) < 0.05f) WordPrimary else MaterialTheme.colorScheme.onSurface
-                            )
-                        },
-                        onClick = {
-                            lineSpacingMenuExpanded = false
-                            onSetLineSpacing(mult)
-                        }
-                    )
-                }
-            }
-        }
+        LineSpacingDropdown(
+            currentSpacing = currentSpacing,
+            onSetLineSpacing = onSetLineSpacing
+        )
 
         ToolbarDivider()
 

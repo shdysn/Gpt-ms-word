@@ -3,12 +3,10 @@ package com.example.ui.home
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.core.error.DocumentResult
 import com.example.data.local.PreferencesManager
 import com.example.data.model.DocumentEntity
-import com.example.data.model.RichDocument
 import com.example.data.repository.DocumentRepository
 import com.example.data.repository.TemplateType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,25 +16,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
-
-import kotlinx.coroutines.flow.map
-
-enum class HomeFilter {
-    ALL,
-    RECENT,
-    PINNED,
-    FAVORITES
-}
-
-enum class DocumentSortOrder(val displayName: String) {
-    MODIFIED_DESC("Newest first"),
-    MODIFIED_ASC("Oldest first"),
-    TITLE_ASC("Title (A-Z)"),
-    TITLE_DESC("Title (Z-A)")
-}
 
 class HomeViewModel(
     private val repository: DocumentRepository,
@@ -72,40 +55,7 @@ class HomeViewModel(
             repository.searchDocuments(query.trim())
         }
         flow.map { list ->
-            val filtered = when (filter) {
-                HomeFilter.ALL -> list
-                HomeFilter.RECENT -> {
-                    val sevenDaysAgo = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000)
-                    val recentDocs = list.filter { it.updatedAt >= sevenDaysAgo }
-                    if (recentDocs.isNotEmpty()) recentDocs.sortedByDescending { it.updatedAt }.take(10)
-                    else list.sortedByDescending { it.updatedAt }.take(5)
-                }
-                HomeFilter.PINNED -> list.filter { it.isPinned }
-                HomeFilter.FAVORITES -> list.filter { it.isFavorite }
-            }
-            if (filter == HomeFilter.RECENT) {
-                when (sortOrder) {
-                    DocumentSortOrder.MODIFIED_DESC -> filtered.sortedByDescending { it.updatedAt }
-                    DocumentSortOrder.MODIFIED_ASC -> filtered.sortedBy { it.updatedAt }
-                    DocumentSortOrder.TITLE_ASC -> filtered.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
-                    DocumentSortOrder.TITLE_DESC -> filtered.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
-                }
-            } else {
-                when (sortOrder) {
-                    DocumentSortOrder.MODIFIED_DESC -> filtered.sortedWith(
-                        compareByDescending<DocumentEntity> { it.isPinned }.thenByDescending { it.updatedAt }
-                    )
-                    DocumentSortOrder.MODIFIED_ASC -> filtered.sortedWith(
-                        compareByDescending<DocumentEntity> { it.isPinned }.thenBy { it.updatedAt }
-                    )
-                    DocumentSortOrder.TITLE_ASC -> filtered.sortedWith(
-                        compareByDescending<DocumentEntity> { it.isPinned }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
-                    )
-                    DocumentSortOrder.TITLE_DESC -> filtered.sortedWith(
-                        compareByDescending<DocumentEntity> { it.isPinned }.thenByDescending(String.CASE_INSENSITIVE_ORDER) { it.title }
-                    )
-                }
-            }
+            HomeDocumentFilter.filterAndSort(list, filter, sortOrder)
         }
     }.stateIn(
         scope = viewModelScope,
@@ -319,15 +269,5 @@ class HomeViewModel(
                 }
             }
         }
-    }
-}
-
-class HomeViewModelFactory(
-    private val repository: DocumentRepository,
-    private val preferencesManager: PreferencesManager
-) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return HomeViewModel(repository, preferencesManager) as T
     }
 }

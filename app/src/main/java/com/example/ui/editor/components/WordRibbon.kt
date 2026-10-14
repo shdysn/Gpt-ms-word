@@ -3,16 +3,12 @@ package com.example.ui.editor.components
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -40,11 +36,6 @@ import com.example.data.model.ParagraphBlock
 import com.example.editor.engine.CaseType
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.RibbonTab
-import com.example.ui.editor.components.ribbon.DrawRibbonControls
-import com.example.ui.editor.components.ribbon.InsertRibbonControls
-import com.example.ui.editor.components.ribbon.LayoutRibbonControls
-import com.example.ui.editor.components.ribbon.ReviewRibbonControls
-import com.example.ui.editor.components.ribbon.ViewRibbonControls
 import com.example.ui.theme.WordPrimary
 
 // Re-export ribbon buttons for backward compatibility
@@ -184,138 +175,43 @@ fun WordRibbon(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
             AnimatedVisibility(visible = isRibbonVisible) {
-                when (activeTab) {
-                    RibbonTab.HOME -> {
-                        FormattingToolbar(
-                            activeParagraph = activeParagraph,
-                            activeFormatting = activeFormatting,
-                            onSetHeadingStyle = viewModel::setHeadingStyle,
-                            onToggleBold = viewModel::toggleBold,
-                            onToggleItalic = viewModel::toggleItalic,
-                            onToggleUnderline = viewModel::toggleUnderline,
-                            onToggleStrikethrough = viewModel::toggleStrikethrough,
-                            onToggleSuperscript = viewModel::toggleSuperscript,
-                            onToggleSubscript = viewModel::toggleSubscript,
-                            onSetFontFamily = viewModel::setFontFamily,
-                            onSetFontSize = viewModel::setFontSize,
-                            onSetTextColor = viewModel::setTextColor,
-                            onSetHighlightColor = viewModel::setHighlightColor,
-                            onSetAlignment = viewModel::setAlignment,
-                            onToggleListType = viewModel::toggleListType,
-                            onIncreaseIndent = viewModel::increaseIndent,
-                            onDecreaseIndent = viewModel::decreaseIndent,
-                            onOpenLinkDialog = onOpenLinkDialog,
-                            onToggleRtl = viewModel::toggleRtl,
-                            onSetLineSpacing = viewModel::setLineSpacing,
-                            isFormatPainterActive = isFormatPainterActive,
-                            onToggleFormatPainter = viewModel::toggleFormatPainter,
-                            onClearFormatting = onClearFormatting,
-                            onChangeCase = onChangeCase,
-                            onOpenTypographyEffectsDialog = onOpenTypographyEffectsDialog,
-                            onOpenParagraphSpacingDialog = onOpenParagraphSpacingDialog,
-                            onToggleChecklist = onToggleChecklist,
-                            customStyles = currentDocument?.customStyles ?: emptyList(),
-                            onApplyCustomStyle = onApplyCustomStyle,
-                            onCreateCustomStyle = onCreateCustomStyle
-                        )
-                    }
-
-                    RibbonTab.INSERT -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            InsertRibbonControls(
-                                viewModel = viewModel,
-                                onOpenTableDialog = onOpenTableDialog,
-                                onOpenPhotoPicker = onOpenPhotoPicker,
-                                onOpenLinkDialog = onOpenLinkDialog,
-                                onOpenHeaderFooterDialog = onOpenHeaderFooterDialog,
-                                onOpenPageNumberDialog = onOpenPageNumberDialog,
-                                onOpenSignatureDialog = onOpenSignatureDialog,
-                                onOpenShapeDialog = onOpenShapeDialog,
-                                onOpenFootnoteDialog = onOpenFootnoteDialog,
-                                onOpenOcrScanDialog = onOpenOcrScanDialog
-                            )
-                        }
-                    }
-
-                    RibbonTab.DRAW -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            DrawRibbonControls(viewModel = viewModel)
-                        }
-                    }
-
-                    RibbonTab.LAYOUT -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            LayoutRibbonControls(
-                                viewModel = viewModel,
-                                onOpenWatermarkDialog = onOpenWatermarkDialog,
-                                onOpenLayoutDialog = onOpenLayoutDialog,
-                                onOpenPageBordersDialog = onOpenPageBordersDialog,
-                                onOpenPageColorDialog = onOpenPageColorDialog
-                            )
-                        }
-                    }
-
-                    RibbonTab.REVIEW -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ReviewRibbonControls(
-                                viewModel = viewModel,
-                                context = context,
-                                onOpenPasswordDialog = onOpenPasswordDialog,
-                                onOpenVersionHistoryDialog = onOpenVersionHistoryDialog,
-                                onOpenStatsDialog = onOpenStatsDialog,
-                                onStartVoiceTyping = onStartVoiceTyping,
-                                onOpenCommentsDialog = onOpenCommentsDialog,
-                                onOpenTrackChangesDialog = onOpenTrackChangesDialog,
-                                onOpenSmartWritingDialog = onOpenSmartWritingDialog
-                            )
-                        }
-                    }
-
-                    RibbonTab.VIEW -> {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ViewRibbonControls(
-                                viewModel = viewModel,
-                                onOpenLayoutDialog = onOpenLayoutDialog,
-                                onOpenOutline = onOpenOutline
-                            )
-                        }
-                    }
-                }
+                WordRibbonContent(
+                    activeTab = activeTab,
+                    activeParagraph = activeParagraph,
+                    activeFormatting = activeFormatting,
+                    isFormatPainterActive = isFormatPainterActive,
+                    viewModel = viewModel,
+                    context = context,
+                    customStyles = currentDocument?.customStyles ?: emptyList(),
+                    onOpenTableDialog = onOpenTableDialog,
+                    onOpenPhotoPicker = onOpenPhotoPicker,
+                    onOpenLinkDialog = onOpenLinkDialog,
+                    onOpenWatermarkDialog = onOpenWatermarkDialog,
+                    onOpenLayoutDialog = onOpenLayoutDialog,
+                    onOpenPasswordDialog = onOpenPasswordDialog,
+                    onOpenVersionHistoryDialog = onOpenVersionHistoryDialog,
+                    onOpenStatsDialog = onOpenStatsDialog,
+                    onOpenHeaderFooterDialog = onOpenHeaderFooterDialog,
+                    onOpenPageNumberDialog = onOpenPageNumberDialog,
+                    onStartVoiceTyping = onStartVoiceTyping,
+                    onOpenSignatureDialog = onOpenSignatureDialog,
+                    onOpenShapeDialog = onOpenShapeDialog,
+                    onOpenCommentsDialog = onOpenCommentsDialog,
+                    onOpenTrackChangesDialog = onOpenTrackChangesDialog,
+                    onOpenPageBordersDialog = onOpenPageBordersDialog,
+                    onOpenPageColorDialog = onOpenPageColorDialog,
+                    onOpenFootnoteDialog = onOpenFootnoteDialog,
+                    onOpenSmartWritingDialog = onOpenSmartWritingDialog,
+                    onOpenOcrScanDialog = onOpenOcrScanDialog,
+                    onOpenOutline = onOpenOutline,
+                    onClearFormatting = onClearFormatting,
+                    onChangeCase = onChangeCase,
+                    onOpenTypographyEffectsDialog = onOpenTypographyEffectsDialog,
+                    onOpenParagraphSpacingDialog = onOpenParagraphSpacingDialog,
+                    onToggleChecklist = onToggleChecklist,
+                    onApplyCustomStyle = onApplyCustomStyle,
+                    onCreateCustomStyle = onCreateCustomStyle
+                )
             }
         }
     }

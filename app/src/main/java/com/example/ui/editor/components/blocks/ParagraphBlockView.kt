@@ -1,26 +1,12 @@
 package com.example.ui.editor.components.blocks
 
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Spellcheck
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,7 +28,6 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
@@ -59,10 +44,8 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.core.typography.BidiUtils
 import com.example.core.typography.DocumentFontManager
 import com.example.data.model.HeadingStyle
-import com.example.data.model.ListType
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.TextAlignment
 import com.example.editor.engine.EditorEngineIntegration
@@ -179,84 +162,13 @@ fun ParagraphBlockView(
                 .clickable(onClick = onFocus),
             verticalAlignment = Alignment.Top
         ) {
-            if (block.isChecklist) {
-                IconButton(
-                    onClick = { onToggleChecklistItem(block.id) },
-                    modifier = Modifier
-                        .size(24.dp)
-                        .padding(end = 4.dp)
-                        .testTag("checklist_checkbox_${block.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = if (block.isChecked) "Completed" else "Todo",
-                        tint = if (block.isChecked) Color(0xFF10B981) else (if (isDarkPage) Color(0xFF64748B) else Color(0xFFCBD5E1)),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            when (block.listType) {
-                ListType.BULLET -> {
-                    val bulletChar = when (block.listLevel % 4) {
-                        1 -> "◦ "
-                        2 -> "▪ "
-                        3 -> "▫ "
-                        else -> "• "
-                    }
-                    Text(
-                        text = bulletChar,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = baseFontSize,
-                        color = if (isDarkPage) Color(0xFF60A5FA) else WordPrimary,
-                        modifier = Modifier.padding(end = 6.dp)
-                    )
-                }
-                ListType.NUMBERED -> {
-                    val rawNum = itemNumber ?: 1
-                    val formattedNumber = when (block.listLevel % 3) {
-                        1 -> "${('a'.code + ((rawNum - 1) % 26)).toChar()}."
-                        2 -> when (rawNum % 5) {
-                            1 -> "i."
-                            2 -> "ii."
-                            3 -> "iii."
-                            4 -> "iv."
-                            else -> "v."
-                        }
-                        else -> BidiUtils.formatListNumber(
-                            number = rawNum,
-                            isRtl = block.isRtl,
-                            useUrduNumerals = false,
-                            indentationLevel = block.indentationLevel
-                        )
-                    }
-                    Text(
-                        text = formattedNumber,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = baseFontSize,
-                        color = if (isDarkPage) Color(0xFF60A5FA) else WordPrimary,
-                        modifier = Modifier.padding(end = 6.dp)
-                    )
-                }
-                ListType.NONE -> Unit
-            }
-
-            if (block.dropCapLines > 0 && block.text.isNotEmpty()) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = WordPrimary.copy(alpha = 0.12f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, WordPrimary.copy(alpha = 0.35f)),
-                    modifier = Modifier.padding(end = 8.dp, top = 2.dp)
-                ) {
-                    Text(
-                        text = block.text.take(1),
-                        fontSize = (baseFontSize.value * 2.2f).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = WordPrimary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-                    )
-                }
-            }
+            ParagraphPrefixView(
+                block = block,
+                itemNumber = itemNumber,
+                baseFontSize = baseFontSize,
+                isDarkPage = isDarkPage,
+                onToggleChecklistItem = onToggleChecklistItem
+            )
 
             Column(modifier = Modifier.weight(1f)) {
                 val textIndent = if (block.firstLineIndentPt != 0f || block.hangingIndentPt != 0f) {
@@ -349,74 +261,17 @@ fun ParagraphBlockView(
                     }
                 )
 
-                val currentCursor = textFieldValue.selection.start
-                val activeLinkSpan = remember(currentCursor, block.spans) {
-                    block.spans.firstOrNull { span ->
-                        span.linkUrl != null && currentCursor in span.start..span.end
+                ParagraphPillsView(
+                    block = block,
+                    currentCursor = textFieldValue.selection.start,
+                    currentText = textFieldValue.text,
+                    isActive = isActive,
+                    isDarkPage = isDarkPage,
+                    onApplyTypoCorrection = { newText, newSel ->
+                        textFieldValue = textFieldValue.copy(text = newText, selection = newSel)
+                        onTextChanged(newText, newSel)
                     }
-                }
-                if (activeLinkSpan?.linkUrl != null && isActive) {
-                    val context = LocalContext.current
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFEFF6FF),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isDarkPage) Color(0xFF3B82F6) else Color(0xFFBFDBFE)),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .padding(top = 4.dp, bottom = 4.dp)
-                            .clickable {
-                                try {
-                                    val rawUrl = activeLinkSpan.linkUrl!!
-                                    val validUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://") || rawUrl.startsWith("mailto:")) rawUrl else "https://$rawUrl"
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(validUrl))
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {}
-                            }
-                            .testTag("hyperlink_open_pill")
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Link, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Open Link: ${activeLinkSpan.linkUrl}", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF2563EB))
-                        }
-                    }
-                }
-
-                val activeTypo = remember(currentCursor, textFieldValue.text) {
-                    EditorEngineIntegration.findTypos(textFieldValue.text).firstOrNull { (start, end, _) ->
-                        currentCursor in start..end
-                    }
-                }
-                if (activeTypo != null && isActive) {
-                    val (tStart, tEnd, suggestion) = activeTypo
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isDarkPage) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444)),
-                        shadowElevation = 2.dp,
-                        modifier = Modifier
-                            .padding(top = 4.dp, bottom = 4.dp)
-                            .clickable {
-                                val newText = textFieldValue.text.replaceRange(tStart, tEnd, suggestion)
-                                val newSel = TextRange(tStart + suggestion.length)
-                                textFieldValue = textFieldValue.copy(text = newText, selection = newSel)
-                                onTextChanged(newText, newSel)
-                            }
-                            .testTag("spellcheck_suggestion_pill")
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Spellcheck, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = "Typo: Change to \"$suggestion\"", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626))
-                        }
-                    }
-                }
+                )
             }
         }
     }
