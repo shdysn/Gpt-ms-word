@@ -6,7 +6,8 @@
 > When introducing new features, improvements, or refactoring:
 > 1. **Preserve existing modules and public contracts.**
 > 2. **Extend or add new modular components** rather than deleting, replacing, or consolidating existing ones.
-> 3. Keep source files modular and maintainable (ideally under 500 lines per file).
+> 3. **Keep source files strictly modular and maintainable** (strictly under 300 lines per file, adhering to Procedure 1, 2, 3, and 4 modularization standards).
+> 4. **Run `./scripts/check_file_limits.sh` or `gradle :app:checkFileLimits`** upon any GitHub import to prevent regressions.
 
 ---
 

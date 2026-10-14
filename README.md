@@ -132,27 +132,27 @@ app/src/main/java/com/example/
 
 ---
 
-## 📦 300-Line Codebase Modularization Plan (تمام فائلز کو 300 لائنز سے کم کرنے کا روڈ میپ)
+## 📦 300-Line Codebase Modularization & Anti-Regression Procedures (تمام فائلز کو 300 لائنز سے کم رکھنے کا باقاعدہ طریقہ کار)
 
 > ### 🎯 DIRECTIVE FOR AI AGENT / DEVELOPER:
-> **Jab bhi user kisi bhi phase ka zikr kare (maslan: "Phase 1", "Phase 2", "Phase 3", ya "Phase 4" apply karo), to foran us specific phase ki tamam files ko mutaliqa subfolders mein extract aur modularize karein:**
+> **Jab bhi user kisi bhi procedure ka zikr kare (maslan: "Procedure 1", "Procedure 2", "Procedure 3", ya "Procedure 4" apply karo — ya purane lafz "Phase" se pukaare), to foran us specific procedure ki tamam files ko mutaliqa subfolders mein extract aur modularize karein:**
 > 
-> - **Jab "Phase 1" ka zikr ho:** UI Screens aur Dialogs (8 Files) par foran kaam karein.
-> - **Jab "Phase 2" ka zikr ho:** Editor Canvas, Block Views aur Toolbars (8 Files) par foran kaam karein.
-> - **Jab "Phase 3" ka zikr ho:** ViewModel (Coordinator + 5 Managers) aur Engine (5 Files) par foran kaam karein.
-> - **Jab "Phase 4" ka zikr ho:** Data Layer, Storage, DOCX اور PDF Services (7-8 Files) par foran kaam karein.
+> - **Jab "Procedure 1" (ya "Phase 1") ka zikr ho:** UI Screens aur Dialogs (8 Files) [COMPLETED]
+> - **Jab "Procedure 2" (ya "Phase 2") ka zikr ho:** Editor Canvas, Block Views aur Toolbars (8 Files)
+> - **Jab "Procedure 3" (ya "Phase 3") ka zikr ho:** ViewModel Coordinator aur Core Engine (5 Files)
+> - **Jab "Procedure 4" (ya "Phase 4") ka zikr ho:** Data Layer, Storage, DOCX اور PDF Services (7-8 Files)
 > 
-> **Standard Rules:**
+> **Standard Rules & Guarantees:**
 > 1. Har nayi aur purani file ka size strictly **200 se 280 lines (<300 lines)** ke darmiyan rakhna lazmi hai.
 > 2. **Zero Regression Guarantee:** UI, designs, icons, fonts, features, formatting, aur tests 100% waise hi kaam karte rahein.
-> 3. Har phase ke dauran aur aakhir mein `compile_applet` aur `gradle :app:testDebugUnitTest` run kar ke tasdeeq ki jaye.
+> 3. Har procedure ke dauran aur aakhir mein `compile_applet` aur `gradle :app:testDebugUnitTest` run kar ke tasdeeq ki jaye.
 
 ---
 
-### 🔹 Phase 1: UI Screens & Complex Dialogs ✅ [COMPLETED - 100% VERIFIED]
-Phase 1 ki tamam 8 bari UI aur dialog files ko modularize kar ke har file ko **300 lines se kam** (106 - 275 lines) kar diya gaya hai:
+### 🔹 Procedure 1: UI Screens & Complex Dialogs ✅ [COMPLETED & VERIFIED]
+Procedure 1 ki tamam 8 bari UI aur dialog files ko modularize kar ke har file ko **300 lines se kam** (106 - 275 lines) kar diya gaya hai:
 
-- [x] **`SmartWritingDialog.kt`**: 106 lines (Modularized scaffold)
+- [x] **`SmartWritingDialog.kt`**: 106 lines (Modularized clean dialog scaffold)
 - [x] **`EditorScreen.kt`**: 265 lines (Editor root scaffold)
 - [x] **`HomeScreen.kt`**: 261 lines (Home dashboard & template grid)
 - [x] **`DocumentOutlineSheet.kt`**: 208 lines + `OutlineHeadingComponents.kt` (255 lines)
@@ -164,51 +164,120 @@ Phase 1 ki tamam 8 bari UI aur dialog files ko modularize kar ke har file ko **3
 - [x] **`EditorTopAppBar.kt`**: 248 lines
 - [x] **`HomeDialogs.kt`**: 264 lines
 
-#### 🛡️ GitHub Import & Sync Anti-Regression Protection:
-Jab bhi GitHub se data import kiya jaye ya repo pull/merge ho, to files limit size back na ho:
-1. **GitHub CI Integration:** `.github/workflows/build-apk.yml` mein `Verify 300-Line Codebase Limit & Anti-Regression` step shamil hai jo har push/PR par limits check karta hai.
-2. **Automated Verification Script:** `./scripts/check_file_limits.sh` (or `python3 scripts/check_file_limits.py`) jo foran check karta hai ke koi file 300 lines se exceed to nahi hui.
-3. **Gradle Task:** `gradle :app:checkFileLimits` jo build/test se pehle run ho kar violation par build rok deta hai.
+---
+
+### 🔹 Procedure 2: Editor Canvas, Blocks & Toolbars (جب "Procedure 2" کا ذکر ہو تو یہ لاگو کریں)
+Jab user **"Procedure 2"** (ya "Phase 2") bole, to mandarja zail 8 canvas aur editor formatting files ko extract karein:
+
+1. **`ParagraphBlockView.kt` (423 lines → 3 Files):**
+   - Extract `ParagraphTextRenderer.kt` (~150 lines): AnnotatedString generation, span styles, BiDi RTL layout.
+   - Extract `ParagraphSelectionOverlay.kt` (~130 lines): Touch handles, cursor drawing, inline floating actions.
+   - Keep `ParagraphBlockView.kt` (~140 lines): Block container, focus handling, drag handles.
+2. **`SpecialBlocksView.kt` (340 lines → 4 Files):**
+   - Extract `DividerBlockView.kt` (~95 lines): Horizontal line dividers, styles, colors.
+   - Extract `DateTimeBlockView.kt` (~105 lines): Localized date/time stamps and chips.
+   - Extract `FootnoteBlockView.kt` (~115 lines): Superscript index and footnote text input.
+   - Keep `SpecialBlocksView.kt` (~85 lines) as clean composable dispatcher.
+3. **`DrawingBlockView.kt` (321 lines → 3 Files):**
+   - Extract `DrawingCanvasSurface.kt` (~160 lines): Touch path capture, bezier stroke rendering.
+   - Extract `DrawingToolPalette.kt` (~130 lines): Pen, highlighter, eraser, stroke width, color picker.
+   - Keep `DrawingBlockView.kt` (~95 lines): Block frame and action buttons.
+4. **`PaginatedItemRenderer.kt` (367 lines) & `PaginatedSheetView.kt` (348 lines):**
+   - Extract `PageDividerDecoration.kt` (~120 lines): Page drop shadows, page margins clipping, page number watermark.
+   - Extract `PaginatedBlockDispatcher.kt` (~160 lines): Routing blocks to specific page sub-renderers.
+   - Keep both original files strictly between 180 and 220 lines.
+5. **`CharacterFormattingBar.kt` (391 lines) & `ParagraphFormattingBar.kt` (336 lines):**
+   - Extract `FontFamilyDropdownMenu.kt` (~140 lines): Font list, preview chips, Urdu/Arabic fonts.
+   - Extract `ListStyleDropdownMenu.kt` (~120 lines): Bullet types, numbered list types.
+   - Extract `ColorPickerBottomSheet.kt` (~140 lines): Palette grids, custom color input.
+   - Keep both toolbar bars under 220 lines.
+6. **`WordRibbon.kt` (322 lines → 3 Files):**
+   - Extract `RibbonTabRow.kt` (~130 lines): Home, Insert, Draw, Layout, Review, View tabs.
+   - Extract `RibbonOverflowBar.kt` (~120 lines): Overflow more menu, collapse/expand toggle.
+   - Keep `WordRibbon.kt` (~110 lines).
 
 ---
 
-### 🔹 Phase 2: Editor Canvas, Blocks & Toolbars (جب "Phase 2" کا ذکر ہو تو یہ لاگو کریں)
-Jab user **"Phase 2"** bole, to mandarja zail 8 canvas aur editor formatting files ko modularize karein:
+### 🔹 Procedure 3: Core Engine & ViewModel Coordinator (جب "Procedure 3" کا ذکر ہو تو یہ لاگو کریں)
+Jab user **"Procedure 3"** (ya "Phase 3") bole, to ViewModel aur Core Engine files ko modularize karein:
 
-1. **`ParagraphBlockView.kt` (423 lines)** → Split into text rendering, selection handles, and bidi/RTL layout composables under `components/blocks/`.
-2. **`SpecialBlocksView.kt` (340 lines)** → Split horizontal line dividers, date/time blocks, and footnote blocks.
-3. **`DrawingBlockView.kt` (321 lines)** → Extract touch canvas, stroke rendering, and tool selection.
-4. **`PaginatedItemRenderer.kt` (367 lines)** & **`PaginatedSheetView.kt` (348 lines)** → Separate page margin clipping and page divider decorations under `components/canvas/`.
-5. **`CharacterFormattingBar.kt` (391 lines)** & **`ParagraphFormattingBar.kt` (336 lines)** → Separate button groups and popup menus under `components/toolbar/`.
-6. **`WordRibbon.kt` (322 lines)** → Extract `RibbonTabRow.kt` and `RibbonOverflowBar.kt`.
-
----
-
-### 🔹 Phase 3: Core Engine & ViewModel Decomposition (جب "Phase 3" کا ذکر ہو تو یہ لاگو کریں)
-Jab user **"Phase 3"** bole, to ViewModel aur Core Engine files ko modularize karein:
-
-1. **`EditorViewModel.kt` (2,907 lines - Central Coordinator):**
-   Decompose into dedicated delegate managers under `ui/editor/viewmodel/`:
-   - `EditorFormattingManager.kt` (~250 lines): Bold, italic, color, fonts, alignments, lists.
+1. **`EditorViewModel.kt` (2,907 lines → Coordinator + 5 Delegate Managers under `ui/editor/viewmodel/`):**
+   - `EditorFormattingManager.kt` (~250 lines): Bold, italic, color, fonts, alignments, lists, styles.
    - `EditorTableManager.kt` (~250 lines): Add/remove rows/cols, merge cells, cell border styles.
    - `EditorBlockManager.kt` (~250 lines): Insert paragraph, image, shape, split blocks, delete block.
    - `EditorExportManager.kt` (~200 lines): Dispatch export to PDF, DOCX, EPUB, TXT, Print.
    - `EditorHistoryManager.kt` (~200 lines): Undo/Redo stack, autosave ticks, crash recovery snapshots.
-   - Keep `EditorViewModel.kt` (~250 lines) as lightweight unified state coordinator.
-2. **`HomeViewModel.kt` (333 lines)** → Extract `HomeTemplateManager.kt`.
-3. **`EditorEngineIntegration.kt` (403 lines)**, **`SpanOperations.kt` (367 lines)**, **`StyleCommands.kt` (366 lines)** → Clean modular helpers under 250 lines.
+   - Keep `EditorViewModel.kt` (~240 lines) as lightweight unified state coordinator delegating to managers.
+2. **`HomeViewModel.kt` (333 lines → 2 Files):**
+   - Extract `HomeTemplateManager.kt` (~140 lines: Template seeding, search filter logic).
+   - Keep `HomeViewModel.kt` under 200 lines.
+3. **`EditorEngineIntegration.kt` (403 lines), `SpanOperations.kt` (367 lines), `StyleCommands.kt` (366 lines):**
+   - Modularize span manipulation and command execution helpers into clean files under 240 lines.
 
 ---
 
-### 🔹 Phase 4: Data Layer, Storage, DOCX & PDF Services (جب "Phase 4" کا ذکر ہو تو یہ لاگو کریں)
-Jab user **"Phase 4"** bole, to heavy data aur export pipelines ko modularize karein:
+### 🔹 Procedure 4: Data Layer, Storage, DOCX & PDF Services (جب "Procedure 4" کا ذکر ہو تو یہ لاگو کریں)
+Jab user **"Procedure 4"** (ya "Phase 4") bole, to heavy data aur export pipelines ko modularize karein:
 
-1. **`PdfExportServiceImpl.kt` (1,396 lines)** → Separate Canvas text renderer, Table grid renderer, Shape/Image renderer.
-2. **`DocxPackageWriter.kt` (1,114 lines)** → Separate document.xml writer, styles.xml writer, relationships writer.
-3. **`DocumentStorageManager.kt` (1,068 lines)** → Separate CacheManager, FileExportHelper, ThumbnailGenerator.
-4. **`DocxPackageReader.kt` (872 lines)** → Split paragraph parser, table parser, shape/run parser.
-5. **`DocumentRepositoryImpl.kt` (854 lines)** → Split local queries, mutation handlers, and template seeders.
-6. **`PaginationEngine.kt` (650 lines)** → Split height calculation, page break detector, and 2-column layout math.
-7. **`RichDocument.kt` (408 lines)** → Separate block models, span models, and style enums.
+1. **`PdfExportServiceImpl.kt` (1,396 lines → 5 Modular Renderers):**
+   - Extract `PdfCanvasRenderer.kt` (~250 lines): Text painting, font metrics, line breaks.
+   - Extract `PdfTableRenderer.kt` (~240 lines): Borders, cell background, multi-row pagination.
+   - Extract `PdfShapeRenderer.kt` (~220 lines): Vector shapes, image scaling.
+   - Extract `PdfHeaderFooterRenderer.kt` (~180 lines): Page numbering, watermark.
+   - Keep `PdfExportServiceImpl.kt` (< 240 lines: Document layout coordinator).
+2. **`DocxPackageWriter.kt` (1,114 lines → 5 Modular XML Writers):**
+   - Extract `DocxDocumentXmlWriter.kt` (~260 lines): Paragraphs, runs, inline formatting.
+   - Extract `DocxTableXmlWriter.kt` (~240 lines): w:tbl, w:tr, w:tc XML builder.
+   - Extract `DocxStylesXmlWriter.kt` (~220 lines): Document styles, fonts, numbering.
+   - Extract `DocxRelationsWriter.kt` (~180 lines): [Content_Types].xml, _rels XML.
+   - Keep `DocxPackageWriter.kt` (< 220 lines: ZIP package builder).
+3. **`DocumentStorageManager.kt` (1,068 lines → 4 Modular Helpers):**
+   - Extract `DocumentJsonSerializer.kt` (~250 lines): JSON schema serialization.
+   - Extract `MediaCacheManager.kt` (~220 lines): Temporary images and signatures cache.
+   - Extract `ThumbnailGenerator.kt` (~190 lines): Page thumbnail generation.
+   - Keep `DocumentStorageManager.kt` (< 250 lines).
+4. **`DocxPackageReader.kt` (872 lines → 3 Modular Parsers):**
+   - Extract `DocxXmlSaxParser.kt` (~260 lines).
+   - Extract `DocxTableParser.kt` (~230 lines).
+   - Keep `DocxPackageReader.kt` (< 250 lines).
+5. **`DocumentRepositoryImpl.kt` (854 lines → 3 Files):**
+   - Extract `DocumentTemplateSeeder.kt` (~220 lines).
+   - Extract `DocumentQueryManager.kt` (~240 lines).
+   - Keep `DocumentRepositoryImpl.kt` (< 260 lines).
+6. **`PaginationEngine.kt` (650 lines → 3 Files):**
+   - Extract `PageHeightCalculator.kt` (~230 lines).
+   - Extract `PageBreakDetector.kt` (~220 lines).
+   - Keep `PaginationEngine.kt` (< 240 lines).
+7. **`RichDocument.kt` (408 lines → 3 Files):**
+   - Separate `SpanModels.kt` (~150 lines) and `StyleModels.kt` (~140 lines).
+   - Keep `RichDocument.kt` (< 200 lines).
+
+---
+
+## 🔄 GitHub Import & Auto-Fix Procedure (اگلے امپورٹ پر فوری فکس کا طریقہ کار)
+
+Jab bhi project GitHub (`shdysn/Gpt-ms-word` ya kisi branch) se dobara import ya pull kiya jaye, to mandarja zail steps follow karein ta k tamam files foran safe aur 300 lines ke andar fix ho jayein:
+
+### Step 1: Status Audit Run Karein
+Terminal mein ye command chalayein:
+```bash
+./scripts/check_file_limits.sh
+```
+Ya Gradle ke zariye:
+```bash
+gradle :app:checkFileLimits
+```
+Ye script tamam files scan kar ke report karega ke Procedure 1 ki files theek hain aur aglay procedures ki konsi files 300 lines se bari hain.
+
+### Step 2: Next Procedure Trigger Karein
+AI Agent ya developer ko sirf aglay procedure ka naam bole:
+- **`Procedure 2 apply karo`** (Canvas, Blocks & Toolbars)
+- **`Procedure 3 apply karo`** (ViewModel Coordinator & Engine)
+- **`Procedure 4 apply karo`** (PDF, DOCX & Storage Services)
+
+### Step 3: CI/CD Automatic Verification
+- `.github/workflows/build-apk.yml` mein `Verify 300-Line Codebase Limit & Anti-Regression` step shamil hai jo GitHub par har push ya pull request par automatically file size limits enforce karta hai aur kisi file ko 300 lines se upar jane nahi deta.
+- Har tabdeeli ke baad `compile_applet` aur `gradle :app:testDebugUnitTest` run ho kar ensure karta hai ke 100% features, UI aur tests theek chal rahe hain.
+
 
 

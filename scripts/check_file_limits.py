@@ -53,30 +53,30 @@ def main():
     
     violations = []
     
-    print("\n[Phase 1] Auditing UI Screens and Dialog Modules:")
-    all_phase1_ok = True
+    print("\n[Procedure 1 / Phase 1] Auditing UI Screens and Dialog Modules:")
+    all_proc1_ok = True
     for path in PHASE_1_FILES:
         if not os.path.exists(path):
             print(f"  ⚠️  MISSING: {path}")
             violations.append((path, "FILE_NOT_FOUND"))
-            all_phase1_ok = False
+            all_proc1_ok = False
             continue
         lines = count_lines(path)
         if lines > MAX_LINES:
             print(f"  ❌ VIOLATION: {path} has {lines} lines (Max: {MAX_LINES})")
             violations.append((path, lines))
-            all_phase1_ok = False
+            all_proc1_ok = False
         else:
             print(f"  ✅ PASS: {path} ({lines} lines)")
 
     print("-" * 65)
-    if all_phase1_ok:
-        print("🎉 Phase 1 Status: 100% COMPLIANT! All UI & Dialog files are < 300 lines.")
+    if all_proc1_ok:
+        print("🎉 Procedure 1 Status: 100% COMPLIANT! All UI & Dialog files are < 300 lines.")
     else:
-        print(f"❌ Phase 1 Violations Found: {len(violations)}")
+        print(f"❌ Procedure 1 Violations Found: {len(violations)}")
 
-    # Audit rest of repository to inform developer of pending phases
-    print("\n[Repository Audit] Files pending future phases (> 300 lines):")
+    # Audit rest of repository to inform developer of pending procedures
+    print("\n[Repository Audit] Files pending future procedures (> 300 lines):")
     pending_count = 0
     for root, _, files in os.walk("app/src/main/java"):
         for file in files:
@@ -89,14 +89,14 @@ def main():
                     pending_count += 1
                     print(f"  ⏳ {lines:4d} lines: {full_path}")
 
-    print(f"\nTotal files pending future phases (Phase 2, 3, 4): {pending_count}")
+    print(f"\nTotal files pending future procedures (Procedure 2, 3, 4): {pending_count}")
     print("=" * 65)
 
     if violations:
-        print("❌ Build check failed due to Phase 1 regression violations!")
+        print("❌ Build check failed due to Procedure 1 regression violations!")
         sys.exit(1)
     else:
-        print("✅ Phase 1 Anti-Regression verification passed successfully!")
+        print("✅ Procedure 1 Anti-Regression verification passed successfully!")
         sys.exit(0)
 
 if __name__ == "__main__":
