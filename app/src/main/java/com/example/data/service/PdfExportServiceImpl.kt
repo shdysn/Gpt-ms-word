@@ -48,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * Android PrintDocumentAdapter implementing the system printing workflow:
@@ -326,6 +328,259 @@ class PdfExportServiceImpl : DocumentExportService {
                 DocumentError.ExportError("Plain text export failed: ${e.message}", "TXT", e)
             )
         }
+    }
+
+    override suspend fun exportToMarkdown(
+        context: Context,
+        document: RichDocument,
+        outputFile: File
+    ): DocumentResult<File> = withContext(Dispatchers.IO) {
+        try {
+            outputFile.parentFile?.mkdirs()
+            val mdContent = generateMarkdown(document)
+            outputFile.writeText(mdContent)
+            DocumentResult.Success(outputFile)
+        } catch (e: Exception) {
+            DocumentResult.Failure(
+                DocumentError.ExportError("Markdown export failed: ${e.message}", "MD", e)
+            )
+        }
+    }
+
+    override suspend fun exportMarkdownToUri(
+        context: Context,
+        document: RichDocument,
+        targetUri: Uri
+    ): DocumentResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val mdContent = generateMarkdown(document)
+            context.contentResolver.openOutputStream(targetUri)?.use { out ->
+                out.write(mdContent.toByteArray(Charsets.UTF_8))
+                out.flush()
+            } ?: return@withContext DocumentResult.Failure(
+                DocumentError.ExportError("Could not open output stream for URI", "MD")
+            )
+            DocumentResult.Success(Unit)
+        } catch (e: Exception) {
+            DocumentResult.Failure(
+                DocumentError.ExportError("Export to SAF URI failed: ${e.message}", "MD", e)
+            )
+        }
+    }
+
+    override suspend fun exportToEpub(
+        context: Context,
+        document: RichDocument,
+        outputFile: File
+    ): DocumentResult<File> = withContext(Dispatchers.IO) {
+        try {
+            outputFile.parentFile?.mkdirs()
+            FileOutputStream(outputFile).use { fos ->
+                writeEpubPackage(document, fos)
+            }
+            DocumentResult.Success(outputFile)
+        } catch (e: Exception) {
+            DocumentResult.Failure(
+                DocumentError.ExportError("EPUB export failed: ${e.message}", "EPUB", e)
+            )
+        }
+    }
+
+    override suspend fun exportEpubToUri(
+        context: Context,
+        document: RichDocument,
+        targetUri: Uri
+    ): DocumentResult<Unit> = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openOutputStream(targetUri)?.use { out ->
+                writeEpubPackage(document, out)
+            } ?: return@withContext DocumentResult.Failure(
+                DocumentError.ExportError("Could not open output stream for EPUB URI", "EPUB")
+            )
+            DocumentResult.Success(Unit)
+        } catch (e: Exception) {
+            DocumentResult.Failure(
+                DocumentError.ExportError("EPUB SAF URI export failed: ${e.message}", "EPUB", e)
+            )
+        }
+    }
+
+    private fun generateMarkdown(document: RichDocument): String {
+        val sb = StringBuilder()
+        sb.append("# ${document.title}\n\n")
+
+        for (block in document.blocks) {
+            when (block) {
+                is ParagraphBlock -> {
+                    val prefix = when (block.headingStyle) {
+                        HeadingStyle.TITLE -> "# "
+                        HeadingStyle.SUBTITLE -> "### "
+                        HeadingStyle.HEADING_1 -> "## "
+                        HeadingStyle.HEADING_2 -> "### "
+                        HeadingStyle.HEADING_3 -> "#### "
+                        HeadingStyle.QUOTE -> "> "
+                        HeadingStyle.NORMAL -> when (block.listType) {
+                            ListType.BULLET -> "* "
+                            ListType.NUMBERED -> "1. "
+                            ListType.NONE -> if (block.isChecklist) (if (block.isChecked) "- [x] " else "- [ ] ") else ""
+                        }
+                    }
+                    sb.append(prefix).append(block.text).append("\n\n")
+                }
+                is TableBlock -> {
+                    if (block.cells.isNotEmpty()) {
+                        val header = block.cells.first()
+                        sb.append("| ").append(header.joinToString(" | ") { it.text.ifBlank { " " } }).append(" |\n")
+                        sb.append("| ").append(header.joinToString(" | ") { "---" }).append(" |\n")
+                        for (r in 1 until block.cells.size) {
+                            val row = block.cells[r]
+                            sb.append("| ").append(row.joinToString(" | ") { it.text.ifBlank { " " } }).append(" |\n")
+                        }
+                        sb.append("\n")
+                    }
+                }
+                is com.example.data.model.ImageBlock -> {
+                    sb.append("![${block.caption.ifBlank { "Image" }}](${block.imageUri})\n\n")
+                }
+                is com.example.data.model.DividerBlock -> {
+                    sb.append("---\n\n")
+                }
+                is com.example.data.model.ShapeBlock -> {
+                    sb.append("> **[${block.shapeType}] ${block.title}**\n")
+                    if (block.content.isNotBlank()) {
+                        sb.append("> ${block.content}\n")
+                    }
+                    sb.append("\n")
+                }
+                is com.example.data.model.SignatureBlock -> {
+                    sb.append("*Digital Signature:* **${block.signerName}** — ${block.signerTitle}")
+                    if (block.signedDate.isNotBlank()) sb.append(" (${block.signedDate})")
+                    sb.append("\n\n")
+                }
+                is com.example.data.model.FootnoteBlock -> {
+                    sb.append("[^${block.noteNumber}]: ${block.noteContent}\n\n")
+                }
+                is com.example.data.model.TextBoxBlock -> {
+                    sb.append("> 💬 **${block.text}**\n\n")
+                }
+                else -> Unit
+            }
+        }
+        return sb.toString()
+    }
+
+    private fun writeEpubPackage(document: RichDocument, out: java.io.OutputStream) {
+        val zos = ZipOutputStream(out)
+
+        fun addFile(path: String, content: String) {
+            val entry = ZipEntry(path)
+            zos.putNextEntry(entry)
+            zos.write(content.toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+        }
+
+        // 1. mimetype (uncompressed)
+        val mimeEntry = ZipEntry("mimetype").apply {
+            method = ZipEntry.STORED
+            val bytes = "application/epub+zip".toByteArray(Charsets.US_ASCII)
+            size = bytes.size.toLong()
+            compressedSize = bytes.size.toLong()
+            val crc = java.util.zip.CRC32()
+            crc.update(bytes)
+            setCrc(crc.value)
+        }
+        zos.putNextEntry(mimeEntry)
+        zos.write("application/epub+zip".toByteArray(Charsets.US_ASCII))
+        zos.closeEntry()
+
+        // 2. META-INF/container.xml
+        addFile(
+            "META-INF/container.xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+        )
+
+        // 3. OEBPS/content.opf
+        addFile(
+            "OEBPS/content.opf",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="pub-id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${document.title}</dc:title>
+    <dc:creator>${document.author}</dc:creator>
+    <dc:identifier id="pub-id">${document.id}</dc:identifier>
+    <dc:language>en</dc:language>
+  </metadata>
+  <manifest>
+    <item id="doc" href="document.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="doc"/>
+  </spine>
+</package>"""
+        )
+
+        // 4. OEBPS/document.xhtml
+        val xhtmlSb = StringBuilder()
+        xhtmlSb.append("""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <title>${document.title}</title>
+  <style>
+    body { font-family: sans-serif; line-height: 1.5; margin: 5%; }
+    h1 { color: #1e40af; }
+    h2 { color: #1e3a8a; }
+    blockquote { border-left: 3px solid #3b82f6; padding-left: 10px; color: #475569; }
+    table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+    th, td { border: 1px solid #cbd5e1; padding: 6px; }
+  </style>
+</head>
+<body>
+<h1>${document.title}</h1>
+""")
+        for (block in document.blocks) {
+            when (block) {
+                is ParagraphBlock -> {
+                    val tag = when (block.headingStyle) {
+                        HeadingStyle.TITLE, HeadingStyle.HEADING_1 -> "h2"
+                        HeadingStyle.HEADING_2 -> "h3"
+                        HeadingStyle.HEADING_3 -> "h4"
+                        HeadingStyle.QUOTE -> "blockquote"
+                        else -> "p"
+                    }
+                    val esc = block.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    xhtmlSb.append("<$tag>$esc</$tag>\n")
+                }
+                is TableBlock -> {
+                    xhtmlSb.append("<table>\n")
+                    for (row in block.cells) {
+                        xhtmlSb.append("<tr>")
+                        for (cell in row) {
+                            val esc = cell.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                            xhtmlSb.append("<td>$esc</td>")
+                        }
+                        xhtmlSb.append("</tr>\n")
+                    }
+                    xhtmlSb.append("</table>\n")
+                }
+                is com.example.data.model.DividerBlock -> xhtmlSb.append("<hr/>\n")
+                is com.example.data.model.TextBoxBlock -> {
+                    val esc = block.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    xhtmlSb.append("<div style=\"border:1px solid #2563eb;padding:8px;margin:8px 0;\">$esc</div>\n")
+                }
+                else -> Unit
+            }
+        }
+        xhtmlSb.append("</body>\n</html>")
+        addFile("OEBPS/document.xhtml", xhtmlSb.toString())
+
+        zos.finish()
+        zos.flush()
     }
 
     /**
@@ -917,9 +1172,73 @@ class PdfExportServiceImpl : DocumentExportService {
                         cursorY += 98f
                     }
 
+                    is com.example.core.layout.DrawingPageItem -> {
+                        val drawBlock = item.originalBlock
+                        val drawHeight = (drawBlock.heightDp * 72f / 160f).coerceIn(60f, 220f)
+                        if (drawBlock.backgroundColorHex != null) {
+                            val bgP = Paint().apply {
+                                color = try { Color.parseColor(drawBlock.backgroundColorHex) } catch (_: Exception) { Color.WHITE }
+                            }
+                            canvas.drawRect(leftMargin, cursorY, leftMargin + contentWidth, cursorY + drawHeight, bgP)
+                        }
+
+                        for (stroke in drawBlock.strokes) {
+                            if (stroke.points.size > 1) {
+                                val sPaint = Paint().apply {
+                                    isAntiAlias = true
+                                    color = try { Color.parseColor(stroke.colorHex) } catch (_: Exception) { Color.BLACK }
+                                    if (stroke.isHighlighter) {
+                                        alpha = 110
+                                    }
+                                    style = Paint.Style.STROKE
+                                    strokeWidth = stroke.strokeWidthPt
+                                    strokeCap = Paint.Cap.ROUND
+                                    strokeJoin = Paint.Join.ROUND
+                                }
+                                val path = android.graphics.Path()
+                                val p0 = stroke.points.first()
+                                path.moveTo(leftMargin + p0.first, cursorY + p0.second)
+                                for (i in 1 until stroke.points.size) {
+                                    val pt = stroke.points[i]
+                                    path.lineTo(leftMargin + pt.first, cursorY + pt.second)
+                                }
+                                canvas.drawPath(path, sPaint)
+                            }
+                        }
+                        cursorY += drawHeight + 12f
+                    }
+
+                    is com.example.core.layout.TextBoxPageItem -> {
+                        val tb = item.originalBlock
+                        val tbW = (tb.widthDp * 72f / 160f).coerceIn(80f, contentWidth)
+                        val tbH = (tb.heightDp * 72f / 160f).coerceIn(40f, 160f)
+                        val tbRect = android.graphics.RectF(leftMargin, cursorY, leftMargin + tbW, cursorY + tbH)
+                        val bgP = Paint().apply {
+                            color = try { Color.parseColor(tb.backgroundColorHex) } catch (_: Exception) { Color.WHITE }
+                            style = Paint.Style.FILL
+                        }
+                        val bdrP = Paint().apply {
+                            color = try { Color.parseColor(tb.borderColorHex) } catch (_: Exception) { Color.rgb(37, 99, 235) }
+                            style = Paint.Style.STROKE
+                            strokeWidth = tb.borderWidthPt
+                        }
+                        canvas.drawRoundRect(tbRect, 4f, 4f, bgP)
+                        canvas.drawRoundRect(tbRect, 4f, 4f, bdrP)
+
+                        val textP = Paint().apply {
+                            isAntiAlias = true
+                            color = try { Color.parseColor(tb.textColorHex) } catch (_: Exception) { Color.BLACK }
+                            textSize = 10f
+                        }
+                        canvas.drawText(tb.text.ifBlank { "..." }, leftMargin + 8f, cursorY + 22f, textP)
+                        cursorY += tbH + 12f
+                    }
+
                     is com.example.core.layout.ShapePageItem -> {
                         val shape = item.originalBlock
-                        val boxRect = android.graphics.RectF(leftMargin, cursorY, pageWidth - rightMargin, cursorY + 60f)
+                        val shapeW = (shape.widthDp * 72f / 160f).coerceIn(100f, contentWidth)
+                        val shapeH = (shape.heightDp * 72f / 160f).coerceIn(40f, 180f)
+                        val boxRect = android.graphics.RectF(leftMargin, cursorY, leftMargin + shapeW, cursorY + shapeH)
                         val bgPaint = Paint().apply {
                             color = try { Color.parseColor(shape.backgroundColorHex) } catch (_: Exception) { Color.rgb(239, 246, 255) }
                             style = Paint.Style.FILL
@@ -927,26 +1246,82 @@ class PdfExportServiceImpl : DocumentExportService {
                         val bdrPaint = Paint().apply {
                             color = try { Color.parseColor(shape.borderColorHex) } catch (_: Exception) { Color.rgb(59, 130, 246) }
                             style = Paint.Style.STROKE
-                            strokeWidth = 1.5f
+                            strokeWidth = shape.strokeWidthPt.coerceAtLeast(1f)
                         }
-                        canvas.drawRoundRect(boxRect, 6f, 6f, bgPaint)
-                        canvas.drawRoundRect(boxRect, 6f, 6f, bdrPaint)
+
+                        when (shape.shapeType.uppercase()) {
+                            "OVAL" -> {
+                                canvas.drawOval(boxRect, bgPaint)
+                                canvas.drawOval(boxRect, bdrPaint)
+                            }
+                            "STAR" -> {
+                                val path = android.graphics.Path()
+                                val cx = boxRect.centerX()
+                                val cy = boxRect.centerY()
+                                val rOuter = minOf(shapeW, shapeH) / 2f
+                                val rInner = rOuter * 0.45f
+                                for (i in 0 until 10) {
+                                    val r = if (i % 2 == 0) rOuter else rInner
+                                    val angle = (i * 36 - 90) * Math.PI / 180.0
+                                    val px = (cx + r * Math.cos(angle)).toFloat()
+                                    val py = (cy + r * Math.sin(angle)).toFloat()
+                                    if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                                }
+                                path.close()
+                                canvas.drawPath(path, bgPaint)
+                                canvas.drawPath(path, bdrPaint)
+                            }
+                            "DIAMOND" -> {
+                                val path = android.graphics.Path()
+                                path.moveTo(boxRect.centerX(), boxRect.top)
+                                path.lineTo(boxRect.right, boxRect.centerY())
+                                path.lineTo(boxRect.centerX(), boxRect.bottom)
+                                path.lineTo(boxRect.left, boxRect.centerY())
+                                path.close()
+                                canvas.drawPath(path, bgPaint)
+                                canvas.drawPath(path, bdrPaint)
+                            }
+                            "ARROW_RIGHT" -> {
+                                val path = android.graphics.Path()
+                                val my = boxRect.centerY()
+                                val hH = shapeH * 0.25f
+                                val headW = shapeW * 0.35f
+                                path.moveTo(boxRect.left, my - hH)
+                                path.lineTo(boxRect.right - headW, my - hH)
+                                path.lineTo(boxRect.right - headW, boxRect.top)
+                                path.lineTo(boxRect.right, my)
+                                path.lineTo(boxRect.right - headW, boxRect.bottom)
+                                path.lineTo(boxRect.right - headW, my + hH)
+                                path.lineTo(boxRect.left, my + hH)
+                                path.close()
+                                canvas.drawPath(path, bgPaint)
+                                canvas.drawPath(path, bdrPaint)
+                            }
+                            else -> {
+                                canvas.drawRoundRect(boxRect, 6f, 6f, bgPaint)
+                                canvas.drawRoundRect(boxRect, 6f, 6f, bdrPaint)
+                            }
+                        }
 
                         val titlePaint = Paint().apply {
                             isAntiAlias = true
-                            color = bdrPaint.color
+                            color = try { Color.parseColor(shape.textColorHex) } catch (_: Exception) { bdrPaint.color }
                             textSize = 10.5f
                             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                         }
-                        canvas.drawText(shape.title, leftMargin + 12f, cursorY + 20f, titlePaint)
+                        if (shape.title.isNotBlank()) {
+                            canvas.drawText(shape.title, leftMargin + 12f, cursorY + 20f, titlePaint)
+                        }
 
                         val bodyPaint = Paint().apply {
                             isAntiAlias = true
-                            color = Color.rgb(30, 41, 59)
+                            color = try { Color.parseColor(shape.textColorHex) } catch (_: Exception) { Color.rgb(30, 41, 59) }
                             textSize = 9.5f
                         }
-                        canvas.drawText(shape.content.ifBlank { "..." }, leftMargin + 12f, cursorY + 40f, bodyPaint)
-                        cursorY += 72f
+                        if (shape.content.isNotBlank()) {
+                            canvas.drawText(shape.content, leftMargin + 12f, cursorY + 38f, bodyPaint)
+                        }
+                        cursorY += shapeH + 12f
                     }
 
                     is com.example.core.layout.FootnotePageItem -> {

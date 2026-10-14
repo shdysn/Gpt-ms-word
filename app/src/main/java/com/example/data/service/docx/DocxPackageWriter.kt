@@ -598,7 +598,18 @@ class DocxPackageWriter(private val context: Context?) {
                     sb.append("""<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="334155"/></w:rPr><w:t>${escapeXml(block.signerTitle)}</w:t></w:r>${if (block.signedDate.isNotBlank()) """<w:r><w:rPr><w:sz w:val="16"/><w:color w:val="64748B"/></w:rPr><w:t>  •  Date: ${escapeXml(block.signedDate)}</w:t></w:r>""" else ""}</w:p>""")
                 }
                 is com.example.data.model.ShapeBlock -> {
-                    sb.append("""<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="4" w:color="3B82F6"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="EFF6FF"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="1E40AF"/></w:rPr><w:t>${block.title}</w:t></w:r><w:r><w:br/></w:r><w:r><w:t>${block.content.replace("<", "&lt;").replace(">", "&gt;")}</w:t></w:r></w:p>""")
+                    val cleanBdr = block.borderColorHex.removePrefix("#")
+                    val cleanBg = block.backgroundColorHex.removePrefix("#")
+                    sb.append("""<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="24" w:space="4" w:color="$cleanBdr"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="$cleanBg"/><w:spacing w:before="120" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="$cleanBdr"/></w:rPr><w:t>${escapeXml(block.title)}</w:t></w:r>${if (block.content.isNotBlank()) "<w:r><w:br/></w:r><w:r><w:t xml:space=\"preserve\">${escapeXml(block.content)}</w:t></w:r>" else ""}</w:p>""")
+                }
+                is com.example.data.model.DrawingBlock -> {
+                    sb.append("""<w:p><w:pPr><w:pBdr><w:bottom w:val="dashed" w:sz="6" w:space="2" w:color="94A3B8"/></w:pPr><w:spacing w:before="120" w:after="60"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="64748B"/></w:rPr><w:t>✎ [Handwritten Inking Canvas (${block.strokes.size} strokes)]</w:t></w:r></w:p>""")
+                }
+                is com.example.data.model.TextBoxBlock -> {
+                    val cleanBdr = block.borderColorHex.removePrefix("#")
+                    val cleanBg = block.backgroundColorHex.removePrefix("#")
+                    val esc = escapeXml(block.text)
+                    sb.append("""<w:p><w:pPr><w:pBdr><w:left w:val="single" w:sz="18" w:space="4" w:color="$cleanBdr"/><w:right w:val="single" w:sz="18" w:space="4" w:color="$cleanBdr"/><w:top w:val="single" w:sz="18" w:space="4" w:color="$cleanBdr"/><w:bottom w:val="single" w:sz="18" w:space="4" w:color="$cleanBdr"/></w:pBdr><w:shd w:val="clear" w:color="auto" w:fill="$cleanBg"/><w:spacing w:before="140" w:after="140"/></w:pPr><w:r><w:t xml:space="preserve">$esc</w:t></w:r></w:p>""")
                 }
                 is com.example.data.model.FootnoteBlock -> {
                     sb.append("""<w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="CBD5E1"/></w:pBdr><w:spacing w:before="120" w:after="60"/></w:pPr><w:r><w:rPr><w:vertAlign w:val="superscript"/><w:b/></w:rPr><w:t>[${block.noteNumber}] </w:t></w:r><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="475569"/></w:rPr><w:t>${block.noteContent.replace("<", "&lt;").replace(">", "&gt;")}</w:t></w:r></w:p>""")

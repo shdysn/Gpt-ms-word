@@ -336,6 +336,36 @@ object PaginationEngine {
                     currentHeight += shapeHeight
                 }
 
+                is com.example.data.model.DrawingBlock -> {
+                    val drawHeight = ((block.heightDp * 72f) / 160f).coerceIn(60f, printableHeightPt * 0.5f)
+                    if (currentHeight + drawHeight > printableHeightPt && currentPage.isNotEmpty()) {
+                        commitCurrentPageAndStartNew()
+                    }
+                    currentPage.add(
+                        DrawingPageItem(
+                            originalBlockIndex = blockIndex,
+                            originalBlock = block,
+                            heightPt = drawHeight
+                        )
+                    )
+                    currentHeight += drawHeight
+                }
+
+                is com.example.data.model.TextBoxBlock -> {
+                    val tbHeight = ((block.heightDp * 72f) / 160f).coerceIn(40f, printableHeightPt * 0.4f)
+                    if (currentHeight + tbHeight > printableHeightPt && currentPage.isNotEmpty()) {
+                        commitCurrentPageAndStartNew()
+                    }
+                    currentPage.add(
+                        TextBoxPageItem(
+                            originalBlockIndex = blockIndex,
+                            originalBlock = block,
+                            heightPt = tbHeight
+                        )
+                    )
+                    currentHeight += tbHeight
+                }
+
                 is com.example.data.model.FootnoteBlock -> {
                     val fnHeight = 36f
                     if (currentHeight + fnHeight > printableHeightPt && currentPage.isNotEmpty()) {
@@ -383,15 +413,23 @@ object PaginationEngine {
             val isFirstPage = index == 0
             val skipHeaderFooter = layout.differentFirstPage && isFirstPage
 
-            val hasHeader = layout.showHeader && layout.headerText.isNotBlank() && !skipHeaderFooter
-            val hasFooter = layout.showFooter && layout.footerText.isNotBlank() && !skipHeaderFooter
+            val effectiveHeaderText = if (layout.differentOddEvenPages && pageNumber % 2 == 0) {
+                if (layout.headerEvenText.isNotBlank()) layout.headerEvenText else layout.headerText
+            } else layout.headerText
+
+            val effectiveFooterText = if (layout.differentOddEvenPages && pageNumber % 2 == 0) {
+                if (layout.footerEvenText.isNotBlank()) layout.footerEvenText else layout.footerText
+            } else layout.footerText
+
+            val hasHeader = layout.showHeader && effectiveHeaderText.isNotBlank() && !skipHeaderFooter
+            val hasFooter = layout.showFooter && effectiveFooterText.isNotBlank() && !skipHeaderFooter
 
             val headerText = if (hasHeader) {
-                DocumentPage.formatHeaderFooterText(layout.headerText, pageNumber, totalPages, layout, document.title)
+                DocumentPage.formatHeaderFooterText(effectiveHeaderText, pageNumber, totalPages, layout, document.title, isHeader = true)
             } else ""
 
             val footerText = if (hasFooter) {
-                DocumentPage.formatHeaderFooterText(layout.footerText, pageNumber, totalPages, layout, document.title)
+                DocumentPage.formatHeaderFooterText(effectiveFooterText, pageNumber, totalPages, layout, document.title, isHeader = false)
             } else ""
 
             val usedHeight = items.sumOf { it.heightPt.toDouble() }.toFloat()

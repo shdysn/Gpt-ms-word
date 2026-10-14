@@ -6,10 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
@@ -23,6 +25,10 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Opacity
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.example.ui.theme.WordPrimary
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.FormatListNumbered
@@ -44,7 +50,11 @@ import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.ViewColumn
-import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.Icon
@@ -84,7 +94,8 @@ fun InsertRibbonControls(
     onOpenPageNumberDialog: () -> Unit,
     onOpenSignatureDialog: () -> Unit,
     onOpenShapeDialog: () -> Unit,
-    onOpenFootnoteDialog: () -> Unit = {}
+    onOpenFootnoteDialog: () -> Unit = {},
+    onOpenOcrScanDialog: () -> Unit = {}
 ) {
     RibbonActionButton(
         icon = Icons.Default.Add,
@@ -102,6 +113,24 @@ fun InsertRibbonControls(
         icon = Icons.Default.Image,
         label = "Picture",
         onClick = onOpenPhotoPicker
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.DocumentScanner,
+        label = "Scan Doc (OCR)",
+        onClick = onOpenOcrScanDialog
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.TextFields,
+        label = "Text Box",
+        onClick = { viewModel.insertTextBox() }
+    )
+
+    RibbonActionButton(
+        icon = Icons.Default.Draw,
+        label = "Inking Canvas",
+        onClick = { viewModel.insertDrawing() }
     )
 
     RibbonActionButton(
@@ -124,7 +153,7 @@ fun InsertRibbonControls(
 
     RibbonActionButton(
         icon = Icons.Default.Category,
-        label = "Shape / Note",
+        label = "Vector Shapes",
         onClick = onOpenShapeDialog
     )
 
@@ -270,7 +299,7 @@ fun LayoutRibbonControls(
     // Watermark
     val hasWatermark = layout.watermarkText.isNotBlank()
     RibbonToggleButton(
-        icon = Icons.Default.WaterDrop,
+        icon = Icons.Default.Opacity,
         label = if (hasWatermark) "Watermark (${layout.watermarkText.take(8)})" else "Watermark",
         isSelected = hasWatermark,
         onClick = onOpenWatermarkDialog
@@ -544,4 +573,101 @@ fun ViewRibbonControls(
             }
         }
     }
+}
+
+@Composable
+fun DrawRibbonControls(
+    viewModel: EditorViewModel,
+    onInsertDrawing: () -> Unit = { viewModel.insertDrawing() }
+) {
+    val currentTool by viewModel.drawTool.collectAsStateWithLifecycle()
+    val currentColorHex by viewModel.drawColorHex.collectAsStateWithLifecycle()
+    val currentStrokeWidthPt by viewModel.drawStrokeWidthPt.collectAsStateWithLifecycle()
+
+    RibbonToggleButton(
+        icon = Icons.Default.Edit,
+        label = "Pen",
+        isSelected = currentTool == "PEN",
+        onClick = { viewModel.setDrawTool("PEN") }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.Highlight,
+        label = "Highlighter",
+        isSelected = currentTool == "HIGHLIGHTER",
+        onClick = { viewModel.setDrawTool("HIGHLIGHTER") }
+    )
+
+    RibbonToggleButton(
+        icon = Icons.Default.Clear,
+        label = "Eraser",
+        isSelected = currentTool == "ERASER",
+        onClick = { viewModel.setDrawTool("ERASER") }
+    )
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Stroke Widths (1pt, 2.5pt, 4.5pt, 7pt)
+    listOf(1f to "Thin (1pt)", 2.5f to "Medium (2.5pt)", 4.5f to "Thick (4.5pt)", 7f to "Broad (7pt)").forEach { (w, label) ->
+        RibbonToggleButton(
+            icon = Icons.Default.HorizontalRule,
+            label = label,
+            isSelected = currentStrokeWidthPt == w,
+            onClick = { viewModel.setDrawStrokeWidthPt(w) }
+        )
+    }
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    // Quick Color Swatches
+    val swatches = listOf(
+        "#0F172A" to "Black",
+        "#1E40AF" to "Navy",
+        "#DC2626" to "Red",
+        "#059669" to "Green",
+        "#D97706" to "Amber",
+        "#7C3AED" to "Purple",
+        "#FBBF24" to "Yellow High"
+    )
+    swatches.forEach { (hex, name) ->
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = if (currentColorHex == hex) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            border = BorderStroke(if (currentColorHex == hex) 1.5.dp else 0.5.dp, if (currentColorHex == hex) WordPrimary else MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .height(34.dp)
+                .clickable {
+                    viewModel.setDrawColorHex(hex)
+                    if (currentTool == "ERASER") viewModel.setDrawTool("PEN")
+                }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                val c = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Black }
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(c)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = name,
+                    fontSize = 11.sp,
+                    fontWeight = if (currentColorHex == hex) FontWeight.Bold else FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+
+    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    RibbonActionButton(
+        icon = Icons.Default.Draw,
+        label = "Inking Canvas",
+        onClick = onInsertDrawing
+    )
 }

@@ -64,6 +64,7 @@ import java.text.SimpleDateFormat
 enum class RibbonTab {
     HOME,
     INSERT,
+    DRAW,
     LAYOUT,
     REVIEW,
     VIEW
@@ -119,6 +120,20 @@ class EditorViewModel(
 
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
+
+    // Draw / Inking Ribbon Tools
+    private val _drawTool = MutableStateFlow("PEN")
+    val drawTool: StateFlow<String> = _drawTool.asStateFlow()
+
+    private val _drawColorHex = MutableStateFlow("#0F172A")
+    val drawColorHex: StateFlow<String> = _drawColorHex.asStateFlow()
+
+    private val _drawStrokeWidthPt = MutableStateFlow(2.5f)
+    val drawStrokeWidthPt: StateFlow<Float> = _drawStrokeWidthPt.asStateFlow()
+
+    fun setDrawTool(tool: String) { _drawTool.value = tool }
+    fun setDrawColorHex(hex: String) { _drawColorHex.value = hex }
+    fun setDrawStrokeWidthPt(width: Float) { _drawStrokeWidthPt.value = width }
 
     // Find and Replace in Document
     private val _isFindReplaceVisible = MutableStateFlow(false)
@@ -2430,16 +2445,155 @@ class EditorViewModel(
     }
 
     fun insertShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String) {
+        insertVectorShape(shapeType, title, content, bgHex, borderHex)
+    }
+
+    fun insertVectorShape(
+        shapeType: String,
+        title: String,
+        content: String,
+        bgHex: String,
+        borderHex: String,
+        strokeWidthPt: Float = 1.5f,
+        widthDp: Int = 220,
+        heightDp: Int = 110
+    ) {
         val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
         val shapeBlock = com.example.data.model.ShapeBlock(
             shapeType = shapeType,
             title = title,
             content = content,
             backgroundColorHex = bgHex,
-            borderColorHex = borderHex
+            borderColorHex = borderHex,
+            strokeWidthPt = strokeWidthPt,
+            widthDp = widthDp,
+            heightDp = heightDp
         )
         executeCommand(InsertBlockCommand(insertIndex, shapeBlock))
-        _statusMessage.value = "Shape / Callout Box inserted"
+        _statusMessage.value = "Vector Shape ($shapeType) inserted"
+    }
+
+    fun insertDrawing(heightDp: Int = 180) {
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        val drawingBlock = com.example.data.model.DrawingBlock(
+            heightDp = heightDp,
+            backgroundColorHex = null
+        )
+        executeCommand(InsertBlockCommand(insertIndex, drawingBlock))
+        _statusMessage.value = "Inking Canvas inserted"
+    }
+
+    fun updateDrawingStrokes(blockId: String, strokes: List<com.example.data.model.DrawingStroke>) {
+        val doc = _document.value ?: return
+        val currentDrawing = doc.blocks.filterIsInstance<com.example.data.model.DrawingBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = currentDrawing.copy(strokes = strokes)
+        executeCommand(com.example.editor.engine.UpdateBlockCommand(blockId, updated))
+    }
+
+    fun insertTextBox(text: String = "Type text here...") {
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        val tbBlock = com.example.data.model.TextBoxBlock(
+            text = text,
+            widthDp = 180,
+            heightDp = 100,
+            backgroundColorHex = "#FFFFFF",
+            borderColorHex = "#2563EB",
+            borderWidthPt = 1.5f
+        )
+        executeCommand(InsertBlockCommand(insertIndex, tbBlock))
+        _statusMessage.value = "Floating Text Box inserted"
+    }
+
+    fun updateTextBox(
+        blockId: String,
+        text: String,
+        widthDp: Int = 180,
+        heightDp: Int = 100,
+        bgHex: String = "#FFFFFF",
+        borderHex: String = "#2563EB"
+    ) {
+        val doc = _document.value ?: return
+        val block = doc.blocks.filterIsInstance<com.example.data.model.TextBoxBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = block.copy(
+            text = text,
+            widthDp = widthDp,
+            heightDp = heightDp,
+            backgroundColorHex = bgHex,
+            borderColorHex = borderHex
+        )
+        executeCommand(com.example.editor.engine.UpdateBlockCommand(blockId, updated))
+    }
+
+    fun updateImageWrapMode(blockId: String, wrapMode: String) {
+        val doc = _document.value ?: return
+        val currentImg = doc.blocks.filterIsInstance<ImageBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = currentImg.copy(wrapMode = wrapMode)
+        executeCommand(UpdateImageBlockCommand(blockId, currentImg, updated))
+    }
+
+    fun updateHeaderFooterPolicy(
+        differentFirstPage: Boolean,
+        differentOddEvenPages: Boolean,
+        headerEvenText: String,
+        footerEvenText: String
+    ) {
+        val doc = _document.value ?: return
+        val updatedLayout = doc.layoutConfig.copy(
+            differentFirstPage = differentFirstPage,
+            differentOddEvenPages = differentOddEvenPages,
+            headerEvenText = headerEvenText,
+            footerEvenText = footerEvenText
+        )
+        executeCommand(UpdateLayoutCommand(oldLayout = doc.layoutConfig, newLayout = updatedLayout))
+        _statusMessage.value = "Header & Footer policy updated"
+    }
+
+    fun exportToMarkdown(context: Context, onComplete: (File?) -> Unit) {
+        val doc = _document.value ?: return
+        viewModelScope.launch {
+            val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+            val outFile = File(exportDir, "$sanitized.md")
+            when (val res = repository.exportToMarkdown(context, doc, outFile)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "Markdown (.md) Exported: ${outFile.name}"
+                    onComplete(outFile)
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "Markdown Error: ${res.error.message}"
+                    onComplete(null)
+                }
+            }
+        }
+    }
+
+    fun exportToEpub(context: Context, onComplete: (File?) -> Unit) {
+        val doc = _document.value ?: return
+        viewModelScope.launch {
+            val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val sanitized = doc.title.replace("[^a-zA-Z0-9.-]".toRegex(), "_")
+            val outFile = File(exportDir, "$sanitized.epub")
+            when (val res = repository.exportToEpub(context, doc, outFile)) {
+                is DocumentResult.Success -> {
+                    _statusMessage.value = "EPUB E-Book Exported: ${outFile.name}"
+                    onComplete(outFile)
+                }
+                is DocumentResult.Failure -> {
+                    _statusMessage.value = "EPUB Error: ${res.error.message}"
+                    onComplete(null)
+                }
+            }
+        }
+    }
+
+    fun insertScannedOcrText(scannedText: String) {
+        if (scannedText.isBlank()) return
+        val insertIndex = (_activeBlockIndex.value + 1).coerceIn(0, (_document.value?.blocks?.size ?: 0))
+        val paragraphs = scannedText.split("\n\n").filter { it.isNotBlank() }
+        for ((idx, para) in paragraphs.withIndex()) {
+            executeCommand(InsertBlockCommand(insertIndex + idx, ParagraphBlock(text = para.trim())))
+        }
+        _statusMessage.value = "OCR Scanned Text inserted (${paragraphs.size} paragraphs)"
     }
 
     // ----------------------------------------------------

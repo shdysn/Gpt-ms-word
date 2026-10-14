@@ -217,7 +217,44 @@ data class ImageBlock(
     val borderThicknessDp: Int = 0,
     val borderColorHex: String = "#CBD5E1",
     val rotationDegrees: Float = 0f,
-    val wrapMode: String = "IN_LINE" // IN_LINE, SQUARE, BEHIND_TEXT, IN_FRONT
+    val wrapMode: String = "IN_LINE", // IN_LINE, SQUARE, BEHIND_TEXT, IN_FRONT
+    val offsetXPt: Float = 0f,
+    val offsetYPt: Float = 0f
+) : BlockElement
+
+/**
+ * Freehand drawing / stylus stroke model.
+ */
+data class DrawingStroke(
+    val points: List<Pair<Float, Float>>,
+    val colorHex: String = "#000000",
+    val strokeWidthPt: Float = 2f,
+    val isHighlighter: Boolean = false
+)
+
+/**
+ * Freehand drawing canvas block with touch/stylus strokes.
+ */
+data class DrawingBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val strokes: List<DrawingStroke> = emptyList(),
+    val heightDp: Int = 180,
+    val backgroundColorHex: String? = null
+) : BlockElement
+
+/**
+ * Floating / draggable text box container.
+ */
+data class TextBoxBlock(
+    override val id: String = UUID.randomUUID().toString(),
+    val text: String = "",
+    val widthDp: Int = 180,
+    val heightDp: Int = 100,
+    val backgroundColorHex: String = "#FFFFFF",
+    val borderColorHex: String = "#2563EB",
+    val borderWidthPt: Float = 1.5f,
+    val rotationDeg: Float = 0f,
+    val textColorHex: String = "#1E293B"
 ) : BlockElement
 
 /**
@@ -277,15 +314,23 @@ data class SignatureBlock(
 ) : BlockElement
 
 /**
- * Stylized shape / callout note block (e.g., Note, Warning, Tip, Quote banner).
+ * Stylized shape / callout note / geometric vector shape block.
+ * Supported shape types:
+ * RECTANGLE, ROUNDED_RECT, OVAL, ARROW_RIGHT, ARROW_LEFT, ARROW_UP, ARROW_DOWN,
+ * STAR, DIAMOND, CALLOUT, NOTE, WARNING, SUCCESS, QUOTE
  */
 data class ShapeBlock(
     override val id: String = UUID.randomUUID().toString(),
-    val shapeType: String = "NOTE", // NOTE, WARNING, SUCCESS, QUOTE
+    val shapeType: String = "NOTE",
     val title: String = "Important Note",
     val content: String = "",
     val backgroundColorHex: String = "#EFF6FF",
-    val borderColorHex: String = "#3B82F6"
+    val borderColorHex: String = "#3B82F6",
+    val strokeWidthPt: Float = 1.5f,
+    val rotationDeg: Float = 0f,
+    val textColorHex: String = "#1E293B",
+    val widthDp: Int = 220,
+    val heightDp: Int = 110
 ) : BlockElement
 
 /**

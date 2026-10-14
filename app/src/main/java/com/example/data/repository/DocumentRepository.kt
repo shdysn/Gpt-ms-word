@@ -54,6 +54,14 @@ interface DocumentRepository {
     suspend fun exportDocxToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
 
     suspend fun exportToPlainText(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
+ 
+    suspend fun exportToMarkdown(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
+
+    suspend fun exportMarkdownToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
+
+    suspend fun exportToEpub(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
+
+    suspend fun exportEpubToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
 
     fun printDocument(context: Context, document: RichDocument)
 

@@ -439,6 +439,27 @@ data class UpdateImageBlockCommand(
 }
 
 /**
+ * Command for updating an arbitrary block element in place.
+ */
+data class UpdateBlockCommand(
+    val blockId: String,
+    val newBlock: BlockElement
+) : EditorCommand {
+    override val description: String = "Update Block"
+
+    override fun apply(document: RichDocument): RichDocument {
+        val updated = document.blocks.map { block ->
+            if (block.id == blockId) newBlock else block
+        }
+        return document.copy(blocks = updated)
+    }
+
+    override fun revert(document: RichDocument): RichDocument {
+        return document
+    }
+}
+
+/**
  * Command for clearing all character formatting and resetting heading style.
  */
 data class ClearFormattingCommand(

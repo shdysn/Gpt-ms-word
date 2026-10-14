@@ -497,6 +497,40 @@ class DocumentStorageManager(private val context: Context) {
                         blockObj.put("content", block.content)
                         blockObj.put("backgroundColorHex", block.backgroundColorHex)
                         blockObj.put("borderColorHex", block.borderColorHex)
+                        blockObj.put("strokeWidthPt", block.strokeWidthPt.toDouble())
+                        blockObj.put("rotationDeg", block.rotationDeg.toDouble())
+                        blockObj.put("textColorHex", block.textColorHex)
+                        blockObj.put("widthDp", block.widthDp)
+                        blockObj.put("heightDp", block.heightDp)
+                    }
+                    is com.example.data.model.DrawingBlock -> {
+                        blockObj.put("type", "drawing")
+                        blockObj.put("id", block.id)
+                        blockObj.put("heightDp", block.heightDp)
+                        block.backgroundColorHex?.let { blockObj.put("backgroundColorHex", it) }
+                        val strokesArr = JSONArray()
+                        for (s in block.strokes) {
+                            val sObj = JSONObject()
+                            sObj.put("colorHex", s.colorHex)
+                            sObj.put("strokeWidthPt", s.strokeWidthPt.toDouble())
+                            sObj.put("isHighlighter", s.isHighlighter)
+                            val ptsStr = s.points.joinToString(";") { "${it.first},${it.second}" }
+                            sObj.put("points", ptsStr)
+                            strokesArr.put(sObj)
+                        }
+                        blockObj.put("strokes", strokesArr)
+                    }
+                    is com.example.data.model.TextBoxBlock -> {
+                        blockObj.put("type", "textbox")
+                        blockObj.put("id", block.id)
+                        blockObj.put("text", block.text)
+                        blockObj.put("widthDp", block.widthDp)
+                        blockObj.put("heightDp", block.heightDp)
+                        blockObj.put("backgroundColorHex", block.backgroundColorHex)
+                        blockObj.put("borderColorHex", block.borderColorHex)
+                        blockObj.put("borderWidthPt", block.borderWidthPt.toDouble())
+                        blockObj.put("rotationDeg", block.rotationDeg.toDouble())
+                        blockObj.put("textColorHex", block.textColorHex)
                     }
                     is DividerBlock -> {
                         blockObj.put("type", "divider")
@@ -876,7 +910,59 @@ class DocumentStorageManager(private val context: Context) {
                             title = bObj.optString("title", "Important Note"),
                             content = bObj.optString("content", ""),
                             backgroundColorHex = bObj.optString("backgroundColorHex", "#EFF6FF"),
-                            borderColorHex = bObj.optString("borderColorHex", "#3B82F6")
+                            borderColorHex = bObj.optString("borderColorHex", "#3B82F6"),
+                            strokeWidthPt = bObj.optDouble("strokeWidthPt", 1.5).toFloat(),
+                            rotationDeg = bObj.optDouble("rotationDeg", 0.0).toFloat(),
+                            textColorHex = bObj.optString("textColorHex", "#1E293B"),
+                            widthDp = bObj.optInt("widthDp", 220),
+                            heightDp = bObj.optInt("heightDp", 110)
+                        )
+                    )
+                }
+                "drawing" -> {
+                    val strokesList = mutableListOf<com.example.data.model.DrawingStroke>()
+                    val strokesArr = bObj.optJSONArray("strokes")
+                    if (strokesArr != null) {
+                        for (si in 0 until strokesArr.length()) {
+                            val sObj = strokesArr.getJSONObject(si)
+                            val colorHex = sObj.optString("colorHex", "#000000")
+                            val strokeWidthPt = sObj.optDouble("strokeWidthPt", 2.0).toFloat()
+                            val isHighlighter = sObj.optBoolean("isHighlighter", false)
+                            val ptsStr = sObj.optString("points", "")
+                            val points = if (ptsStr.isNotBlank()) {
+                                ptsStr.split(";").mapNotNull { p ->
+                                    val parts = p.split(",")
+                                    if (parts.size == 2) {
+                                        val x = parts[0].toFloatOrNull() ?: 0f
+                                        val y = parts[1].toFloatOrNull() ?: 0f
+                                        x to y
+                                    } else null
+                                }
+                            } else emptyList()
+                            strokesList.add(com.example.data.model.DrawingStroke(points, colorHex, strokeWidthPt, isHighlighter))
+                        }
+                    }
+                    blocks.add(
+                        com.example.data.model.DrawingBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            strokes = strokesList,
+                            heightDp = bObj.optInt("heightDp", 180),
+                            backgroundColorHex = if (bObj.has("backgroundColorHex")) bObj.optString("backgroundColorHex") else null
+                        )
+                    )
+                }
+                "textbox" -> {
+                    blocks.add(
+                        com.example.data.model.TextBoxBlock(
+                            id = blockId.ifBlank { java.util.UUID.randomUUID().toString() },
+                            text = bObj.optString("text", ""),
+                            widthDp = bObj.optInt("widthDp", 180),
+                            heightDp = bObj.optInt("heightDp", 100),
+                            backgroundColorHex = bObj.optString("backgroundColorHex", "#FFFFFF"),
+                            borderColorHex = bObj.optString("borderColorHex", "#2563EB"),
+                            borderWidthPt = bObj.optDouble("borderWidthPt", 1.5).toFloat(),
+                            rotationDeg = bObj.optDouble("rotationDeg", 0.0).toFloat(),
+                            textColorHex = bObj.optString("textColorHex", "#1E293B")
                         )
                     )
                 }

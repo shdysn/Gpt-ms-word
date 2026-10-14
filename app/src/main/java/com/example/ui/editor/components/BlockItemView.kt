@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -107,7 +108,10 @@ fun BlockItemView(
     paginatedPages: List<com.example.core.layout.DocumentPage> = emptyList(),
     onNavigateToBlock: (Int) -> Unit = {},
     onRefreshTOC: () -> Unit = {},
-    onToggleChecklistItem: (String) -> Unit = {}
+    onToggleChecklistItem: (String) -> Unit = {},
+    onUpdateDrawingStrokes: (List<com.example.data.model.DrawingStroke>) -> Unit = {},
+    onUpdateTextBox: (String) -> Unit = {},
+    onEditShape: () -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -427,6 +431,50 @@ fun BlockItemView(
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = Color(0xFF2563EB)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Contextual Spellcheck Correction Suggestion Pill (Phase 4)
+                        val activeTypo = remember(currentCursor, textFieldValue.text) {
+                            EditorEngineIntegration.findTypos(textFieldValue.text).firstOrNull { (start, end, _) ->
+                                currentCursor in start..end
+                            }
+                        }
+                        if (activeTypo != null && isActive) {
+                            val (tStart, tEnd, suggestion) = activeTypo
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (isDarkPage) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444)),
+                                shadowElevation = 2.dp,
+                                modifier = Modifier
+                                    .padding(top = 4.dp, bottom = 4.dp)
+                                    .clickable {
+                                        val newText = textFieldValue.text.replaceRange(tStart, tEnd, suggestion)
+                                        val newSel = TextRange(tStart + suggestion.length)
+                                        textFieldValue = textFieldValue.copy(text = newText, selection = newSel)
+                                        onTextChanged(newText, newSel)
+                                    }
+                                    .testTag("spellcheck_suggestion_pill")
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Spellcheck,
+                                        contentDescription = null,
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Typo: Change to \"$suggestion\"",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFFDC2626)
                                     )
                                 }
                             }
@@ -806,58 +854,31 @@ fun BlockItemView(
         }
 
         is com.example.data.model.ShapeBlock -> {
-            val bgCol = try { Color(android.graphics.Color.parseColor(block.backgroundColorHex)) } catch (_: Exception) { Color(0xFFEFF6FF) }
-            val borderCol = try { Color(android.graphics.Color.parseColor(block.borderColorHex)) } catch (_: Exception) { Color(0xFF3B82F6) }
-            val shapeIcon = when (block.shapeType) {
-                "WARNING" -> Icons.Default.Warning
-                "SUCCESS" -> Icons.Default.CheckCircle
-                "QUOTE" -> Icons.Default.FormatQuote
-                else -> Icons.Default.Info
-            }
+            ShapeBlockView(
+                block = block,
+                zoomScale = zoomScale,
+                onEditShape = onEditShape,
+                onDeleteShape = onDeleteBlock
+            )
+        }
 
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isDarkPage) Color(0xFF1E293B) else bgCol,
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, borderCol),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 6.dp)
-                    .testTag("shape_block_${block.id}")
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        imageVector = shapeIcon,
-                        contentDescription = null,
-                        tint = borderCol,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = block.title,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = (13f * zoomScale).sp,
-                            color = borderCol
-                        )
-                        if (block.content.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = block.content,
-                                fontSize = (12f * zoomScale).sp,
-                                color = if (isDarkPage) Color(0xFFE2E8F0) else Color(0xFF1E293B)
-                            )
-                        }
-                    }
-                    if (canDeleteBlock) {
-                        IconButton(onClick = onDeleteBlock, modifier = Modifier.size(22.dp)) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Shape", tint = Color.Gray, modifier = Modifier.size(13.dp))
-                        }
-                    }
-                }
-            }
+        is com.example.data.model.DrawingBlock -> {
+            DrawingBlockView(
+                block = block,
+                isDarkPage = isDarkPage,
+                zoomScale = zoomScale,
+                onStrokesChanged = onUpdateDrawingStrokes,
+                onDeleteBlock = onDeleteBlock
+            )
+        }
+
+        is com.example.data.model.TextBoxBlock -> {
+            TextBoxBlockView(
+                block = block,
+                zoomScale = zoomScale,
+                onTextChanged = onUpdateTextBox,
+                onDeleteBlock = onDeleteBlock
+            )
         }
 
         is com.example.data.model.FootnoteBlock -> {

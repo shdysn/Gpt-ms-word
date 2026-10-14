@@ -123,7 +123,8 @@ fun WordRibbon(
     onToggleChecklist: () -> Unit = { viewModel.toggleChecklist() },
     onCreateCustomStyle: () -> Unit = {},
     onApplyCustomStyle: (com.example.data.model.CustomStyle) -> Unit = { viewModel.applyCustomStyle(it) },
-    onOpenOutline: () -> Unit = {}
+    onOpenOutline: () -> Unit = {},
+    onOpenOcrScanDialog: () -> Unit = {}
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
     val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
@@ -263,7 +264,23 @@ fun WordRibbon(
                                 onOpenPageNumberDialog = onOpenPageNumberDialog,
                                 onOpenSignatureDialog = onOpenSignatureDialog,
                                 onOpenShapeDialog = onOpenShapeDialog,
-                                onOpenFootnoteDialog = onOpenFootnoteDialog
+                                onOpenFootnoteDialog = onOpenFootnoteDialog,
+                                onOpenOcrScanDialog = onOpenOcrScanDialog
+                            )
+                        }
+                    }
+
+                    RibbonTab.DRAW -> {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            DrawRibbonControls(
+                                viewModel = viewModel
                             )
                         }
                     }

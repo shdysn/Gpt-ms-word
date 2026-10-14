@@ -47,4 +47,24 @@ interface DocumentExportService {
      * Writes genuine Microsoft Word (.docx) package directly into a Storage Access Framework (SAF) URI.
      */
     suspend fun exportDocxToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
+
+    /**
+     * Exports document into standard GitHub-flavored Markdown (.md).
+     */
+    suspend fun exportToMarkdown(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
+
+    /**
+     * Writes Markdown (.md) directly into a SAF URI.
+     */
+    suspend fun exportMarkdownToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
+
+    /**
+     * Exports document into standard EPUB (.epub) e-book container.
+     */
+    suspend fun exportToEpub(context: Context, document: RichDocument, outputFile: File): DocumentResult<File>
+
+    /**
+     * Writes EPUB directly into a SAF URI.
+     */
+    suspend fun exportEpubToUri(context: Context, document: RichDocument, targetUri: Uri): DocumentResult<Unit>
 }

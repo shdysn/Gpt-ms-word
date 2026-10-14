@@ -79,7 +79,10 @@ fun DocumentCanvas(
     onSelectionChangedForBlock: (Int, TextRange) -> Unit = { _, _ -> },
     onSplitParagraph: (Int, Int) -> Unit = { _, _ -> },
     onRefreshTOC: () -> Unit = {},
-    onToggleChecklistItem: (String) -> Unit = {}
+    onToggleChecklistItem: (String) -> Unit = {},
+    onUpdateDrawingStrokes: (String, List<com.example.data.model.DrawingStroke>) -> Unit = { _, _ -> },
+    onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
+    onEditShape: (com.example.data.model.ShapeBlock) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)

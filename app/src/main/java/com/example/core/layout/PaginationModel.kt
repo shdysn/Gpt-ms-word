@@ -123,6 +123,24 @@ data class ShapePageItem(
 ) : PageItem
 
 /**
+ * Freehand drawing / inking canvas rendered on a page.
+ */
+data class DrawingPageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.DrawingBlock,
+    override val heightPt: Float = 140f
+) : PageItem
+
+/**
+ * Floating / container text box rendered on a page.
+ */
+data class TextBoxPageItem(
+    override val originalBlockIndex: Int,
+    val originalBlock: com.example.data.model.TextBoxBlock,
+    override val heightPt: Float = 90f
+) : PageItem
+
+/**
  * Footnote item rendered on a paginated page.
  */
 data class FootnotePageItem(
@@ -149,6 +167,7 @@ data class DocumentPage(
 ) {
     /**
      * Resolves tokenized header/footer strings such as "Page {page} of {pages}"
+     * Handles Different First Page and Different Odd/Even Page policies.
      */
     companion object {
         fun formatHeaderFooterText(
@@ -156,11 +175,28 @@ data class DocumentPage(
             pageNumber: Int,
             totalPages: Int,
             layout: PageLayoutConfig,
-            documentTitle: String = ""
+            documentTitle: String = "",
+            isHeader: Boolean = true
         ): String {
+            // First page suppression
+            if (pageNumber == 1 && layout.differentFirstPage) {
+                return ""
+            }
+
+            // Even page check
+            val effectiveTemplate = if (layout.differentOddEvenPages && pageNumber % 2 == 0) {
+                if (isHeader) {
+                    if (layout.headerEvenText.isNotBlank()) layout.headerEvenText else template
+                } else {
+                    if (layout.footerEvenText.isNotBlank()) layout.footerEvenText else template
+                }
+            } else {
+                template
+            }
+
             val formattedPageNum = layout.formatPageNumber(pageNumber)
             val formattedTotalPages = layout.formatPageNumber(totalPages)
-            return template
+            return effectiveTemplate
                 .replace("{page}", formattedPageNum)
                 .replace("{pages}", formattedTotalPages)
                 .replace("{title}", documentTitle)

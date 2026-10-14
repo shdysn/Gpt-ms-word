@@ -8,5 +8,6 @@ enum class DocumentFormatType(val extension: String, val mimeType: String, val d
     DOCX("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Microsoft Word Document (.docx)"),
     PDF("pdf", "application/pdf", "Portable Document Format (.pdf)"),
     PLAIN_TEXT("txt", "text/plain", "Plain Text Document (.txt)"),
-    MARKDOWN("md", "text/markdown", "Markdown Document (.md)")
+    MARKDOWN("md", "text/markdown", "Markdown Document (.md)"),
+    EPUB("epub", "application/epub+zip", "EPUB E-Book (.epub)")
 }

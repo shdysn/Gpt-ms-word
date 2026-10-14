@@ -114,7 +114,68 @@ object EditorEngineIntegration {
                     addStringAnnotation(tag = "URL", annotation = span.linkUrl, start = safeStart, end = safeEnd)
                 }
             }
+
+            // Real-time typo underline squiggles (Phase 4 requirement)
+            val typos = findTypos(inputText)
+            for ((start, end, suggestion) in typos) {
+                val safeStart = start.coerceIn(0, inputText.length)
+                val safeEnd = end.coerceIn(safeStart, inputText.length)
+                if (safeStart < safeEnd) {
+                    addStyle(
+                        SpanStyle(
+                            textDecoration = TextDecoration.Underline,
+                            color = androidx.compose.ui.graphics.Color(0xFFDC2626) // Crimson Red typo indicator
+                        ),
+                        safeStart,
+                        safeEnd
+                    )
+                    addStringAnnotation("SPELLCHECK", suggestion, safeStart, safeEnd)
+                }
+            }
         }
+    }
+
+    val COMMON_TYPOS: Map<String, String> = mapOf(
+        "teh" to "the",
+        "recieve" to "receive",
+        "seperate" to "separate",
+        "definately" to "definitely",
+        "untill" to "until",
+        "occured" to "occurred",
+        "accomodate" to "accommodate",
+        "wierd" to "weird",
+        "goverment" to "government",
+        "enviroment" to "environment",
+        "tommorrow" to "tomorrow",
+        "beleive" to "believe",
+        "truely" to "truly",
+        "writting" to "writing",
+        "sucessful" to "successful",
+        "begining" to "beginning",
+        "neccessary" to "necessary",
+        "embarass" to "embarrass",
+        "existance" to "existence",
+        "guarentee" to "guarantee",
+        "happend" to "happened",
+        "independant" to "independent",
+        "relevent" to "relevant",
+        "tendancy" to "tendency",
+        "usefull" to "useful",
+        "alot" to "a lot"
+    )
+
+    fun findTypos(text: String): List<Triple<Int, Int, String>> {
+        if (text.isBlank()) return emptyList()
+        val typos = mutableListOf<Triple<Int, Int, String>>()
+        val wordRegex = Regex("\\b[a-zA-Z]+\\b")
+        for (match in wordRegex.findAll(text)) {
+            val word = match.value.lowercase(java.util.Locale.ROOT)
+            val suggestion = COMMON_TYPOS[word]
+            if (suggestion != null) {
+                typos.add(Triple(match.range.first, match.range.last + 1, suggestion))
+            }
+        }
+        return typos
     }
 
     /**

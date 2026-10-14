@@ -262,6 +262,38 @@ class DocumentRepositoryImpl(
         return exportService.exportToPlainText(context, document, outputFile)
     }
 
+    override suspend fun exportToMarkdown(
+        context: Context,
+        document: RichDocument,
+        outputFile: File
+    ): DocumentResult<File> {
+        return exportService.exportToMarkdown(context, document, outputFile)
+    }
+
+    override suspend fun exportMarkdownToUri(
+        context: Context,
+        document: RichDocument,
+        targetUri: Uri
+    ): DocumentResult<Unit> {
+        return exportService.exportMarkdownToUri(context, document, targetUri)
+    }
+
+    override suspend fun exportToEpub(
+        context: Context,
+        document: RichDocument,
+        outputFile: File
+    ): DocumentResult<File> {
+        return exportService.exportToEpub(context, document, outputFile)
+    }
+
+    override suspend fun exportEpubToUri(
+        context: Context,
+        document: RichDocument,
+        targetUri: Uri
+    ): DocumentResult<Unit> {
+        return exportService.exportEpubToUri(context, document, targetUri)
+    }
+
     override fun printDocument(context: Context, document: RichDocument) {
         exportService.printDocument(context, document)
     }
