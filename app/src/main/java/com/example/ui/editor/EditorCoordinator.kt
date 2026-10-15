@@ -145,8 +145,10 @@ abstract class EditorCoordinator(
     fun insertTableOfContents() = blockManager.insertTableOfContents()
     fun insertSignature(signerName: String, signerTitle: String, strokeHex: String, points: String) = blockManager.insertSignature(signerName, signerTitle, strokeHex, points)
     fun insertShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String) = blockManager.insertShape(shapeType, title, content, bgHex, borderHex)
-    fun insertVectorShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String, strokeWidthPt: Float = 1.5f, widthDp: Int = 220, heightDp: Int = 110) =
-        blockManager.insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, widthDp, heightDp)
+    fun insertVectorShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String, strokeWidthPt: Float = 1.5f, rotationDeg: Float = 0f, widthDp: Int = 220, heightDp: Int = 110) =
+        blockManager.insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp)
+    fun updateShape(blockId: String, shapeType: String, title: String, content: String, bgHex: String, borderHex: String, strokeWidthPt: Float = 1.5f, rotationDeg: Float = 0f, widthDp: Int = 220, heightDp: Int = 110) =
+        blockManager.updateShape(blockId, shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp)
     fun insertDrawing(heightDp: Int = 180) = blockManager.insertDrawing(heightDp)
     fun updateDrawingStrokes(blockId: String, strokes: List<DrawingStroke>) = blockManager.updateDrawingStrokes(blockId, strokes)
     fun insertTextBox(text: String = "Type text here...") = blockManager.insertTextBox(text)

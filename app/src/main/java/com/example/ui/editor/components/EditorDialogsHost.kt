@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import com.example.data.model.ImageBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
+import com.example.data.model.ShapeBlock
 import com.example.data.model.TableBlock
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.components.dialogs.EditorAdvancedModals
@@ -62,6 +63,7 @@ fun EditorDialogsHost(
     showSignatureDialog: Boolean,
     onDismissSignatureDialog: () -> Unit,
     showShapeDialog: Boolean,
+    selectedShapeForEdit: ShapeBlock? = null,
     onDismissShapeDialog: () -> Unit,
     showWatermarkDialog: Boolean,
     onDismissWatermarkDialog: () -> Unit,
@@ -150,6 +152,7 @@ fun EditorDialogsHost(
         showSignatureDialog = showSignatureDialog,
         onDismissSignatureDialog = onDismissSignatureDialog,
         showShapeDialog = showShapeDialog,
+        selectedShapeForEdit = selectedShapeForEdit,
         onDismissShapeDialog = onDismissShapeDialog,
         showWatermarkDialog = showWatermarkDialog,
         onDismissWatermarkDialog = onDismissWatermarkDialog,

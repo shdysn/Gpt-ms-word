@@ -63,7 +63,10 @@ fun EditorCanvasContent(
                 onEditImageProperties = { img -> dState.selectedImageForProperties = img },
                 onOpenPageLayoutDialog = { dState.showLayoutDialog = true },
                 onRefreshTOC = viewModel::refreshTableOfContents,
-                onToggleChecklistItem = { viewModel.toggleChecklistItem(it) }
+                onToggleChecklistItem = { viewModel.toggleChecklistItem(it) },
+                onUpdateDrawingStrokes = { id, strokes -> viewModel.updateDrawingStrokes(id, strokes) },
+                onUpdateTextBox = { id, text -> viewModel.updateTextBox(id, text) },
+                onEditShape = { shape -> dState.selectedShapeForEdit = shape }
             )
         }
 

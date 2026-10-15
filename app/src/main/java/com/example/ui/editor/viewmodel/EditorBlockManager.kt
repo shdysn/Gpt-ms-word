@@ -235,8 +235,10 @@ class EditorBlockManager(
         mediaManager.updateImageFormatting(blockId, filterMode, cornerRadiusDp, borderThicknessDp, borderColorHex, rotationDegrees)
     fun insertSignature(signerName: String, signerTitle: String, strokeHex: String, points: String) = mediaManager.insertSignature(signerName, signerTitle, strokeHex, points)
     fun insertShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String) = mediaManager.insertShape(shapeType, title, content, bgHex, borderHex)
-    fun insertVectorShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String, strokeWidthPt: Float = 1.5f, widthDp: Int = 220, heightDp: Int = 110) =
-        mediaManager.insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, widthDp, heightDp)
+    fun insertVectorShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String, strokeWidthPt: Float = 1.5f, rotationDeg: Float = 0f, widthDp: Int = 220, heightDp: Int = 110) =
+        mediaManager.insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp)
+    fun updateShape(blockId: String, shapeType: String, title: String, content: String, bgHex: String, borderHex: String, strokeWidthPt: Float = 1.5f, rotationDeg: Float = 0f, widthDp: Int = 220, heightDp: Int = 110) =
+        mediaManager.updateShape(blockId, shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp)
     fun insertDrawing(heightDp: Int = 180) = mediaManager.insertDrawing(heightDp)
     fun updateDrawingStrokes(blockId: String, strokes: List<DrawingStroke>) = mediaManager.updateDrawingStrokes(blockId, strokes)
     fun insertTextBox(text: String = "Type text here...") = mediaManager.insertTextBox(text)

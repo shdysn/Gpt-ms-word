@@ -40,6 +40,7 @@ class EditorDialogsState {
     var showParagraphSpacingDialog by mutableStateOf(false)
     var showCreateCustomStyleDialog by mutableStateOf(false)
     var showOutlineSheet by mutableStateOf(false)
+    var selectedShapeForEdit by mutableStateOf<com.example.data.model.ShapeBlock?>(null)
 }
 
 @Composable

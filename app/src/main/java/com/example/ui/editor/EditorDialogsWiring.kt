@@ -64,7 +64,11 @@ fun EditorDialogsWiring(
         showSignatureDialog = dState.showSignatureDialog,
         onDismissSignatureDialog = { dState.showSignatureDialog = false },
         showShapeDialog = dState.showShapeDialog,
-        onDismissShapeDialog = { dState.showShapeDialog = false },
+        selectedShapeForEdit = dState.selectedShapeForEdit,
+        onDismissShapeDialog = {
+            dState.showShapeDialog = false
+            dState.selectedShapeForEdit = null
+        },
         showWatermarkDialog = dState.showWatermarkDialog,
         onDismissWatermarkDialog = { dState.showWatermarkDialog = false },
         showPasswordDialog = dState.showPasswordDialog,

@@ -6,6 +6,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.CustomStyle
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
+import com.example.data.model.ShapeBlock
 import com.example.data.model.TableCell
 import com.example.data.model.TableBlock
 import com.example.ui.editor.EditorViewModel
@@ -28,6 +29,7 @@ fun EditorAdvancedModals(
     showSignatureDialog: Boolean,
     onDismissSignatureDialog: () -> Unit,
     showShapeDialog: Boolean,
+    selectedShapeForEdit: ShapeBlock? = null,
     onDismissShapeDialog: () -> Unit,
     showWatermarkDialog: Boolean,
     onDismissWatermarkDialog: () -> Unit,
@@ -75,11 +77,37 @@ fun EditorAdvancedModals(
         )
     }
 
-    if (showShapeDialog) {
-        ShapeInsertDialog(
+    if (showShapeDialog || selectedShapeForEdit != null) {
+        VectorShapeGalleryDialog(
+            shapeToEdit = selectedShapeForEdit,
             onDismiss = onDismissShapeDialog,
-            onConfirm = { shapeType, title, content, bgHex, borderHex ->
-                viewModel.insertShape(shapeType, title, content, bgHex, borderHex)
+            onConfirm = { shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp ->
+                if (selectedShapeForEdit != null) {
+                    viewModel.updateShape(
+                        blockId = selectedShapeForEdit.id,
+                        shapeType = shapeType,
+                        title = title,
+                        content = content,
+                        bgHex = bgHex,
+                        borderHex = borderHex,
+                        strokeWidthPt = strokeWidthPt,
+                        rotationDeg = rotationDeg,
+                        widthDp = widthDp,
+                        heightDp = heightDp
+                    )
+                } else {
+                    viewModel.insertVectorShape(
+                        shapeType = shapeType,
+                        title = title,
+                        content = content,
+                        bgHex = bgHex,
+                        borderHex = borderHex,
+                        strokeWidthPt = strokeWidthPt,
+                        rotationDeg = rotationDeg,
+                        widthDp = widthDp,
+                        heightDp = heightDp
+                    )
+                }
                 onDismissShapeDialog()
             }
         )

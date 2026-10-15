@@ -112,8 +112,18 @@ class EditorMediaBlockManager(
         vm.showStatusMessage("Digital Signature inserted")
     }
 
-    fun insertShape(shapeType: String, title: String, content: String, bgHex: String, borderHex: String) {
-        insertVectorShape(shapeType, title, content, bgHex, borderHex)
+    fun insertShape(
+        shapeType: String,
+        title: String,
+        content: String,
+        bgHex: String,
+        borderHex: String,
+        strokeWidthPt: Float = 1.5f,
+        rotationDeg: Float = 0f,
+        widthDp: Int = 220,
+        heightDp: Int = 110
+    ) {
+        insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp)
     }
 
     fun insertVectorShape(
@@ -123,6 +133,7 @@ class EditorMediaBlockManager(
         bgHex: String,
         borderHex: String,
         strokeWidthPt: Float = 1.5f,
+        rotationDeg: Float = 0f,
         widthDp: Int = 220,
         heightDp: Int = 110
     ) {
@@ -134,11 +145,41 @@ class EditorMediaBlockManager(
             backgroundColorHex = bgHex,
             borderColorHex = borderHex,
             strokeWidthPt = strokeWidthPt,
+            rotationDeg = rotationDeg,
             widthDp = widthDp,
             heightDp = heightDp
         )
         vm.executeCommand(InsertBlockCommand(insertIndex, shapeBlock))
         vm.showStatusMessage("Vector Shape ($shapeType) inserted")
+    }
+
+    fun updateShape(
+        blockId: String,
+        shapeType: String,
+        title: String,
+        content: String,
+        bgHex: String,
+        borderHex: String,
+        strokeWidthPt: Float = 1.5f,
+        rotationDeg: Float = 0f,
+        widthDp: Int = 220,
+        heightDp: Int = 110
+    ) {
+        val doc = vm.currentDocument ?: return
+        val currentShape = doc.blocks.filterIsInstance<ShapeBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = currentShape.copy(
+            shapeType = shapeType,
+            title = title,
+            content = content,
+            backgroundColorHex = bgHex,
+            borderColorHex = borderHex,
+            strokeWidthPt = strokeWidthPt,
+            rotationDeg = rotationDeg,
+            widthDp = widthDp,
+            heightDp = heightDp
+        )
+        vm.executeCommand(UpdateBlockCommand(blockId, updated))
+        vm.showStatusMessage("Shape ($shapeType) updated")
     }
 
     fun insertDrawing(heightDp: Int = 180) {

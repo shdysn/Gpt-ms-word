@@ -85,102 +85,15 @@ fun TableBlockView(
     ) {
         // Table Header Quick Action Toolbar (shown on first slice of table)
         if (safeStartRow == 0) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-                modifier = Modifier.fillMaxWidth(widthFraction)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.TableChart,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = WordPrimary
-                        )
-                        Text(
-                            text = "Table (${table.rowCount}×${table.columnCount})",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = WordPrimary.copy(alpha = 0.12f),
-                            modifier = Modifier
-                                .clickable(onClick = onAddRow)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("quick_add_row_${table.id}")
-                        ) {
-                            Text("+ Row", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
-                        }
-
-                        if (table.rowCount > 1) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                                modifier = Modifier
-                                .clickable(onClick = onDeleteRow)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("quick_del_row_${table.id}")
-                            ) {
-                                Text("- Row", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = WordPrimary.copy(alpha = 0.12f),
-                            modifier = Modifier
-                                .clickable(onClick = onAddCol)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("quick_add_col_${table.id}")
-                        ) {
-                            Text("+ Col", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
-                        }
-
-                        if (table.columnCount > 1) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-                                modifier = Modifier
-                                .clickable(onClick = onDeleteCol)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("quick_del_col_${table.id}")
-                            ) {
-                                Text("- Col", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
-                            }
-                        }
-
-                        IconButton(
-                            onClick = onEditProperties,
-                            modifier = Modifier.size(24.dp).testTag("table_properties_btn_${table.id}")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = "Table Properties",
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
+            TableHeaderBar(
+                table = table,
+                widthFraction = widthFraction,
+                onAddRow = onAddRow,
+                onDeleteRow = onDeleteRow,
+                onAddCol = onAddCol,
+                onDeleteCol = onDeleteCol,
+                onEditProperties = onEditProperties
+            )
         }
 
         // Table Body Grid (renders only rows in [safeStartRow, safeEndRow))
