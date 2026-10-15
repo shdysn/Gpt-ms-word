@@ -50,6 +50,7 @@
     - `TypographyAndStyleDialogs.kt` & `ParagraphSpacingAndIndentsDialog.kt`
     - `DocumentElementsDialogs.kt`, `WatermarkDialog.kt`, `VersionHistoryDialog.kt`
     - `SecurityDialogs.kt` & `DigitalSignatureDialog.kt`
+    - `EditorAdvancedModals.kt` & `EditorFormatModals.kt`
 
 ### 3. `com.example.core`
 - **`core.layout`**: PaginationEngine, PageLayout, PageDimensions, 2-column layout.
@@ -59,9 +60,9 @@
 ### 4. `com.example.data`
 - **`data.model`**: RichDocument, ParagraphBlock, TableBlock, ImageBlock, FormatTypes.
 - **`data.local`**: Room AppDatabase, DocumentDao, PreferencesManager.
-- **`data.storage`**: DocumentStorageManager.
-- **`data.repository`**: DocumentRepository, DocumentRepositoryImpl.
-- **`data.service` & `docx`**: PdfExportServiceImpl, DocxPackageReader, DocxPackageWriter, DocxService.
+- **`data.storage`**: DocumentStorageManager, JSON Serializers/Deserializers.
+- **`data.repository`**: DocumentRepository, DocumentRepositoryImpl, Templates.
+- **`data.service` & `docx`**: PdfExportServiceImpl, DocxPackageReader, DocxPackageWriter, DocxService, DocxParagraphParser, DocxRunParser.
 
 ### 5. `com.example.editor.engine`
 - **`AutosaveController`**: Debounced background autosave.

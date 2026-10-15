@@ -222,41 +222,38 @@ Procedure 3 ki تمام ViewModel اور Core Engine files کو modularize کر 
 
 ---
 
-### 🔹 Procedure 4: Data Layer, Storage, DOCX & PDF Services (جب "Procedure 4" کا ذکر ہو تو یہ لاگو کریں)
-Jab user **"Procedure 4"** (ya "Phase 4") bole, to heavy data aur export pipelines ko modularize karein:
+### 🔹 Procedure 4: Data Layer, Storage, DOCX & PDF Services ✅ [COMPLETED & VERIFIED]
+Procedure 4 ki تمام Data Layer, Storage, DOCX aur PDF Export files ko modularize kar ke har file ko **300 lines se kam** (40 - 276 lines) kar diya gaya hai:
 
-1. **`PdfExportServiceImpl.kt` (1,396 lines → 5 Modular Renderers):**
-   - Extract `PdfCanvasRenderer.kt` (~250 lines): Text painting, font metrics, line breaks.
-   - Extract `PdfTableRenderer.kt` (~240 lines): Borders, cell background, multi-row pagination.
-   - Extract `PdfShapeRenderer.kt` (~220 lines): Vector shapes, image scaling.
-   - Extract `PdfHeaderFooterRenderer.kt` (~180 lines): Page numbering, watermark.
-   - Keep `PdfExportServiceImpl.kt` (< 240 lines: Document layout coordinator).
-2. **`DocxPackageWriter.kt` (1,114 lines → 5 Modular XML Writers):**
-   - Extract `DocxDocumentXmlWriter.kt` (~260 lines): Paragraphs, runs, inline formatting.
-   - Extract `DocxTableXmlWriter.kt` (~240 lines): w:tbl, w:tr, w:tc XML builder.
-   - Extract `DocxStylesXmlWriter.kt` (~220 lines): Document styles, fonts, numbering.
-   - Extract `DocxRelationsWriter.kt` (~180 lines): [Content_Types].xml, _rels XML.
-   - Keep `DocxPackageWriter.kt` (< 220 lines: ZIP package builder).
-3. **`DocumentStorageManager.kt` (1,068 lines → 4 Modular Helpers):**
-   - Extract `DocumentJsonSerializer.kt` (~250 lines): JSON schema serialization.
-   - Extract `MediaCacheManager.kt` (~220 lines): Temporary images and signatures cache.
-   - Extract `ThumbnailGenerator.kt` (~190 lines): Page thumbnail generation.
-   - Keep `DocumentStorageManager.kt` (< 250 lines).
-4. **`DocxPackageReader.kt` (872 lines → 3 Modular Parsers):**
-   - Extract `DocxXmlSaxParser.kt` (~260 lines).
-   - Extract `DocxTableParser.kt` (~230 lines).
-   - Keep `DocxPackageReader.kt` (< 250 lines).
-5. **`DocumentRepositoryImpl.kt` (854 lines → 3 Files):**
-   - Extract `DocumentTemplateSeeder.kt` (~220 lines).
-   - Extract `DocumentQueryManager.kt` (~240 lines).
-   - Keep `DocumentRepositoryImpl.kt` (< 260 lines).
-6. **`PaginationEngine.kt` (650 lines → 3 Files):**
-   - Extract `PageHeightCalculator.kt` (~230 lines).
-   - Extract `PageBreakDetector.kt` (~220 lines).
-   - Keep `PaginationEngine.kt` (< 240 lines).
-7. **`RichDocument.kt` (408 lines → 3 Files):**
-   - Separate `SpanModels.kt` (~150 lines) and `StyleModels.kt` (~140 lines).
-   - Keep `RichDocument.kt` (< 200 lines).
+1. **PDF Export & Printing (`com.example.data.service`):**
+   - `PdfExportServiceImpl.kt` (221 lines)
+   - `PdfPageItemRenderer.kt` (234 lines)
+   - `PdfSpecialItemRenderer.kt` (223 lines)
+   - `PdfTableAndImageRenderer.kt` (152 lines)
+   - `PdfDocumentGenerator.kt` (185 lines)
+   - `WordPrintDocumentAdapter.kt` (132 lines)
+   - `MarkdownAndEpubExportHelper.kt` (201 lines)
+2. **OpenXML / DOCX Processing (`com.example.data.service.docx`):**
+   - `DocxPackageReader.kt` (266 lines)
+   - `DocxParagraphParser.kt` (187 lines) + `DocxRunParser.kt` (148 lines)
+   - `DocxPackageWriter.kt` (153 lines) + `DocxBodyXmlBuilder.kt` (209 lines)
+   - `DocxTableXmlBuilder.kt` (84 lines) + `DocxSectionXmlBuilder.kt` (53 lines)
+   - `DocxRunSegmenter.kt` (107 lines) + `DocxXmlUtils.kt` (68 lines) + `DocxTableParser.kt` (132 lines)
+3. **Document Storage & JSON Serializers (`com.example.data.storage`):**
+   - `DocumentStorageManager.kt` (263 lines)
+   - `DocumentBlockJsonSerializer.kt` (219 lines) + `DocumentBlockJsonDeserializer.kt` (212 lines)
+   - `DocumentJsonSerializer.kt` (109 lines) + `DocumentJsonDeserializer.kt` (182 lines)
+   - `DocumentParagraphJsonDeserializer.kt` (100 lines) + `DocumentPlainTextImporter.kt` (52 lines)
+4. **Repository & Templates (`com.example.data.repository`):**
+   - `DocumentRepositoryImpl.kt` (276 lines) + `DocumentRepository.kt` (75 lines)
+   - `DocumentStandardTemplates.kt` (170 lines) + `DocumentShowcaseTemplates.kt` (155 lines)
+   - `DocumentUrduTemplate.kt` (169 lines) + `DocumentSnapshotManager.kt` (93 lines) + `DocumentTemplateFactory.kt` (40 lines)
+5. **Pagination Engine (`com.example.core.layout`):**
+   - `PaginationEngine.kt` (218 lines)
+   - `PaginationPageBuilder.kt` (107 lines) + `PaginationBlockLayouter.kt` (119 lines)
+   - `PaginationParagraphLayouter.kt` (140 lines) + `PaginationTextBreaker.kt` (100 lines)
+6. **Data Models (`com.example.data.model`):**
+   - `RichDocument.kt` (42 lines) + `BlockElements.kt` (210 lines) + `ParagraphBlock.kt` (56 lines) + `DocumentEnums.kt` (103 lines)
 
 ---
 
