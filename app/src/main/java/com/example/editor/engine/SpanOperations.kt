@@ -165,6 +165,7 @@ object SpanOperations {
                 current = current.copy(end = next.end)
             } else {
                 merged.add(current)
+                current = next
             }
         }
         merged.add(current)

@@ -92,6 +92,42 @@ PHASE_3_FILES = [
     "app/src/main/java/com/example/editor/engine/commands/ListAndCustomStyleCommands.kt",
 ]
 
+# Files strictly enforced for Phase 4 (Document Export & I/O Services)
+PHASE_4_FILES = [
+    "app/src/main/java/com/example/core/layout/PaginationEngine.kt",
+    "app/src/main/java/com/example/core/layout/PaginationPageBuilder.kt",
+    "app/src/main/java/com/example/core/layout/PaginationBlockLayouter.kt",
+    "app/src/main/java/com/example/core/layout/PaginationTextBreaker.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxPackageReader.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxXmlUtils.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxBodyXmlBuilder.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxTableXmlBuilder.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxSectionXmlBuilder.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxRunSegmenter.kt",
+    "app/src/main/java/com/example/data/service/docx/DocxPackageWriter.kt",
+    "app/src/main/java/com/example/data/service/PdfPageItemRenderer.kt",
+    "app/src/main/java/com/example/data/service/PdfSpecialItemRenderer.kt",
+    "app/src/main/java/com/example/data/service/PdfTableAndImageRenderer.kt",
+    "app/src/main/java/com/example/data/service/PdfExportServiceImpl.kt",
+    "app/src/main/java/com/example/data/service/PdfDocumentGenerator.kt",
+    "app/src/main/java/com/example/data/service/WordPrintDocumentAdapter.kt",
+    "app/src/main/java/com/example/data/service/MarkdownAndEpubExportHelper.kt",
+    "app/src/main/java/com/example/data/repository/DocumentRepositoryImpl.kt",
+    "app/src/main/java/com/example/data/repository/DocumentStandardTemplates.kt",
+    "app/src/main/java/com/example/data/repository/DocumentShowcaseTemplates.kt",
+    "app/src/main/java/com/example/data/repository/DocumentTemplateFactory.kt",
+    "app/src/main/java/com/example/data/repository/DocumentSnapshotManager.kt",
+    "app/src/main/java/com/example/core/layout/PaginationParagraphLayouter.kt",
+    "app/src/main/java/com/example/data/repository/DocumentUrduTemplate.kt",
+    "app/src/main/java/com/example/data/storage/DocumentPlainTextImporter.kt",
+    "app/src/main/java/com/example/data/storage/DocumentBlockJsonSerializer.kt",
+    "app/src/main/java/com/example/data/storage/DocumentParagraphJsonDeserializer.kt",
+    "app/src/main/java/com/example/data/storage/DocumentStorageManager.kt",
+    "app/src/main/java/com/example/data/storage/DocumentJsonSerializer.kt",
+    "app/src/main/java/com/example/data/storage/DocumentBlockJsonDeserializer.kt",
+    "app/src/main/java/com/example/data/storage/DocumentJsonDeserializer.kt",
+]
+
 def count_lines(filepath):
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
@@ -127,19 +163,20 @@ def main():
     proc1_ok, proc1_violations = check_file_group("Procedure 1 / Phase 1: UI Screens & Dialogs", PHASE_1_FILES)
     proc2_ok, proc2_violations = check_file_group("Procedure 2 / Phase 2: Canvas, Toolbars, Blocks & Ribbon", PHASE_2_FILES)
     proc3_ok, proc3_violations = check_file_group("Procedure 3 / Phase 3: Core Engine & ViewModel Coordinator", PHASE_3_FILES)
+    proc4_ok, proc4_violations = check_file_group("Procedure 4 / Phase 4: Document Export & I/O Services", PHASE_4_FILES)
     
-    total_violations = proc1_violations + proc2_violations + proc3_violations
+    total_violations = proc1_violations + proc2_violations + proc3_violations + proc4_violations
     
     print("-" * 65)
-    if proc1_ok and proc2_ok and proc3_ok:
-        print("🎉 Procedure 1, 2 & 3 Status: 100% COMPLIANT! All monitored files are < 300 lines.")
+    if proc1_ok and proc2_ok and proc3_ok and proc4_ok:
+        print("🎉 Procedure 1, 2, 3 & 4 Status: 100% COMPLIANT! All monitored files are < 300 lines.")
     else:
         print(f"❌ Violations Found: {len(total_violations)}")
 
     # Audit rest of repository to inform developer of pending procedures
     print("\n[Repository Audit] Files pending future procedures (> 300 lines):")
     pending_count = 0
-    enforced_set = set(PHASE_1_FILES + PHASE_2_FILES + PHASE_3_FILES)
+    enforced_set = set(PHASE_1_FILES + PHASE_2_FILES + PHASE_3_FILES + PHASE_4_FILES)
     for root, _, files in os.walk("app/src/main/java"):
         for file in files:
             if file.endswith(".kt"):
@@ -151,14 +188,14 @@ def main():
                     pending_count += 1
                     print(f"  ⏳ {lines:4d} lines: {full_path}")
 
-    print(f"\nTotal files pending future procedures (Procedure 4): {pending_count}")
+    print(f"\nTotal files pending future procedures: {pending_count}")
     print("=" * 65)
 
     if total_violations:
         print("❌ Build check failed due to regression violations!")
         sys.exit(1)
     else:
-        print("✅ Procedure 1, 2 & 3 Anti-Regression verification passed successfully!")
+        print("✅ Procedure 1, 2, 3 & 4 Anti-Regression verification passed successfully!")
         sys.exit(0)
 
 if __name__ == "__main__":
