@@ -6,41 +6,22 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.CustomStyle
 import com.example.data.model.ParagraphBlock
 import com.example.editor.engine.CaseType
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.RibbonTab
-import com.example.ui.theme.WordPrimary
 
 // Re-export ribbon buttons for backward compatibility
 @Composable
@@ -59,6 +40,11 @@ fun RibbonToggleButton(
     tag: String = ""
 ) = com.example.ui.editor.components.ribbon.RibbonToggleButton(icon, label, isSelected, onClick, tag)
 
+/**
+ * WordRibbon container component.
+ * Displays the active tab's tool buttons cleanly below the Top Bar when expanded.
+ * Tab switching is controlled via the MS Word style dropdown situated in the top bar.
+ */
 @Composable
 fun WordRibbon(
     activeTab: RibbonTab,
@@ -112,78 +98,7 @@ fun WordRibbon(
             shadowElevation = 2.dp,
             modifier = modifier.fillMaxWidth()
         ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TabRow(
-                    selectedTabIndex = activeTab.ordinal,
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    contentColor = WordPrimary,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(tabPositions[activeTab.ordinal]),
-                            color = WordPrimary,
-                            height = 2.5.dp
-                        )
-                    },
-                    divider = {},
-                    modifier = Modifier.weight(1f)
-                ) {
-                    RibbonTab.entries.forEach { tab ->
-                        val isSelected = activeTab == tab
-                        Tab(
-                            selected = isSelected,
-                            onClick = {
-                                if (isSelected && isRibbonVisible) {
-                                    onToggleRibbon()
-                                } else {
-                                    if (!isRibbonVisible) onToggleRibbon()
-                                    onTabSelected(tab)
-                                }
-                            },
-                            text = {
-                                val tabTitle = when (tab) {
-                                    RibbonTab.HOME -> "Home"
-                                    RibbonTab.INSERT -> "Insert"
-                                    RibbonTab.DRAW -> "Draw"
-                                    RibbonTab.LAYOUT -> "Layout"
-                                    RibbonTab.REVIEW -> "Review"
-                                    RibbonTab.VIEW -> "View"
-                                }
-                                Text(
-                                    text = tabTitle,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            modifier = Modifier
-                                .height(40.dp)
-                                .testTag("ribbon_tab_${tab.name.lowercase()}")
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clickable(onClick = onToggleRibbon)
-                        .testTag("toggle_ribbon_visibility"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isRibbonVisible) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (isRibbonVisible) "Collapse Ribbon" else "Expand Ribbon",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-
-            AnimatedVisibility(visible = isRibbonVisible) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 WordRibbonContent(
                     activeTab = activeTab,
                     activeParagraph = activeParagraph,
@@ -221,8 +136,8 @@ fun WordRibbon(
                     onApplyCustomStyle = onApplyCustomStyle,
                     onCreateCustomStyle = onCreateCustomStyle
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
             }
         }
     }
-}
 }

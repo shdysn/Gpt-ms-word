@@ -167,6 +167,8 @@ fun EditorScreen(
                     onToggleFindReplace = { viewModel.toggleFindReplace() },
                     onToggleOutline = { dState.showOutlineSheet = !dState.showOutlineSheet },
                     isRibbonVisible = isRibbonVisible,
+                    activeRibbonTab = activeRibbonTab,
+                    onTabSelected = viewModel::selectRibbonTab,
                     onToggleRibbon = { viewModel.toggleRibbonVisibility() },
                     onSaveClick = { dState.showSaveOptionsDialog = true },
                     onExportClick = { dState.showExportOptionsDialog = true },
