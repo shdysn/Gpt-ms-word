@@ -42,6 +42,7 @@ fun EditorRibbonHost(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
             )
         },
+        onOpenOcrScanDialog = { dState.showOcrScanDialog = true },
         onOpenLinkDialog = { dState.showLinkDialog = true },
         onOpenHeaderFooterDialog = { dState.showHeaderFooterDialog = true },
         onOpenPageNumberDialog = { dState.showPageNumberDialog = true },

@@ -52,6 +52,20 @@ class EditorBlockManager(
         }
     }
 
+    fun insertScannedText(text: String) {
+        val currentDoc = vm.currentDocument ?: return
+        val newBlocks = EditorBlockUtils.createParagraphsFromOcrText(text, vm.defaultRtl.value)
+        if (newBlocks.isEmpty()) return
+        val activeIdx = vm.activeBlockIndex.value.coerceIn(0, currentDoc.blocks.size.coerceAtLeast(0))
+        val updated = currentDoc.blocks.toMutableList()
+        updated.addAll(activeIdx + 1, newBlocks)
+        vm.updateDocumentInternal(currentDoc.copy(blocks = updated, updatedAt = System.currentTimeMillis()))
+        vm.setActiveBlock(activeIdx + newBlocks.size)
+        vm.updateSelection(TextRange.Zero)
+        vm.historyManager.scheduleDocumentAutosave()
+        vm.showStatusMessage("Inserted ${newBlocks.size} scanned paragraph(s)")
+    }
+
     fun insertDivider() {
         val insertIndex = vm.activeBlockIndex.value + 1
         vm.executeCommand(InsertBlockCommand(index = insertIndex, block = DividerBlock()))

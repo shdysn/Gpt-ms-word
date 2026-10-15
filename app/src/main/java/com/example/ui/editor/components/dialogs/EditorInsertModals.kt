@@ -37,6 +37,8 @@ fun EditorInsertModals(
     showExportPdfDialog: Boolean,
     onDismissExportPdf: () -> Unit,
     onOpenPageSetupFromPdf: () -> Unit,
+    showOcrScanDialog: Boolean = false,
+    onDismissOcrScanDialog: () -> Unit = {},
     safPdfSaveLauncher: ActivityResultLauncher<String>
 ) {
     if (showTableDialog) {
@@ -193,6 +195,16 @@ fun EditorInsertModals(
                 viewModel.printDocument(context)
             },
             onOpenPageSetup = onOpenPageSetupFromPdf
+        )
+    }
+
+    if (showOcrScanDialog) {
+        com.example.ui.editor.components.OcrScanDialog(
+            onDismiss = onDismissOcrScanDialog,
+            onInsertScannedText = { text ->
+                viewModel.insertScannedText(text)
+                onDismissOcrScanDialog()
+            }
         )
     }
 }

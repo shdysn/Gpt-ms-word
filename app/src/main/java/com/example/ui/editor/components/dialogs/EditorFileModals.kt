@@ -40,6 +40,8 @@ import com.example.ui.editor.components.ExportOptionsDialog
 import com.example.ui.editor.components.SaveAsDialog
 import com.example.ui.editor.components.SaveOptionsDialog
 import com.example.ui.editor.components.shareDocxFile
+import com.example.ui.editor.components.shareEpubFile
+import com.example.ui.editor.components.shareMarkdownFile
 import com.example.ui.editor.components.shareTextFile
 import com.example.ui.theme.WordPrimary
 import kotlinx.coroutines.launch
@@ -114,6 +116,18 @@ fun EditorFileModals(
                 onDismissExportOptions()
                 viewModel.exportToPlainText(context) { file ->
                     file?.let { shareTextFile(context, it) }
+                }
+            },
+            onExportMarkdown = {
+                onDismissExportOptions()
+                viewModel.exportToMarkdown(context) { file ->
+                    file?.let { shareMarkdownFile(context, it) }
+                }
+            },
+            onExportEpub = {
+                onDismissExportOptions()
+                viewModel.exportToEpub(context) { file ->
+                    file?.let { shareEpubFile(context, it) }
                 }
             }
         )

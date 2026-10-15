@@ -147,6 +147,24 @@ object ContinuousAnnotatedTextBuilder {
                     }
                 }
             }
+
+            // Real-time typo underline squiggles across continuous document text (Phase 4)
+            val typos = SpellCheckEngine.findTypos(text)
+            for ((start, end, suggestion) in typos) {
+                val safeStart = start.coerceIn(0, text.length)
+                val safeEnd = end.coerceIn(safeStart, text.length)
+                if (safeStart < safeEnd) {
+                    addStyle(
+                        SpanStyle(
+                            textDecoration = TextDecoration.Underline,
+                            color = androidx.compose.ui.graphics.Color(0xFFDC2626)
+                        ),
+                        safeStart,
+                        safeEnd
+                    )
+                    addStringAnnotation("SPELLCHECK", suggestion, safeStart, safeEnd)
+                }
+            }
         }
     }
 }

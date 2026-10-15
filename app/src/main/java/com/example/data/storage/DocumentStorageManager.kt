@@ -241,6 +241,8 @@ class DocumentStorageManager(private val context: Context) {
 
                 val document = if (content.trim().startsWith("{")) {
                     deserializeFromJson(content)
+                } else if (content.startsWith("#") || content.contains("\n#") || content.contains("- [")) {
+                    DocumentPlainTextImporter.createDocumentFromMarkdown("Imported Markdown", content)
                 } else {
                     createDocumentFromPlainText("Imported Document", content)
                 }

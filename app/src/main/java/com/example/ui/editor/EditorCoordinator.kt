@@ -126,6 +126,7 @@ abstract class EditorCoordinator(
         tableManager.updateTableCellFormatting(tableId, row, col, verticalAlignment, bgHex)
 
     fun insertParagraph() = blockManager.insertParagraph()
+    fun insertScannedText(text: String) = blockManager.insertScannedText(text)
     fun insertDivider() = blockManager.insertDivider()
     fun insertPageBreak() = blockManager.insertPageBreak()
     fun insertColumnBreak() = blockManager.insertColumnBreak()

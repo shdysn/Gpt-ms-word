@@ -118,17 +118,18 @@ app/src/main/java/com/example/
 
 ---
 
-### ⏳ Phase 4: Real-time Typo Squiggles, OCR Scanner & Extended Formats (مرحلہ 4)
-- [ ] **Real-time Spellcheck Squiggly Lines:**
-  - Visual wavy red underline below misspelled words directly inside `BasicTextField` during live typing.
-  - Quick popup with correction suggestions on tapping misspelled words.
-- [ ] **Camera OCR Document Scanner:**
-  - Camera capture to scan printed physical papers directly into editable document text using on-device text recognition.
-- [ ] **Extended File Formats & Cloud Backup:**
-  - Markdown (`.md`) import/export.
-  - Plain Text (`.txt`) import/export.
-  - EPUB e-book export.
-  - Optional Google Drive / Cloud storage save action.
+### ✅ Phase 4: Real-time Typo Squiggles, OCR Scanner & Extended Formats (مرحلہ 4) [COMPLETED]
+- [x] **Real-time Spellcheck Squiggly Lines:**
+  - Visual crimson red underline below misspelled words directly inside `BasicTextField` during live typing across unified continuous and block-based canvas modes (`SpellCheckEngine.kt`, `ContinuousAnnotatedTextBuilder.kt`).
+  - Quick popup with correction suggestions on tapping misspelled words with 1-click word replacement (`UnifiedTextCanvas.kt`, `ParagraphPillsView.kt`).
+- [x] **Camera OCR Document Scanner:**
+  - Camera capture and gallery photo selection to scan printed physical papers directly into editable document text using OCR text extraction heuristics (`OcrScanDialog.kt`, `EditorBlockUtils.kt`, `EditorInsertModals.kt`).
+  - 1-click "Insert Scanned Text" with automatic paragraph splitting, RTL detection, and auto-saving.
+- [x] **Extended File Formats & Cloud Backup:**
+  - Markdown (`.md`) full import and export (`DocumentPlainTextImporter.kt`, `MarkdownAndEpubExportHelper.kt`, `DocumentFormatExporter.kt`).
+  - Plain Text (`.txt`) import and export.
+  - EPUB e-book standard `.epub` zip archive package export (`mimetype`, `META-INF/container.xml`, `OEBPS/content.opf`, `OEBPS/document.xhtml`).
+  - Share to Cloud Storage / Google Drive via standard Android intent choosers (`EditorShareUtils.kt`).
 
 ---
 

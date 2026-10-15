@@ -68,4 +68,21 @@ object EditorBlockUtils {
         }
         return if (result.isEmpty()) listOf(findActiveParagraphBlockIndex(blocks, min)) else result
     }
+
+    fun createParagraphsFromOcrText(rawText: String, isRtl: Boolean): List<ParagraphBlock> {
+        if (rawText.isBlank()) return emptyList()
+        val lines = rawText.split("\n\n", "\n")
+        return lines.mapNotNull { line ->
+            val trimmed = line.trim()
+            if (trimmed.isEmpty()) null
+            else {
+                val rtl = isRtl || com.example.core.typography.BidiUtils.detectParagraphIsRtl(trimmed)
+                ParagraphBlock(
+                    text = trimmed,
+                    isRtl = rtl,
+                    alignment = if (rtl) com.example.data.model.TextAlignment.END else com.example.data.model.TextAlignment.START
+                )
+            }
+        }
+    }
 }

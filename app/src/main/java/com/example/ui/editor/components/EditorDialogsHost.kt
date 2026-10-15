@@ -57,6 +57,8 @@ fun EditorDialogsHost(
     showExportPdfDialog: Boolean,
     onDismissExportPdf: () -> Unit,
     onOpenPageSetupFromPdf: () -> Unit,
+    showOcrScanDialog: Boolean = false,
+    onDismissOcrScanDialog: () -> Unit = {},
     showStatsDialog: Boolean,
     onDismissStatsDialog: () -> Unit,
     isDocumentLocked: Boolean,
@@ -139,6 +141,8 @@ fun EditorDialogsHost(
         showExportPdfDialog = showExportPdfDialog,
         onDismissExportPdf = onDismissExportPdf,
         onOpenPageSetupFromPdf = onOpenPageSetupFromPdf,
+        showOcrScanDialog = showOcrScanDialog,
+        onDismissOcrScanDialog = onDismissOcrScanDialog,
         safPdfSaveLauncher = safPdfSaveLauncher
     )
 

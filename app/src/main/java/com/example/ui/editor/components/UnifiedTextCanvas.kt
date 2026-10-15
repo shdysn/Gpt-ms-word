@@ -1,10 +1,21 @@
 package com.example.ui.editor.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Spellcheck
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -13,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -22,6 +34,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
@@ -112,11 +125,46 @@ fun UnifiedTextCanvas(
     CompositionLocalProvider(
         LocalLayoutDirection provides (if (isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)
     ) {
-        Box(
+        Column(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
         ) {
+            // Live spellcheck typo suggestion pill (Phase 4)
+            val activeTypo = remember(textFieldValue.selection.start, textFieldValue.text) {
+                val cur = textFieldValue.selection.start
+                com.example.editor.engine.SpellCheckEngine.findTypos(textFieldValue.text).firstOrNull { (start, end, _) ->
+                    cur in start..end
+                }
+            }
+            if (activeTypo != null) {
+                val (tStart, tEnd, suggestion) = activeTypo
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isDarkPage) Color(0xFF3B1E1E) else Color(0xFFFEF2F2),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444)),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .clickable {
+                            val newText = textFieldValue.text.replaceRange(tStart, tEnd, suggestion)
+                            val newSel = TextRange(tStart + suggestion.length)
+                            textFieldValue = textFieldValue.copy(text = newText, selection = newSel)
+                            onUpdateUnifiedText(newText, newSel)
+                        }
+                        .testTag("unified_spellcheck_pill")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Spellcheck, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = "Typo: Change to \"$suggestion\"", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626))
+                    }
+                }
+            }
+
             BasicTextField(
                 value = textFieldValue,
                 onValueChange = { newTfv ->

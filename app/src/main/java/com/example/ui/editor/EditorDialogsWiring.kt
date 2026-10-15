@@ -58,6 +58,8 @@ fun EditorDialogsWiring(
         showExportPdfDialog = dState.showExportPdfDialog,
         onDismissExportPdf = { dState.showExportPdfDialog = false },
         onOpenPageSetupFromPdf = { dState.showLayoutDialog = true },
+        showOcrScanDialog = dState.showOcrScanDialog,
+        onDismissOcrScanDialog = { dState.showOcrScanDialog = false },
         showStatsDialog = dState.showStatsDialog,
         onDismissStatsDialog = { dState.showStatsDialog = false },
         isDocumentLocked = viewModel.isDocumentLocked.value,

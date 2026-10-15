@@ -33,7 +33,17 @@ object SpellCheckEngine {
         "relevent" to "relevant",
         "tendancy" to "tendency",
         "usefull" to "useful",
-        "alot" to "a lot"
+        "alot" to "a lot",
+        "calender" to "calendar",
+        "adress" to "address",
+        "buisness" to "business",
+        "fourty" to "forty",
+        "freind" to "friend",
+        "wich" to "which",
+        "intrest" to "interest",
+        "oppurtunity" to "opportunity",
+        "peice" to "piece",
+        "untill" to "until"
     )
 
     fun findTypos(text: String): List<Triple<Int, Int, String>> {
