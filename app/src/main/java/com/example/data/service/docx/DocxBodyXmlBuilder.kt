@@ -204,6 +204,10 @@ object DocxBodyXmlBuilder {
             TextAlignment.END -> "right"
             else -> "center"
         }
-        return """<w:p><w:pPr><w:jc w:val="$imgAlign"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="$cx" cy="$cy"/><wp:docPr id="1" name="${DocxXmlBuilders.escapeXml(block.caption.ifBlank { "Picture" })}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="Picture"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${img.relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>${if (block.caption.isNotBlank()) "<w:p><w:pPr><w:jc w:val=\"$imgAlign\"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val=\"18\"/><w:color w:val=\"666666\"/></w:rPr><w:t xml:space=\"preserve\">${DocxXmlBuilders.escapeXml(block.caption)}</w:t></w:r></w:p>" else ""}</w:p>"""
+        val imageP = """<w:p><w:pPr><w:jc w:val="$imgAlign"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="$cx" cy="$cy"/><wp:docPr id="1" name="${DocxXmlBuilders.escapeXml(block.caption.ifBlank { "Picture" })}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="Picture"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${img.relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>"""
+        val captionP = if (block.caption.isNotBlank()) {
+            """<w:p><w:pPr><w:jc w:val="$imgAlign"/></w:pPr><w:r><w:rPr><w:i/><w:sz w:val="18"/><w:color w:val="666666"/></w:rPr><w:t xml:space="preserve">${DocxXmlBuilders.escapeXml(block.caption)}</w:t></w:r></w:p>"""
+        } else ""
+        return imageP + captionP
     }
 }

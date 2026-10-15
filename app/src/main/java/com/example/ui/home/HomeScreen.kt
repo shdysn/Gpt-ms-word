@@ -102,6 +102,8 @@ fun HomeScreen(
                         arrayOf(
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                             "application/msword",
+                            "text/markdown",
+                            "text/plain",
                             "*/*"
                         )
                     )

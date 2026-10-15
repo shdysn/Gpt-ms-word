@@ -127,7 +127,9 @@ fun EditorScreen(
     }
 
     val handleBackNavigation = {
-        if (isDirty) {
+        if (dState.showOutlineSheet) {
+            dState.showOutlineSheet = false
+        } else if (isDirty) {
             dState.showDiscardDialog = true
         } else {
             onNavigateBack()

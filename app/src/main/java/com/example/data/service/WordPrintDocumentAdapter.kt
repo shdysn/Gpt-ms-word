@@ -99,13 +99,13 @@ open class WordPrintDocumentAdapter(
                 return
             }
 
+            var pdfDoc: PdfDocument? = null
             try {
-                val pdfDocument = pdfGenerator(context, document, requestedPageIndices)
+                pdfDoc = pdfGenerator(context, document, requestedPageIndices)
                 FileOutputStream(destination.fileDescriptor).use { out ->
-                    pdfDocument.writeTo(out)
+                    pdfDoc.writeTo(out)
                     out.flush()
                 }
-                pdfDocument.close()
             } catch (e: Exception) {
                 // Graceful fallback when running in JVM / Robolectric environment where native Skia/Pdfium is unmocked
                 if (e.message?.contains("document is closed") == true || e is java.lang.IllegalStateException) {
@@ -116,6 +116,10 @@ open class WordPrintDocumentAdapter(
                 } else {
                     throw e
                 }
+            } finally {
+                try {
+                    pdfDoc?.close()
+                } catch (_: Exception) {}
             }
 
             if (cancellationSignal?.isCanceled == true) {

@@ -6,10 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Comment
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Comment
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
@@ -56,7 +56,7 @@ fun ReviewRibbonControls(
 
     // Comments & Annotations
     RibbonActionButton(
-        icon = Icons.Default.Comment,
+        icon = Icons.AutoMirrored.Filled.Comment,
         label = if (commentsCount > 0) "Comments ($commentsCount)" else "Comments",
         onClick = onOpenCommentsDialog
     )
