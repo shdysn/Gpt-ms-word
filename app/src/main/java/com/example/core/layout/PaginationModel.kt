@@ -194,8 +194,8 @@ data class DocumentPage(
                 template
             }
 
-            val formattedPageNum = layout.formatPageNumber(pageNumber)
-            val formattedTotalPages = layout.formatPageNumber(totalPages)
+            val formattedPageNum = layout.formatPageNumber(pageNumber, totalPages)
+            val formattedTotalPages = layout.formatPageNumber(totalPages, totalPages)
             return effectiveTemplate
                 .replace("{page}", formattedPageNum)
                 .replace("{pages}", formattedTotalPages)

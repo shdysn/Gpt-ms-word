@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.core.layout.DocumentPage
 import com.example.core.layout.FootnotePageItem
+import com.example.core.layout.ImagePageItem
 import com.example.core.layout.PageBorderStyle
+import com.example.core.layout.PageItem
 import com.example.data.model.ImageBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
@@ -56,7 +58,11 @@ fun SinglePageSheet(
     onQuickDeleteTableCol: (String) -> Unit,
     onEditImageProperties: (ImageBlock) -> Unit,
     onRefreshTOC: () -> Unit,
-    onToggleChecklistItem: (String) -> Unit
+    onToggleChecklistItem: (String) -> Unit,
+    onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
+    onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(page.layout.pageBackgroundHex))
@@ -77,6 +83,39 @@ fun SinglePageSheet(
     val topMarginDp = ((page.layout.topMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
     val bottomMarginDp = ((page.layout.bottomMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
 
+    @Composable
+    fun RenderItem(item: PageItem) {
+        PaginatedItemRenderer(
+            pageItem = item,
+            document = document,
+            paginatedPages = pagesToDisplay,
+            globalListNumbers = globalListNumbers,
+            activeBlockIndex = activeBlockIndex,
+            isDarkPage = isDarkPage,
+            zoomScale = zoomScale,
+            onBlockSelected = onBlockSelected,
+            onUpdateBlockText = onUpdateBlockText,
+            onUpdateSubSliceText = onUpdateSubSliceText,
+            onSelectionChangedForBlock = onSelectionChangedForBlock,
+            onSplitParagraph = onSplitParagraph,
+            onDeleteBlockById = onDeleteBlockById,
+            onDeleteOrMergeWithPrevious = onDeleteOrMergeWithPrevious,
+            onEditTableProperties = onEditTableProperties,
+            onEditTableCell = onEditTableCell,
+            onQuickAddTableRow = onQuickAddTableRow,
+            onQuickDeleteTableRow = onQuickDeleteTableRow,
+            onQuickAddTableCol = onQuickAddTableCol,
+            onQuickDeleteTableCol = onQuickDeleteTableCol,
+            onEditImageProperties = onEditImageProperties,
+            onRefreshTOC = onRefreshTOC,
+            onToggleChecklistItem = onToggleChecklistItem,
+            onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
+            onUpdateTextBox = onUpdateTextBox,
+            onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
+            onUpdateTextBoxColor = onUpdateTextBoxColor
+        )
+    }
+
     Surface(
         modifier = Modifier
             .width(scaledMaxSheetWidth)
@@ -92,6 +131,18 @@ fun SinglePageSheet(
                 zoomScale = zoomScale,
                 modifier = Modifier.align(Alignment.Center)
             )
+
+            // Background Layer: Behind-text floating images
+            val behindTextImages = page.items.filterIsInstance<ImagePageItem>().filter { it.originalBlock.wrapMode == "BEHIND_TEXT" }
+            behindTextImages.forEach { bImg ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = leftMarginDp, end = rightMarginDp, top = topMarginDp)
+                ) {
+                    RenderItem(bImg)
+                }
+            }
 
             Column(
                 modifier = Modifier
@@ -122,7 +173,8 @@ fun SinglePageSheet(
                         onDeleteOrMergeWithPrevious = {}
                     )
                 } else {
-                    val contentItems = page.items.filter { it !is FootnotePageItem }
+                    // Filter out behind-text images since they are rendered in the background layer
+                    val contentItems = page.items.filter { it !is FootnotePageItem && !(it is ImagePageItem && it.originalBlock.wrapMode == "BEHIND_TEXT") }
                     val footnoteItems = page.items.filterIsInstance<FootnotePageItem>()
 
                     val isTwoColumn = page.layout.columnCount == 2
@@ -135,33 +187,7 @@ fun SinglePageSheet(
                             horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                leftItems.forEach { item ->
-                                    PaginatedItemRenderer(
-                                        pageItem = item,
-                                        document = document,
-                                        paginatedPages = pagesToDisplay,
-                                        globalListNumbers = globalListNumbers,
-                                        activeBlockIndex = activeBlockIndex,
-                                        isDarkPage = isDarkPage,
-                                        zoomScale = zoomScale,
-                                        onBlockSelected = onBlockSelected,
-                                        onUpdateBlockText = onUpdateBlockText,
-                                        onUpdateSubSliceText = onUpdateSubSliceText,
-                                        onSelectionChangedForBlock = onSelectionChangedForBlock,
-                                        onSplitParagraph = onSplitParagraph,
-                                        onDeleteBlockById = onDeleteBlockById,
-                                        onDeleteOrMergeWithPrevious = onDeleteOrMergeWithPrevious,
-                                        onEditTableProperties = onEditTableProperties,
-                                        onEditTableCell = onEditTableCell,
-                                        onQuickAddTableRow = onQuickAddTableRow,
-                                        onQuickDeleteTableRow = onQuickDeleteTableRow,
-                                        onQuickAddTableCol = onQuickAddTableCol,
-                                        onQuickDeleteTableCol = onQuickDeleteTableCol,
-                                        onEditImageProperties = onEditImageProperties,
-                                        onRefreshTOC = onRefreshTOC,
-                                        onToggleChecklistItem = onToggleChecklistItem
-                                    )
-                                }
+                                leftItems.forEach { item -> RenderItem(item) }
                             }
                             Box(
                                 modifier = Modifier
@@ -170,63 +196,11 @@ fun SinglePageSheet(
                                     .background(if (isDarkPage) Color(0xFF334155) else Color(0xFFE2E8F0))
                             )
                             Column(modifier = Modifier.weight(1f)) {
-                                rightItems.forEach { item ->
-                                    PaginatedItemRenderer(
-                                        pageItem = item,
-                                        document = document,
-                                        paginatedPages = pagesToDisplay,
-                                        globalListNumbers = globalListNumbers,
-                                        activeBlockIndex = activeBlockIndex,
-                                        isDarkPage = isDarkPage,
-                                        zoomScale = zoomScale,
-                                        onBlockSelected = onBlockSelected,
-                                        onUpdateBlockText = onUpdateBlockText,
-                                        onUpdateSubSliceText = onUpdateSubSliceText,
-                                        onSelectionChangedForBlock = onSelectionChangedForBlock,
-                                        onSplitParagraph = onSplitParagraph,
-                                        onDeleteBlockById = onDeleteBlockById,
-                                        onDeleteOrMergeWithPrevious = onDeleteOrMergeWithPrevious,
-                                        onEditTableProperties = onEditTableProperties,
-                                        onEditTableCell = onEditTableCell,
-                                        onQuickAddTableRow = onQuickAddTableRow,
-                                        onQuickDeleteTableRow = onQuickDeleteTableRow,
-                                        onQuickAddTableCol = onQuickAddTableCol,
-                                        onQuickDeleteTableCol = onQuickDeleteTableCol,
-                                        onEditImageProperties = onEditImageProperties,
-                                        onRefreshTOC = onRefreshTOC,
-                                        onToggleChecklistItem = onToggleChecklistItem
-                                    )
-                                }
+                                rightItems.forEach { item -> RenderItem(item) }
                             }
                         }
                     } else {
-                        contentItems.forEach { item ->
-                            PaginatedItemRenderer(
-                                pageItem = item,
-                                document = document,
-                                paginatedPages = pagesToDisplay,
-                                globalListNumbers = globalListNumbers,
-                                activeBlockIndex = activeBlockIndex,
-                                isDarkPage = isDarkPage,
-                                zoomScale = zoomScale,
-                                onBlockSelected = onBlockSelected,
-                                onUpdateBlockText = onUpdateBlockText,
-                                onUpdateSubSliceText = onUpdateSubSliceText,
-                                onSelectionChangedForBlock = onSelectionChangedForBlock,
-                                onSplitParagraph = onSplitParagraph,
-                                onDeleteBlockById = onDeleteBlockById,
-                                onDeleteOrMergeWithPrevious = onDeleteOrMergeWithPrevious,
-                                onEditTableProperties = onEditTableProperties,
-                                onEditTableCell = onEditTableCell,
-                                onQuickAddTableRow = onQuickAddTableRow,
-                                onQuickDeleteTableRow = onQuickDeleteTableRow,
-                                onQuickAddTableCol = onQuickAddTableCol,
-                                onQuickDeleteTableCol = onQuickDeleteTableCol,
-                                onEditImageProperties = onEditImageProperties,
-                                onRefreshTOC = onRefreshTOC,
-                                onToggleChecklistItem = onToggleChecklistItem
-                            )
-                        }
+                        contentItems.forEach { item -> RenderItem(item) }
                     }
 
                     if (footnoteItems.isNotEmpty()) {
@@ -237,33 +211,7 @@ fun SinglePageSheet(
                             modifier = Modifier.width(90.dp)
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        footnoteItems.forEach { fnItem ->
-                            PaginatedItemRenderer(
-                                pageItem = fnItem,
-                                document = document,
-                                paginatedPages = pagesToDisplay,
-                                globalListNumbers = globalListNumbers,
-                                activeBlockIndex = activeBlockIndex,
-                                isDarkPage = isDarkPage,
-                                zoomScale = zoomScale,
-                                onBlockSelected = onBlockSelected,
-                                onUpdateBlockText = onUpdateBlockText,
-                                onUpdateSubSliceText = onUpdateSubSliceText,
-                                onSelectionChangedForBlock = onSelectionChangedForBlock,
-                                onSplitParagraph = onSplitParagraph,
-                                onDeleteBlockById = onDeleteBlockById,
-                                onDeleteOrMergeWithPrevious = onDeleteOrMergeWithPrevious,
-                                onEditTableProperties = onEditTableProperties,
-                                onEditTableCell = onEditTableCell,
-                                onQuickAddTableRow = onQuickAddTableRow,
-                                onQuickDeleteTableRow = onQuickDeleteTableRow,
-                                onQuickAddTableCol = onQuickAddTableCol,
-                                onQuickDeleteTableCol = onQuickDeleteTableCol,
-                                onEditImageProperties = onEditImageProperties,
-                                onRefreshTOC = onRefreshTOC,
-                                onToggleChecklistItem = onToggleChecklistItem
-                            )
-                        }
+                        footnoteItems.forEach { fnItem -> RenderItem(fnItem) }
                     }
                 }
 

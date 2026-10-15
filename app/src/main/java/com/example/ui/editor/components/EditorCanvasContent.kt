@@ -66,6 +66,12 @@ fun EditorCanvasContent(
                 onToggleChecklistItem = { viewModel.toggleChecklistItem(it) },
                 onUpdateDrawingStrokes = { id, strokes -> viewModel.updateDrawingStrokes(id, strokes) },
                 onUpdateTextBox = { id, text -> viewModel.updateTextBox(id, text) },
+                onUpdateTextBoxGeometry = { id, ox, oy, w, h -> viewModel.updateTextBoxGeometry(id, ox, oy, w, h) },
+                onUpdateTextBoxColor = { id, bg, bdr ->
+                    val curText = document.blocks.filterIsInstance<com.example.data.model.TextBoxBlock>().firstOrNull { it.id == id }?.text ?: ""
+                    viewModel.updateTextBox(blockId = id, text = curText, bgHex = bg, borderHex = bdr)
+                },
+                onUpdateImagePositionAndSize = { id, ox, oy, w, h -> viewModel.updateImagePositionAndSize(id, ox, oy, w, h) },
                 onEditShape = { shape -> dState.selectedShapeForEdit = shape }
             )
         }

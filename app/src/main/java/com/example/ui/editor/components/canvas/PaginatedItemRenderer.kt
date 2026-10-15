@@ -45,7 +45,11 @@ fun PaginatedItemRenderer(
     onQuickDeleteTableCol: (String) -> Unit,
     onEditImageProperties: (ImageBlock) -> Unit,
     onRefreshTOC: () -> Unit,
-    onToggleChecklistItem: (String) -> Unit
+    onToggleChecklistItem: (String) -> Unit,
+    onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
+    onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
     when (pageItem) {
         is ParagraphPageItem -> {
@@ -137,7 +141,8 @@ fun PaginatedItemRenderer(
                 imageBlock = pageItem.originalBlock,
                 zoomScale = zoomScale,
                 onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
-                onEditProperties = { onEditImageProperties(pageItem.originalBlock) }
+                onEditProperties = { onEditImageProperties(pageItem.originalBlock) },
+                onPositionAndSizeChanged = { ox, oy, w, h -> onUpdateImagePositionAndSize(pageItem.originalBlock.id, ox, oy, w, h) }
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -151,7 +156,10 @@ fun PaginatedItemRenderer(
                 zoomScale = zoomScale,
                 onBlockSelected = onBlockSelected,
                 onDeleteBlockById = onDeleteBlockById,
-                onRefreshTOC = onRefreshTOC
+                onRefreshTOC = onRefreshTOC,
+                onUpdateTextBox = onUpdateTextBox,
+                onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
+                onUpdateTextBoxColor = onUpdateTextBoxColor
             )
         }
     }

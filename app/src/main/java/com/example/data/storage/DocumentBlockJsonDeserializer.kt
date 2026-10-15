@@ -80,7 +80,9 @@ object DocumentBlockJsonDeserializer {
                 borderColorHex = bObj.optString("borderColorHex", "#2563EB"),
                 borderWidthPt = bObj.optDouble("borderWidthPt", 1.5).toFloat(),
                 rotationDeg = bObj.optDouble("rotationDeg", 0.0).toFloat(),
-                textColorHex = bObj.optString("textColorHex", "#1E293B")
+                textColorHex = bObj.optString("textColorHex", "#1E293B"),
+                offsetXPt = bObj.optDouble("offsetXPt", 0.0).toFloat(),
+                offsetYPt = bObj.optDouble("offsetYPt", 0.0).toFloat()
             )
             "divider" -> DividerBlock(id = blockId)
             "page_break" -> PageBreakBlock(id = blockId)
@@ -175,7 +177,9 @@ object DocumentBlockJsonDeserializer {
             borderThicknessDp = bObj.optInt("borderThicknessDp", 0),
             borderColorHex = bObj.optString("borderColorHex", "#CBD5E1"),
             rotationDegrees = bObj.optDouble("rotationDegrees", 0.0).toFloat(),
-            wrapMode = bObj.optString("wrapMode", "IN_LINE")
+            wrapMode = bObj.optString("wrapMode", "IN_LINE"),
+            offsetXPt = bObj.optDouble("offsetXPt", 0.0).toFloat(),
+            offsetYPt = bObj.optDouble("offsetYPt", 0.0).toFloat()
         )
     }
 

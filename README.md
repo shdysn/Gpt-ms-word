@@ -105,13 +105,13 @@ app/src/main/java/com/example/
 
 ---
 
-### ⏳ Phase 3: Layout Refinement, Text Wrapping & Advanced Headers (مرحلہ 3)
-- [ ] **Image Text Wrapping:**
+### ✅ Phase 3: Layout Refinement, Text Wrapping & Advanced Headers (COMPLETED)
+- [x] **Image Text Wrapping:**
   - Reflow text around images with wrapping modes: `IN_LINE`, `SQUARE`, `BEHIND_TEXT`, `IN_FRONT_OF_TEXT`.
   - Floating image positioning with gesture-based drag & resize handles.
-- [ ] **Floating Text Boxes:**
+- [x] **Floating Text Boxes:**
   - Draggable, resizable text containers that can be placed anywhere on the sheet canvas.
-- [ ] **Advanced Header & Footer Customization:**
+- [x] **Advanced Header & Footer Customization:**
   - **Different First Page:** Suppress headers/footers on title or cover pages.
   - **Different Odd & Even Pages:** Dual-page gutter headers for professional book and booklet publishing.
   - Extended page numbering: Roman numerals (`i, ii, iii`), Letters (`A, B, C`), and `Page X of Y`.

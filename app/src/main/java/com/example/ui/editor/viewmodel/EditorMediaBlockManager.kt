@@ -77,6 +77,18 @@ class EditorMediaBlockManager(
         vm.executeCommand(UpdateImageBlockCommand(blockId, currentImg, updated))
     }
 
+    fun updateImagePositionAndSize(blockId: String, offsetX: Float, offsetY: Float, widthDp: Int, heightDp: Int) {
+        val doc = vm.currentDocument ?: return
+        val currentImg = doc.blocks.filterIsInstance<ImageBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = currentImg.copy(
+            offsetXPt = offsetX,
+            offsetYPt = offsetY,
+            widthDp = widthDp.coerceIn(60, 600),
+            heightDp = heightDp.coerceIn(60, 600)
+        )
+        vm.executeCommand(UpdateImageBlockCommand(blockId, currentImg, updated))
+    }
+
     fun updateImageFormatting(
         blockId: String,
         filterMode: String,
@@ -226,6 +238,24 @@ class EditorMediaBlockManager(
             heightDp = heightDp,
             backgroundColorHex = bgHex,
             borderColorHex = borderHex
+        )
+        vm.executeCommand(UpdateBlockCommand(blockId, updated))
+    }
+
+    fun updateTextBoxGeometry(
+        blockId: String,
+        offsetX: Float,
+        offsetY: Float,
+        widthDp: Int,
+        heightDp: Int
+    ) {
+        val doc = vm.currentDocument ?: return
+        val block = doc.blocks.filterIsInstance<TextBoxBlock>().firstOrNull { it.id == blockId } ?: return
+        val updated = block.copy(
+            offsetXPt = offsetX,
+            offsetYPt = offsetY,
+            widthDp = widthDp.coerceIn(80, 500),
+            heightDp = heightDp.coerceIn(50, 400)
         )
         vm.executeCommand(UpdateBlockCommand(blockId, updated))
     }

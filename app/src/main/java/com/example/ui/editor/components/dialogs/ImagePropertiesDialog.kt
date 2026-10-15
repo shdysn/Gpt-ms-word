@@ -73,7 +73,7 @@ fun ImagePropertiesDialog(
                         "IN_FRONT" to "In Front"
                     ).forEach { (mode, label) ->
                         FilterChip(
-                            selected = wrapMode == mode,
+                            selected = wrapMode == mode || (mode == "IN_FRONT" && wrapMode == "IN_FRONT_OF_TEXT"),
                             onClick = { wrapMode = mode },
                             label = { Text(label, fontSize = 11.sp) }
                         )

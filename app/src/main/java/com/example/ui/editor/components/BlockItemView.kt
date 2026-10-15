@@ -55,6 +55,9 @@ fun BlockItemView(
     onToggleChecklistItem: (String) -> Unit = {},
     onUpdateDrawingStrokes: (List<DrawingStroke>) -> Unit = {},
     onUpdateTextBox: (String) -> Unit = {},
+    onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onEditShape: () -> Unit = {}
 ) {
     when (block) {
@@ -92,7 +95,8 @@ fun BlockItemView(
                 imageBlock = block,
                 zoomScale = zoomScale,
                 onFocus = onFocus,
-                onEditProperties = onEditImageProperties
+                onEditProperties = onEditImageProperties,
+                onPositionAndSizeChanged = { ox, oy, w, h -> onUpdateImagePositionAndSize(block.id, ox, oy, w, h) }
             )
         }
         is DividerBlock -> {
@@ -168,7 +172,9 @@ fun BlockItemView(
                 block = block,
                 zoomScale = zoomScale,
                 onTextChanged = onUpdateTextBox,
-                onDeleteBlock = onDeleteBlock
+                onDeleteBlock = onDeleteBlock,
+                onGeometryChanged = { ox, oy, w, h -> onUpdateTextBoxGeometry(block.id, ox, oy, w, h) },
+                onColorChanged = { bg, bdr -> onUpdateTextBoxColor(block.id, bg, bdr) }
             )
         }
         is FootnoteBlock -> {

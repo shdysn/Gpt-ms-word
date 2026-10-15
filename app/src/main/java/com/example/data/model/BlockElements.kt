@@ -100,7 +100,9 @@ data class TextBoxBlock(
     val borderColorHex: String = "#2563EB",
     val borderWidthPt: Float = 1.5f,
     val rotationDeg: Float = 0f,
-    val textColorHex: String = "#1E293B"
+    val textColorHex: String = "#1E293B",
+    val offsetXPt: Float = 0f,
+    val offsetYPt: Float = 0f
 ) : BlockElement
 
 /**

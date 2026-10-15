@@ -58,6 +58,9 @@ fun DocumentCanvas(
     onToggleChecklistItem: (String) -> Unit = {},
     onUpdateDrawingStrokes: (String, List<DrawingStroke>) -> Unit = { _, _ -> },
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
+    onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onEditShape: (ShapeBlock) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -117,7 +120,11 @@ fun DocumentCanvas(
                 onQuickDeleteTableCol = onQuickDeleteTableCol,
                 onEditImageProperties = onEditImageProperties,
                 onRefreshTOC = onRefreshTOC,
-                onToggleChecklistItem = onToggleChecklistItem
+                onToggleChecklistItem = onToggleChecklistItem,
+                onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
+                onUpdateTextBox = onUpdateTextBox,
+                onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
+                onUpdateTextBoxColor = onUpdateTextBoxColor
             )
         } else {
             ContinuousSheetView(

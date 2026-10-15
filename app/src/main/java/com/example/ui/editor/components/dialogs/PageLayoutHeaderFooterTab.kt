@@ -39,6 +39,12 @@ fun PageLayoutHeaderFooterTab(
     onFooterTextChange: (String) -> Unit,
     differentFirstPage: Boolean,
     onDifferentFirstPageChange: (Boolean) -> Unit,
+    differentOddEvenPages: Boolean = false,
+    onDifferentOddEvenPagesChange: (Boolean) -> Unit = {},
+    headerEvenText: String = "",
+    onHeaderEvenTextChange: (String) -> Unit = {},
+    footerEvenText: String = "",
+    onFooterEvenTextChange: (String) -> Unit = {},
     pageNumberFormat: PageNumberFormat,
     onPageNumberFormatChange: (PageNumberFormat) -> Unit
 ) {
@@ -102,6 +108,27 @@ fun PageLayoutHeaderFooterTab(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text("Quick Templates:", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            "{page}" to "Simple: 1",
+                            "Page {page} of {pages}" to "Page X of Y",
+                            "{title} • Page {page}" to "Book: Title • 1"
+                        ).forEach { (tpl, label) ->
+                            FilterChip(
+                                selected = footerText == tpl,
+                                onClick = { onFooterTextChange(tpl) },
+                                label = { Text(label, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("Page Numbering Format:", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(
@@ -142,6 +169,46 @@ fun PageLayoutHeaderFooterTab(
                 Column {
                     Text("Different First Page", fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Text("Omit header and footer on the first cover page", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // Different Odd & Even Pages Checkbox Card
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { onDifferentOddEvenPagesChange(!differentOddEvenPages) }
+                ) {
+                    Checkbox(
+                        checked = differentOddEvenPages,
+                        onCheckedChange = onDifferentOddEvenPagesChange
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Column {
+                        Text("Different Odd & Even Pages", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Dual-page gutter headers for professional book and booklet publishing", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (differentOddEvenPages) {
+                    OutlinedTextField(
+                        value = headerEvenText,
+                        onValueChange = onHeaderEvenTextChange,
+                        label = { Text("Even Page Header (e.g. Chapter / Book Title)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = footerEvenText,
+                        onValueChange = onFooterEvenTextChange,
+                        label = { Text("Even Page Footer (e.g. Page {page})") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }

@@ -3,6 +3,7 @@ package com.example.ui.editor.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,13 +12,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.BrokenImage
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -25,17 +29,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
@@ -43,22 +55,30 @@ import coil.request.ImageRequest
 import com.example.data.model.ImageBlock
 import com.example.data.model.TextAlignment
 import com.example.ui.theme.WordPrimary
+import kotlin.math.roundToInt
 
 @Composable
 fun ImageBlockView(
     imageBlock: ImageBlock,
     zoomScale: Float = 1f,
     onFocus: () -> Unit = {},
-    onEditProperties: () -> Unit = {}
+    onEditProperties: () -> Unit = {},
+    onPositionAndSizeChanged: (offsetX: Float, offsetY: Float, widthDp: Int, heightDp: Int) -> Unit = { _, _, _, _ -> }
 ) {
     val context = LocalContext.current
+    var currentOffsetX by remember(imageBlock.offsetXPt) { mutableFloatStateOf(imageBlock.offsetXPt) }
+    var currentOffsetY by remember(imageBlock.offsetYPt) { mutableFloatStateOf(imageBlock.offsetYPt) }
+    var currentWidthDp by remember(imageBlock.widthDp) { mutableIntStateOf(imageBlock.widthDp) }
+    var currentHeightDp by remember(imageBlock.heightDp) { mutableIntStateOf(imageBlock.heightDp) }
+
     val imageAlignment = when (imageBlock.alignment) {
         TextAlignment.START -> Alignment.Start
         TextAlignment.END -> Alignment.End
         else -> Alignment.CenterHorizontally
     }
-    val scaledWidthDp = (imageBlock.widthDp * zoomScale).dp
-    val scaledHeightDp = (imageBlock.heightDp * zoomScale).dp
+    val scaledWidthDp = (currentWidthDp * zoomScale).dp
+    val scaledHeightDp = (currentHeightDp * zoomScale).dp
+    val isFloating = imageBlock.wrapMode == "IN_FRONT" || imageBlock.wrapMode == "IN_FRONT_OF_TEXT" || imageBlock.wrapMode == "BEHIND_TEXT" || imageBlock.wrapMode == "SQUARE"
 
     Column(
         modifier = Modifier
@@ -90,37 +110,24 @@ fun ImageBlockView(
             else -> null
         }
 
-        val boxModifier = when (imageBlock.wrapMode) {
-            "BEHIND_TEXT" -> Modifier
-                .width(scaledWidthDp)
-                .height(scaledHeightDp)
-                .clip(RoundedCornerShape(imageCornerRadius))
-                .border(imageBorderThickness, imageBorderColor.copy(alpha = 0.5f), RoundedCornerShape(imageCornerRadius))
-                .graphicsLayer(alpha = 0.5f)
-                .clickable { onEditProperties() }
-                .testTag("image_block_${imageBlock.id}")
-            "SQUARE" -> Modifier
-                .width(scaledWidthDp)
-                .height(scaledHeightDp)
-                .clip(RoundedCornerShape(imageCornerRadius))
-                .border(imageBorderThickness + 1.dp, imageBorderColor, RoundedCornerShape(imageCornerRadius))
-                .clickable { onEditProperties() }
-                .testTag("image_block_${imageBlock.id}")
-            "IN_FRONT" -> Modifier
-                .width(scaledWidthDp)
-                .height(scaledHeightDp)
-                .clip(RoundedCornerShape(imageCornerRadius))
-                .border(imageBorderThickness, WordPrimary, RoundedCornerShape(imageCornerRadius))
-                .clickable { onEditProperties() }
-                .testTag("image_block_${imageBlock.id}")
-            else -> Modifier
-                .width(scaledWidthDp)
-                .height(scaledHeightDp)
-                .clip(RoundedCornerShape(imageCornerRadius))
-                .border(imageBorderThickness, imageBorderColor, RoundedCornerShape(imageCornerRadius))
-                .clickable { onEditProperties() }
-                .testTag("image_block_${imageBlock.id}")
-        }
+        val boxModifier = Modifier
+            .offset { IntOffset((currentOffsetX * zoomScale).roundToInt(), (currentOffsetY * zoomScale).roundToInt()) }
+            .width(scaledWidthDp)
+            .height(scaledHeightDp)
+            .then(
+                if (imageBlock.wrapMode == "IN_FRONT" || imageBlock.wrapMode == "IN_FRONT_OF_TEXT") {
+                    Modifier.shadow(6.dp, RoundedCornerShape(imageCornerRadius))
+                } else Modifier
+            )
+            .clip(RoundedCornerShape(imageCornerRadius))
+            .border(
+                imageBorderThickness + (if (imageBlock.wrapMode == "SQUARE") 1.dp else 0.dp),
+                if (imageBlock.wrapMode == "IN_FRONT" || imageBlock.wrapMode == "IN_FRONT_OF_TEXT") WordPrimary else imageBorderColor,
+                RoundedCornerShape(imageCornerRadius)
+            )
+            .graphicsLayer(alpha = if (imageBlock.wrapMode == "BEHIND_TEXT") 0.45f else 1f)
+            .clickable { onEditProperties() }
+            .testTag("image_block_${imageBlock.id}")
 
         Box(modifier = boxModifier) {
             SubcomposeAsyncImage(
@@ -167,6 +174,71 @@ fun ImageBlockView(
                 }
             )
 
+            // Drag positioning handle (visible on floating images)
+            if (isFloating) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.65f),
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .align(Alignment.TopStart)
+                        .size(24.dp)
+                        .pointerInput(imageBlock.id) {
+                            detectDragGestures(
+                                onDragEnd = {
+                                    onPositionAndSizeChanged(currentOffsetX, currentOffsetY, currentWidthDp, currentHeightDp)
+                                }
+                            ) { change, dragAmount ->
+                                change.consume()
+                                currentOffsetX = (currentOffsetX + dragAmount.x / zoomScale).coerceIn(-250f, 250f)
+                                currentOffsetY = (currentOffsetY + dragAmount.y / zoomScale).coerceIn(-350f, 350f)
+                            }
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.OpenWith,
+                            contentDescription = "Drag to reposition image",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+
+            // Interactive bottom-right corner resize handle
+            Surface(
+                shape = CircleShape,
+                color = WordPrimary.copy(alpha = 0.85f),
+                modifier = Modifier
+                    .padding(6.dp)
+                    .align(Alignment.BottomStart)
+                    .size(24.dp)
+                    .pointerInput(imageBlock.id) {
+                        detectDragGestures(
+                            onDragEnd = {
+                                onPositionAndSizeChanged(currentOffsetX, currentOffsetY, currentWidthDp, currentHeightDp)
+                            }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            val newW = (currentWidthDp + (dragAmount.x / zoomScale)).roundToInt().coerceIn(80, 500)
+                            val baseRatio = if (imageBlock.aspectRatio > 0) imageBlock.aspectRatio else 1.333f
+                            val newH = (newW / baseRatio).roundToInt().coerceIn(60, 450)
+                            currentWidthDp = newW
+                            currentHeightDp = newH
+                        }
+                    }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.AspectRatio,
+                        contentDescription = "Resize Image",
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
+
             // Format Overlay Chip at bottom corner
             Surface(
                 shape = CircleShape,
@@ -190,8 +262,8 @@ fun ImageBlockView(
                     val wrapLabel = when (imageBlock.wrapMode) {
                         "SQUARE" -> "Square"
                         "BEHIND_TEXT" -> "Behind"
-                        "IN_FRONT" -> "In Front"
-                        else -> "${imageBlock.widthDp}dp"
+                        "IN_FRONT", "IN_FRONT_OF_TEXT" -> "In Front"
+                        else -> "In Line"
                     }
                     Text(
                         text = wrapLabel,

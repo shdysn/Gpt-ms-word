@@ -64,6 +64,9 @@ fun PageLayoutDialog(
     var headerText by remember { mutableStateOf(currentLayout.headerText) }
     var footerText by remember { mutableStateOf(currentLayout.footerText) }
     var differentFirstPage by remember { mutableStateOf(currentLayout.differentFirstPage) }
+    var differentOddEvenPages by remember { mutableStateOf(currentLayout.differentOddEvenPages) }
+    var headerEvenText by remember { mutableStateOf(currentLayout.headerEvenText) }
+    var footerEvenText by remember { mutableStateOf(currentLayout.footerEvenText) }
 
     var pageBackgroundHex by remember { mutableStateOf(currentLayout.pageBackgroundHex) }
     var borderStyle by remember { mutableStateOf(currentLayout.borderStyle) }
@@ -215,6 +218,12 @@ fun PageLayoutDialog(
                         onFooterTextChange = { footerText = it },
                         differentFirstPage = differentFirstPage,
                         onDifferentFirstPageChange = { differentFirstPage = it },
+                        differentOddEvenPages = differentOddEvenPages,
+                        onDifferentOddEvenPagesChange = { differentOddEvenPages = it },
+                        headerEvenText = headerEvenText,
+                        onHeaderEvenTextChange = { headerEvenText = it },
+                        footerEvenText = footerEvenText,
+                        onFooterEvenTextChange = { footerEvenText = it },
                         pageNumberFormat = pageNumberFormat,
                         onPageNumberFormatChange = { pageNumberFormat = it }
                     )
@@ -237,6 +246,9 @@ fun PageLayoutDialog(
                         headerText = headerText,
                         footerText = footerText,
                         differentFirstPage = differentFirstPage,
+                        differentOddEvenPages = differentOddEvenPages,
+                        headerEvenText = headerEvenText,
+                        footerEvenText = footerEvenText,
                         pageBackgroundHex = pageBackgroundHex,
                         borderStyle = borderStyle,
                         borderColorHex = borderColorHex,

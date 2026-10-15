@@ -38,7 +38,11 @@ fun PaginatedSheetView(
     onQuickDeleteTableCol: (String) -> Unit,
     onEditImageProperties: (ImageBlock) -> Unit,
     onRefreshTOC: () -> Unit,
-    onToggleChecklistItem: (String) -> Unit
+    onToggleChecklistItem: (String) -> Unit,
+    onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
+    onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
     pagesToDisplay.forEachIndexed { pageIdx, page ->
         if (showRuler && pageIdx == 0) {
@@ -76,7 +80,11 @@ fun PaginatedSheetView(
             onQuickDeleteTableCol = onQuickDeleteTableCol,
             onEditImageProperties = onEditImageProperties,
             onRefreshTOC = onRefreshTOC,
-            onToggleChecklistItem = onToggleChecklistItem
+            onToggleChecklistItem = onToggleChecklistItem,
+            onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
+            onUpdateTextBox = onUpdateTextBox,
+            onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
+            onUpdateTextBoxColor = onUpdateTextBoxColor
         )
 
         Spacer(modifier = Modifier.height(24.dp))

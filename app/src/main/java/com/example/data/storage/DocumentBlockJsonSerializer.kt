@@ -126,6 +126,8 @@ object DocumentBlockJsonSerializer {
                 blockObj.put("borderColorHex", block.borderColorHex)
                 blockObj.put("rotationDegrees", block.rotationDegrees.toDouble())
                 blockObj.put("wrapMode", block.wrapMode)
+                blockObj.put("offsetXPt", block.offsetXPt.toDouble())
+                blockObj.put("offsetYPt", block.offsetYPt.toDouble())
             }
             is FootnoteBlock -> {
                 blockObj.put("type", "footnote")
@@ -191,6 +193,8 @@ object DocumentBlockJsonSerializer {
                 blockObj.put("borderWidthPt", block.borderWidthPt.toDouble())
                 blockObj.put("rotationDeg", block.rotationDeg.toDouble())
                 blockObj.put("textColorHex", block.textColorHex)
+                blockObj.put("offsetXPt", block.offsetXPt.toDouble())
+                blockObj.put("offsetYPt", block.offsetYPt.toDouble())
             }
             is DividerBlock -> {
                 blockObj.put("type", "divider")

@@ -244,4 +244,8 @@ class EditorBlockManager(
     fun insertTextBox(text: String = "Type text here...") = mediaManager.insertTextBox(text)
     fun updateTextBox(blockId: String, text: String, widthDp: Int = 180, heightDp: Int = 100, bgHex: String = "#FFFFFF", borderHex: String = "#2563EB") =
         mediaManager.updateTextBox(blockId, text, widthDp, heightDp, bgHex, borderHex)
+    fun updateImagePositionAndSize(blockId: String, offsetX: Float, offsetY: Float, widthDp: Int, heightDp: Int) =
+        mediaManager.updateImagePositionAndSize(blockId, offsetX, offsetY, widthDp, heightDp)
+    fun updateTextBoxGeometry(blockId: String, offsetX: Float, offsetY: Float, widthDp: Int, heightDp: Int) =
+        mediaManager.updateTextBoxGeometry(blockId, offsetX, offsetY, widthDp, heightDp)
 }

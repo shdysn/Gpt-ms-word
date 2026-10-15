@@ -45,7 +45,10 @@ fun PaginatedSpecialItemRenderer(
     zoomScale: Float,
     onBlockSelected: (Int) -> Unit,
     onDeleteBlockById: (String) -> Unit,
-    onRefreshTOC: () -> Unit
+    onRefreshTOC: () -> Unit,
+    onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
+    onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
     when (pageItem) {
         is DividerPageItem -> {
@@ -186,6 +189,9 @@ fun PaginatedSpecialItemRenderer(
                 onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
                 onSelectionChanged = {},
                 onTextChanged = { _, _ -> },
+                onUpdateTextBox = { newTxt -> onUpdateTextBox(pageItem.originalBlock.id, newTxt) },
+                onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
+                onUpdateTextBoxColor = onUpdateTextBoxColor,
                 onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
             )
             Spacer(modifier = Modifier.height(8.dp))

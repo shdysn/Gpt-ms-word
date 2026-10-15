@@ -104,7 +104,8 @@ enum class PageNumberFormat(val displayName: String) {
     ARABIC_NUMERALS("1, 2, 3..."),
     ROMAN_LOWER("i, ii, iii..."),
     ROMAN_UPPER("I, II, III..."),
-    LETTERS("A, B, C...")
+    LETTERS("A, B, C..."),
+    PAGE_X_OF_Y("Page X of Y")
 }
 
 /**
@@ -204,7 +205,7 @@ data class PageLayoutConfig(
     /**
      * Formats a page number integer into the configured format (Arabic, Roman, Letters).
      */
-    fun formatPageNumber(pageNumber: Int): String {
+    fun formatPageNumber(pageNumber: Int, totalPages: Int = 1): String {
         val num = pageNumber + (pageNumberStart - 1)
         if (num <= 0) return num.toString()
         return when (pageNumberFormat) {
@@ -212,6 +213,7 @@ data class PageLayoutConfig(
             PageNumberFormat.ROMAN_LOWER -> toRomanNumeral(num).lowercase()
             PageNumberFormat.ROMAN_UPPER -> toRomanNumeral(num)
             PageNumberFormat.LETTERS -> toAlphabetLetter(num)
+            PageNumberFormat.PAGE_X_OF_Y -> "Page $num of $totalPages"
         }
     }
 
