@@ -1,8 +1,12 @@
 package com.example.ui.editor.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,8 +57,8 @@ fun FindReplaceBar(
 ) {
     AnimatedVisibility(
         visible = isVisible,
-        enter = fadeIn(),
-        exit = fadeOut()
+        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn() + expandVertically(),
+        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut() + shrinkVertically()
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,

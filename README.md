@@ -80,56 +80,45 @@ app/src/main/java/com/example/
 
 ---
 
-## 🗺️ Implementation Roadmap & Phased Directives (فیچرز کا لائحہ عمل و روڈ میپ)
+## 🗺️ Implementation Roadmap: Mobile-First UX/UI Overhaul (جدید موبائل انٹرفیس روڈ میپ)
 
-> **DEVELOPER DIRECTIVE FOR FUTURE IMPORT / SESSIONS:**  
-> Jab bhi yeh app dobara import ki jaye ya mazeed taraqqi di jaye, mandarja zail phases ko ba-tartib complete kiya jaye:
+> **DEVELOPER DIRECTIVE FOR FUTURE IMPORT / SESSIONS (رہنمائی برائے ڈویلپرز):**  
+> ایپ کے فنکشنز کو منظم کرنے، اسکرین کی جگہ بچانے، اور پلے اسٹور کی ٹاپ ایپس (MS Word Mobile, Google Docs, WPS Office) سے بہتر اور کشادہ موبائل انٹرفیس فراہم کرنے کے لیے درج ذیل نئے مراحل (Phases) کو بالترتیب نافذ کیا جائے:
 
-### ✅ Phase 1: Visual Polish, Watermark & Navigation (COMPLETED)
-- [x] **Watermark System:** Full diagonal (-45°) and horizontal watermarks with presets (`CONFIDENTIAL`, `DRAFT`, `URGENT`, `SAMPLE`) and custom Urdu/English text, rendered on canvas and exported into PDF.
-- [x] **Page Borders & Background Colors:** Single Thin, Thick, Double, Dashed borders and Ivory/Cream/Parchment/Dark paper presets.
-- [x] **Document Outline Navigation Sheet (`DocumentOutlineSheet.kt`):** Semantic headings hierarchy tree (Title, H1, H2, H3), section word counts, page numbers, search filter, and 1-click jump navigation.
-- [x] **Live Status Bar:** Clickable page counter (`Page X of Y`), live word & character statistics, estimated reading time (`~X min`), and RTL language indicator.
-
----
-
-### ✅ Phase 2: Drawing, Inking & Vector Shapes (COMPLETED)
-- [x] **Draw Ribbon Tab (Freehand Inking):**
-  - Dedicated **Draw** tab in `WordRibbon.kt` and `DrawRibbonControls.kt`.
-  - Tools: Pen, Highlighter, Eraser, Stroke Width Slider (1pt–8pt), and Color Swatches.
-  - Touch & Stylus / S-Pen drawing canvas layer over pages with stroke point serialization (`DrawingBlockView.kt` and `DrawingCanvasArea.kt`).
-  - Export drawn ink strokes into PDF canvas (`PdfSpecialItemRenderer.kt`) and OpenXML data persistence.
-- [x] **Vector Shapes Gallery:**
-  - Support arbitrary geometric shapes (Rectangle, Rounded Rectangle, Oval/Circle, Right/Left Arrows, Star, Diamond, Callout Speech Bubble).
-  - Configurable fill color, outline stroke thickness, rotation, and interior editable text (`ShapeBlockView.kt`).
+### 📱 Phase 1: Minimal Top Bar & Screen Space Reclamation (اوپری پٹی کا خلاصہ اور کینوس کی آزادی) ✅ [COMPLETED]
+- [x] **Ultra-Sleek Top App Bar (52dp):** اوپر سے بکھرے ہوئے بٹنوں کو سمیٹ کر صرف `[← Back]`، دستاویز کا ٹائٹل، `[Undo]`، `[Redo]` اور `[⋮]` مینیو رکھنا۔
+- [x] **Elimination of Static Top Ribbon:** اسکرین کے اوپر سے بھاری ڈیسک ٹاپ ربن (140dp) کو مکمل طور پر ہٹانا تاکہ لکھنے اور پڑھنے کے لیے موبائل کا 85-90% کینوس آزاد ملے۔
+- [x] **Animated Find & Replace Overlay:** فائنڈ اینڈ ریپلیس بار کو مستقل کھلے رہنے کے بجائے ضرورت کے وقت اوپر سے سلائیڈ ہونے والی اوورلے پٹی بنانا۔
 
 ---
 
-### ✅ Phase 3: Layout Refinement, Text Wrapping & Advanced Headers (COMPLETED)
-- [x] **Image Text Wrapping:**
-  - Reflow text around images with wrapping modes: `IN_LINE`, `SQUARE`, `BEHIND_TEXT`, `IN_FRONT_OF_TEXT`.
-  - Floating image positioning with gesture-based drag & resize handles.
-- [x] **Floating Text Boxes:**
-  - Draggable, resizable text containers that can be placed anywhere on the sheet canvas.
-- [x] **Advanced Header & Footer Customization:**
-  - **Different First Page:** Suppress headers/footers on title or cover pages.
-  - **Different Odd & Even Pages:** Dual-page gutter headers for professional book and booklet publishing.
-  - Extended page numbering: Roman numerals (`i, ii, iii`), Letters (`A, B, C`), and `Page X of Y`.
+### 🎛️ Phase 2: One-Thumb Quick Action Bar & Unified Bottom Drawer (کی بورڈ کوئیک بار اور باٹم ڈراور)
+- [ ] **Keyboard-Docked Quick Action Bar (44dp):** کی بورڈ کے عین اوپر فوری فارمیٹنگ پٹی:
+  - فوری بٹن: `[ B ]` بولڈ، `[ I ]` اٹالک، `[ U ]` انڈر لائن، `[ رنگ ]`، `[ بلٹ لسٹ ]`، `[ ہیڈنگ ]` اور `[ 🎛️ / A▲ ]` مینیو بٹن۔
+- [ ] **Unified Expandable Bottom Sheet (مکمل باٹم شیٹ):** `[ 🎛️ ]` دبانے پر نیچے سے انگوٹھے کی پہنچ میں کھلنے والی ماڈرن Material 3 شیٹ، جس میں تمام 40+ ٹولز 4 واضح کیٹیگریز میں منظم ہوں:
+  1. **Home (ٹیکسٹ فارمیٹنگ):** اردو نستعلیق و عربی فونٹس پریویو کے ساتھ، سائز سلائیڈر، رنگ، ہائی لائٹ، الائنمنٹ (RTL و LTR)، لائن اسپیسنگ۔
+  2. **Insert (شامل کریں):** ٹیبل (Table)، تصاویر، ویکٹر شیپس، ڈیجیٹل دستخط (Signature)، ٹیکسٹ باکس، پیج بریک۔
+  3. **Layout (صفحہ بندی):** پیج سائز (A4، Letter)، مارجنز، پیج کا رنگ، واٹر مارک، ہیڈر اور فوٹر۔
+  4. **Review & AI (اسمارٹ ٹولز):** AI تحریر سنوار، اردو و انگریزی ترجمہ، گرامر، الفاظ کی گنتی، اسپیچ ٹو ٹیکسٹ (TTS)، کمنٹس۔
 
 ---
 
-### ✅ Phase 4: Real-time Typo Squiggles, OCR Scanner & Extended Formats (مرحلہ 4) [COMPLETED]
-- [x] **Real-time Spellcheck Squiggly Lines:**
-  - Visual crimson red underline below misspelled words directly inside `BasicTextField` during live typing across unified continuous and block-based canvas modes (`SpellCheckEngine.kt`, `ContinuousAnnotatedTextBuilder.kt`).
-  - Quick popup with correction suggestions on tapping misspelled words with 1-click word replacement (`UnifiedTextCanvas.kt`, `ParagraphPillsView.kt`).
-- [x] **Camera OCR Document Scanner:**
-  - Camera capture and gallery photo selection to scan printed physical papers directly into editable document text using OCR text extraction heuristics (`OcrScanDialog.kt`, `EditorBlockUtils.kt`, `EditorInsertModals.kt`).
-  - 1-click "Insert Scanned Text" with automatic paragraph splitting, RTL detection, and auto-saving.
-- [x] **Extended File Formats & Cloud Backup:**
-  - Markdown (`.md`) full import and export (`DocumentPlainTextImporter.kt`, `MarkdownAndEpubExportHelper.kt`, `DocumentFormatExporter.kt`).
-  - Plain Text (`.txt`) import and export.
-  - EPUB e-book standard `.epub` zip archive package export (`mimetype`, `META-INF/container.xml`, `OEBPS/content.opf`, `OEBPS/document.xhtml`).
-  - Share to Cloud Storage / Google Drive via standard Android intent choosers (`EditorShareUtils.kt`).
+### 🧩 Phase 3: Context-Aware Quick Formatting for Tables & Media (اسمارٹ سیاق و سباق ٹول بار)
+- [ ] **Smart Table Action Bar:** جب صارف ٹیبل کے کسی سیل میں ہو تو کوئیک بار خود بخود ٹیبل کے مخصوص ٹولز میں بدل جائے *(قطار شامل کریں، کالم ڈیلیٹ کریں، سیل بیک گراؤنڈ، بارڈر اسٹائل)*۔
+- [ ] **Media & Shape Contextual Controls:** تصویر، شیپ یا ڈیجیٹل دستخط منتخب ہونے پر متعلقہ ٹولز کا فوری پاپ اپ *(سائز، ری سائز، ٹیکسٹ ریپنگ، ڈیلیٹ)*۔
+
+---
+
+### 📄 Phase 4: Floating Status Capsule & Canvas Reflow Modes (فلوٹنگ اسٹیٹس کیپسول اور ری فلو موڈ)
+- [ ] **Floating Translucent Status Capsule:** نیچے کی مستقل گرے اسٹیٹس بار کو ہٹا کر کاغذ پر تیرتا ہوا چھوٹا سا کارڈ (`صفحہ 1 از 4 • 320 الفاظ • ✓ محفوظ`) جو ٹائپنگ کے دوران خود بخود فیڈ ہو جائے۔
+- [ ] **Mobile Reflow vs. Print Layout:** بغیر زوم کیے موبائل کی چوڑائی کے مطابق آرام دہ مطالعہ کے لیے ری فلو موڈ اور ایک کلک پر A4 پرنٹ پیج ویو۔
+
+---
+
+### 🏠 Phase 5: Modern Home Dashboard & Document Cards (ہوم اسکرین اور فائل مینیجمنٹ)
+- [ ] **Elevated Search & Filter Chips:** گوگل ڈاکس کی طرح سرچ بار اور فوری فلٹر چپس (`All`, `Word .docx`, `PDF`, `Urdu/RTL`)۔
+- [ ] **Refreshed Template Carousel:** اردو درخواست، سادہ دستاویز، بزنس رپورٹ اور انوائس کے خوبصورت کارڈز۔
+- [ ] **Rich File Cards:** ہر ڈاکومنٹ کارڈ پر فارمیٹ کا رنگین بیج (`.docx`, `.pdf`, `.txt`)، فائل سائز اور تاریخ کی صاف نمائش۔
 
 ---
 

@@ -46,7 +46,7 @@ class EditorViewModel(
     private val _activeRibbonTab = MutableStateFlow(RibbonTab.HOME)
     val activeRibbonTab: StateFlow<RibbonTab> = _activeRibbonTab.asStateFlow()
 
-    private val _isRibbonVisible = MutableStateFlow(true)
+    private val _isRibbonVisible = MutableStateFlow(false)
     val isRibbonVisible: StateFlow<Boolean> = _isRibbonVisible.asStateFlow()
 
     private val _viewMode = MutableStateFlow(EditorViewMode.PAGINATED_A4)

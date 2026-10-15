@@ -2,6 +2,7 @@ package com.example.ui.editor.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -43,14 +44,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.editor.engine.AutosaveStatus
 import com.example.ui.editor.EditorViewMode
 import com.example.ui.theme.WordPrimary
 
 /**
- * Top App Bar module for the Word document editor.
- * Provides document title display/rename, undo/redo controls, view mode toggles,
- * search toggle, and the overflow action menu.
+ * Ultra-sleek, modern Top App Bar for the document editor.
+ * Reclaims screen space by prioritizing the writing canvas, providing clean title display,
+ * integrated autosave indicator, Undo/Redo, View Mode switch, and an organized overflow menu.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +64,7 @@ fun EditorTopAppBar(
     viewMode: EditorViewMode,
     isFindReplaceVisible: Boolean,
     isOutlineVisible: Boolean = false,
+    isRibbonVisible: Boolean = false,
     onBackClick: () -> Unit,
     onTitleClick: () -> Unit,
     onUndoClick: () -> Unit,
@@ -69,6 +72,7 @@ fun EditorTopAppBar(
     onToggleViewMode: () -> Unit,
     onToggleFindReplace: () -> Unit,
     onToggleOutline: () -> Unit = {},
+    onToggleRibbon: () -> Unit = {},
     onSaveClick: () -> Unit,
     onExportClick: () -> Unit,
     onPageSetupClick: () -> Unit,
@@ -90,33 +94,50 @@ fun EditorTopAppBar(
             }
         },
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
                 modifier = Modifier
                     .clickable { onTitleClick() }
-                    .padding(vertical = 4.dp)
+                    .padding(vertical = 2.dp)
                     .testTag("title_edit_container")
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit Title",
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(16.dp)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Title",
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+                val statusText = when (autosaveStatus) {
+                    AutosaveStatus.SAVING -> "Saving..."
+                    AutosaveStatus.SAVED -> "Saved"
+                    AutosaveStatus.DIRTY -> "Editing..."
+                    AutosaveStatus.ERROR -> "Unsaved changes"
+                    AutosaveStatus.IDLE -> ""
+                }
+                if (statusText.isNotEmpty()) {
+                    Text(
+                        text = statusText,
+                        fontSize = 11.sp,
+                        color = when (autosaveStatus) {
+                            AutosaveStatus.ERROR -> MaterialTheme.colorScheme.error
+                            AutosaveStatus.SAVED -> WordPrimary
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        maxLines = 1
+                    )
+                }
             }
         },
         actions = {
-            AutosaveChip(status = autosaveStatus)
-
             IconButton(
                 onClick = onUndoClick,
                 enabled = canUndo,
@@ -125,7 +146,7 @@ fun EditorTopAppBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Undo,
                     contentDescription = "Undo",
-                    tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
                 )
             }
 
@@ -137,7 +158,7 @@ fun EditorTopAppBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Redo,
                     contentDescription = "Redo",
-                    tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
                 )
             }
 
@@ -152,28 +173,6 @@ fun EditorTopAppBar(
                 )
             }
 
-            IconButton(
-                onClick = onToggleOutline,
-                modifier = Modifier.testTag("action_document_outline")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ListAlt,
-                    contentDescription = "Document Outline",
-                    tint = if (isOutlineVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            IconButton(
-                onClick = onToggleFindReplace,
-                modifier = Modifier.testTag("action_find_replace")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search and Replace",
-                    tint = if (isFindReplaceVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
-                )
-            }
-
             Box {
                 IconButton(onClick = { showOptionsMenu = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = "More Actions")
@@ -184,16 +183,53 @@ fun EditorTopAppBar(
                     onDismissRequest = { showOptionsMenu = false }
                 ) {
                     DropdownMenuItem(
+                        text = { Text("Find & Replace") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = null,
+                                tint = if (isFindReplaceVisible) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        onClick = {
+                            showOptionsMenu = false
+                            onToggleFindReplace()
+                        },
+                        modifier = Modifier.testTag("action_find_replace")
+                    )
+                    DropdownMenuItem(
                         text = { Text("Document Outline") },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, tint = WordPrimary) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ListAlt,
+                                contentDescription = null,
+                                tint = if (isOutlineVisible) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
                         onClick = {
                             showOptionsMenu = false
                             onToggleOutline()
                         },
-                        modifier = Modifier.testTag("menu_document_outline")
+                        modifier = Modifier.testTag("action_document_outline")
                     )
                     DropdownMenuItem(
-                        text = { Text("Save...") },
+                        text = { Text(if (isRibbonVisible) "Hide Ribbon Toolbar" else "Show Ribbon Toolbar") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = if (isRibbonVisible) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        onClick = {
+                            showOptionsMenu = false
+                            onToggleRibbon()
+                        },
+                        modifier = Modifier.testTag("action_toggle_ribbon")
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    DropdownMenuItem(
+                        text = { Text("Save Document...") },
                         leadingIcon = { Icon(Icons.Default.Save, contentDescription = null, tint = WordPrimary) },
                         onClick = {
                             showOptionsMenu = false
@@ -202,7 +238,7 @@ fun EditorTopAppBar(
                         modifier = Modifier.testTag("menu_save_options")
                     )
                     DropdownMenuItem(
-                        text = { Text("Export...") },
+                        text = { Text("Export Document...") },
                         leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, tint = WordPrimary) },
                         onClick = {
                             showOptionsMenu = false

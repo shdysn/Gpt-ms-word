@@ -2,6 +2,10 @@ package com.example.ui.editor.components
 
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,11 +102,16 @@ fun WordRibbon(
     val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
     val currentDocument by viewModel.document.collectAsStateWithLifecycle()
 
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp,
-        modifier = modifier.fillMaxWidth()
+    AnimatedVisibility(
+        visible = isRibbonVisible,
+        enter = expandVertically() + fadeIn(),
+        exit = shrinkVertically() + fadeOut()
     ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp,
+            modifier = modifier.fillMaxWidth()
+        ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -215,4 +224,5 @@ fun WordRibbon(
             }
         }
     }
+}
 }
