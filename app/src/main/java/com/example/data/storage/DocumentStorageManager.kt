@@ -260,4 +260,8 @@ class DocumentStorageManager(private val context: Context) {
 
     fun deserializeFromJson(jsonStr: String): RichDocument =
         DocumentJsonDeserializer.deserialize(jsonStr)
+
+    fun serializeDocument(doc: RichDocument): String = serializeToJson(doc)
+
+    fun deserializeDocument(jsonStr: String): RichDocument = deserializeFromJson(jsonStr)
 }

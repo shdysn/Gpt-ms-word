@@ -166,6 +166,18 @@ object DocxParagraphParser {
         }
 
         val text = fullTextBuilder.toString()
+        if (text.startsWith("✎ [Handwritten Inking Canvas")) {
+            return com.example.data.model.DrawingBlock()
+        }
+        if (text.startsWith("[Shape:") || (pBdrNodes.length > 0 && (pPr?.getElementsByTagName("w:shd")?.length ?: 0) > 0)) {
+            val lines = text.split("\n", limit = 2)
+            val title = lines.getOrNull(0)?.removePrefix("[Shape:")?.substringBefore("]") ?: "Shape"
+            val content = lines.getOrNull(1) ?: ""
+            return com.example.data.model.ShapeBlock(
+                title = title,
+                content = content
+            )
+        }
         if (!isRtl && BidiUtils.detectParagraphIsRtl(text)) {
             isRtl = true
         }

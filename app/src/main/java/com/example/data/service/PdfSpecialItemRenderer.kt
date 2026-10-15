@@ -179,8 +179,14 @@ object PdfSpecialItemRenderer {
         val bgPaint = Paint().apply { color = try { Color.parseColor(shape.backgroundColorHex) } catch (_: Exception) { Color.rgb(239, 246, 255) }; style = Paint.Style.FILL }
         val bdrPaint = Paint().apply { color = try { Color.parseColor(shape.borderColorHex) } catch (_: Exception) { Color.rgb(59, 130, 246) }; style = Paint.Style.STROKE; strokeWidth = shape.strokeWidthPt.coerceAtLeast(1f) }
 
+        if (shape.rotationDeg != 0f) {
+            canvas.save()
+            canvas.rotate(shape.rotationDeg, boxRect.centerX(), boxRect.centerY())
+        }
+
         when (shape.shapeType.uppercase()) {
             "OVAL" -> { canvas.drawOval(boxRect, bgPaint); canvas.drawOval(boxRect, bdrPaint) }
+            "RECTANGLE" -> { canvas.drawRect(boxRect, bgPaint); canvas.drawRect(boxRect, bdrPaint) }
             "STAR" -> {
                 val path = android.graphics.Path()
                 val cx = boxRect.centerX()
@@ -208,6 +214,48 @@ object PdfSpecialItemRenderer {
                 canvas.drawPath(path, bgPaint)
                 canvas.drawPath(path, bdrPaint)
             }
+            "ARROW_RIGHT" -> {
+                val path = android.graphics.Path()
+                val my = boxRect.centerY()
+                val headW = shapeW * 0.35f
+                val hH = shapeH * 0.25f
+                path.moveTo(boxRect.left, my - hH)
+                path.lineTo(boxRect.right - headW, my - hH)
+                path.lineTo(boxRect.right - headW, boxRect.top)
+                path.lineTo(boxRect.right, my)
+                path.lineTo(boxRect.right - headW, boxRect.bottom)
+                path.lineTo(boxRect.right - headW, my + hH)
+                path.lineTo(boxRect.left, my + hH)
+                path.close()
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "ARROW_LEFT" -> {
+                val path = android.graphics.Path()
+                val my = boxRect.centerY()
+                val headW = shapeW * 0.35f
+                val hH = shapeH * 0.25f
+                path.moveTo(boxRect.right, my - hH)
+                path.lineTo(boxRect.left + headW, my - hH)
+                path.lineTo(boxRect.left + headW, boxRect.top)
+                path.lineTo(boxRect.left, my)
+                path.lineTo(boxRect.left + headW, boxRect.bottom)
+                path.lineTo(boxRect.left + headW, my + hH)
+                path.lineTo(boxRect.right, my + hH)
+                path.close()
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "CALLOUT" -> {
+                val bubbleH = shapeH * 0.78f
+                val path = android.graphics.Path()
+                path.addRoundRect(android.graphics.RectF(boxRect.left, boxRect.top, boxRect.right, boxRect.top + bubbleH), 12f, 12f, android.graphics.Path.Direction.CW)
+                path.moveTo(boxRect.left + shapeW * 0.25f, boxRect.top + bubbleH)
+                path.lineTo(boxRect.left + shapeW * 0.35f, boxRect.bottom)
+                path.lineTo(boxRect.left + shapeW * 0.45f, boxRect.top + bubbleH)
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
             else -> {
                 canvas.drawRoundRect(boxRect, 6f, 6f, bgPaint)
                 canvas.drawRoundRect(boxRect, 6f, 6f, bdrPaint)
@@ -218,6 +266,11 @@ object PdfSpecialItemRenderer {
         if (shape.title.isNotBlank()) canvas.drawText(shape.title, leftMargin + 12f, cursorY + 20f, titlePaint)
         val bodyPaint = Paint().apply { isAntiAlias = true; color = try { Color.parseColor(shape.textColorHex) } catch (_: Exception) { Color.rgb(30, 41, 59) }; textSize = 9.5f }
         if (shape.content.isNotBlank()) canvas.drawText(shape.content, leftMargin + 12f, cursorY + 38f, bodyPaint)
+
+        if (shape.rotationDeg != 0f) {
+            canvas.restore()
+        }
+
         return cursorY + shapeH + 12f
     }
 }

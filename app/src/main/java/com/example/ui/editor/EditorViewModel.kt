@@ -8,6 +8,7 @@ import com.example.core.layout.PageLayoutConfig
 import com.example.core.layout.PaginationEngine
 import com.example.data.local.PreferencesManager
 import com.example.data.model.DocumentRevisionSnapshot
+import com.example.data.model.DrawingBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
 import com.example.data.model.TextAlignment
@@ -170,7 +171,13 @@ class EditorViewModel(
         _activeBlockIndex.value = index
     }
     fun clearStatusMessage() { _statusMessage.value = null }
-    fun setDrawTool(tool: String) { _drawTool.value = tool }
+    fun setDrawTool(tool: String) {
+        _drawTool.value = tool
+        val hasDrawing = currentDocument?.blocks?.any { it is DrawingBlock } == true
+        if (!hasDrawing && (tool == "PEN" || tool == "HIGHLIGHTER")) {
+            insertDrawing()
+        }
+    }
     fun setDrawColorHex(hex: String) { _drawColorHex.value = hex }
     fun setDrawStrokeWidthPt(width: Float) { _drawStrokeWidthPt.value = width }
     fun setCanvasPaperMode(mode: String) {

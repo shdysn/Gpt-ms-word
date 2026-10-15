@@ -171,10 +171,10 @@ def main():
     print(" 🛡️  SmartWord 300-Line Codebase Limit & Anti-Regression Enforcer")
     print("=" * 65)
     
-    proc1_ok, proc1_violations = check_file_group("Procedure 1 / Phase 1: UI Screens & Dialogs", PHASE_1_FILES)
-    proc2_ok, proc2_violations = check_file_group("Procedure 2 / Phase 2: Canvas, Toolbars, Blocks & Ribbon", PHASE_2_FILES)
-    proc3_ok, proc3_violations = check_file_group("Procedure 3 / Phase 3: Core Engine & ViewModel Coordinator", PHASE_3_FILES)
-    proc4_ok, proc4_violations = check_file_group("Procedure 4 / Phase 4: Document Export & I/O Services", PHASE_4_FILES)
+    proc1_ok, proc1_violations = check_file_group("Procedure 1: UI Screens & Dialogs", PHASE_1_FILES)
+    proc2_ok, proc2_violations = check_file_group("Procedure 2: Canvas, Toolbars, Blocks & Ribbon", PHASE_2_FILES)
+    proc3_ok, proc3_violations = check_file_group("Procedure 3: Core Engine & ViewModel Coordinator", PHASE_3_FILES)
+    proc4_ok, proc4_violations = check_file_group("Procedure 4: Document Export & I/O Services", PHASE_4_FILES)
     
     total_violations = proc1_violations + proc2_violations + proc3_violations + proc4_violations
     

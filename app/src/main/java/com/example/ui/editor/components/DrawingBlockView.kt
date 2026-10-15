@@ -59,6 +59,7 @@ fun DrawingBlockView(
     var selectedTool by remember { mutableStateOf("PEN") } // PEN, HIGHLIGHTER, ERASER
     var selectedColorHex by remember { mutableStateOf("#0F172A") }
     var selectedStrokeWidthPt by remember { mutableStateOf(2.5f) }
+    var canvasHeightDp by remember { mutableStateOf(block.heightDp) }
 
     val currentStrokes = remember(block.strokes) {
         mutableStateListOf<DrawingStroke>().apply { addAll(block.strokes) }
@@ -84,12 +85,19 @@ fun DrawingBlockView(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Default.Draw, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(18.dp))
                     Text("Inking Canvas", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = WordPrimary)
+                    Text("(${currentStrokes.size} strokes)", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    FilterChip(
+                        selected = canvasHeightDp > 180,
+                        onClick = { canvasHeightDp = if (canvasHeightDp <= 180) 280 else 180 },
+                        label = { Text(if (canvasHeightDp > 180) "Expanded" else "Expand", fontSize = 10.sp) },
+                        modifier = Modifier.height(26.dp)
+                    )
                     if (currentStrokes.isNotEmpty()) {
                         IconButton(
                             onClick = {
@@ -183,7 +191,7 @@ fun DrawingBlockView(
             }
 
             // Touch Inking Canvas Area
-            val canvasHeight = (block.heightDp * zoomScale).dp
+            val canvasHeight = (canvasHeightDp * zoomScale).dp
             DrawingCanvasArea(
                 canvasHeight = canvasHeight,
                 isDarkPage = isDarkPage,

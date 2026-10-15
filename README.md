@@ -135,12 +135,15 @@ app/src/main/java/com/example/
 ## 📦 300-Line Codebase Modularization & Anti-Regression Procedures (تمام فائلز کو 300 لائنز سے کم رکھنے کا باقاعدہ طریقہ کار)
 
 > ### 🎯 DIRECTIVE FOR AI AGENT / DEVELOPER:
-> **Jab bhi user kisi bhi procedure ka zikr kare (maslan: "Procedure 1", "Procedure 2", "Procedure 3", ya "Procedure 4" apply karo — ya purane lafz "Phase" se pukaare), to foran us specific procedure ki tamam files ko mutaliqa subfolders mein extract aur modularize karein:**
-> 
-> - **Jab "Procedure 1" (ya "Phase 1") ka zikr ho:** UI Screens aur Dialogs (8 Files) [COMPLETED]
-> - **Jab "Procedure 2" (ya "Phase 2") ka zikr ho:** Editor Canvas, Block Views aur Toolbars (8 Files)
-> - **Jab "Procedure 3" (ya "Phase 3") ka zikr ho:** ViewModel Coordinator aur Core Engine (5 Files)
-> - **Jab "Procedure 4" (ya "Phase 4") ka zikr ho:** Data Layer, Storage, DOCX اور PDF Services (7-8 Files)
+> **NOTE: Feature Roadmap "Phases" (فیچرز کا روڈ میپ) aur Code Modularization "Procedures" (کوڈ ماڈیولرائزیشن) دو بالکل الگ الگ چیزیں ہیں:**
+> - **Roadmap Phases:** نئی فنکشنلٹیز (Phase 1: Watermarks, Phase 2: Drawing & Vector Shapes, Phase 3: Text Wrapping, Phase 4: OCR Scanner).
+> - **Modularization Procedures:** تمام فائلز کو 300 لائنز سے کم رکھنے کے لیے مخصوص ماڈیولز کی تقسیم (Procedure 1: UI Screens & Dialogs, Procedure 2: Canvas & Blocks, Procedure 3: ViewModel & Engine, Procedure 4: Services & I/O).
+>
+> **Procedure Specifications:**
+> - **Procedure 1:** UI Screens aur Dialogs (8 Files) [COMPLETED]
+> - **Procedure 2:** Editor Canvas, Block Views aur Toolbars (8 Files) [COMPLETED]
+> - **Procedure 3:** ViewModel Coordinator aur Core Engine (5 Files) [COMPLETED]
+> - **Procedure 4:** Data Layer, Storage, DOCX اور PDF Services (7-8 Files) [COMPLETED]
 > 
 > **Standard Rules & Guarantees:**
 > 1. Har nayi aur purani file ka size strictly **200 se 280 lines (<300 lines)** ke darmiyan rakhna lazmi hai.

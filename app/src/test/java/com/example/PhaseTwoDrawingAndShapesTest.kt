@@ -134,4 +134,50 @@ class PhaseTwoDrawingAndShapesTest {
         assertTrue(themes.any { it.third == "Blue" })
         assertTrue(themes.any { it.third == "Amber" })
     }
+
+    @Test
+    fun testPdfRenderingAllVectorShapesAndRotation() {
+        val bitmap = android.graphics.Bitmap.createBitmap(600, 800, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+
+        val shapeTypes = listOf("RECTANGLE", "ROUNDED_RECT", "OVAL", "STAR", "DIAMOND", "ARROW_RIGHT", "ARROW_LEFT", "CALLOUT", "NOTE")
+        var curY = 20f
+
+        for (st in shapeTypes) {
+            val shape = ShapeBlock(
+                shapeType = st,
+                title = "Test $st",
+                content = "Content for $st",
+                rotationDeg = if (st == "STAR") 45f else 0f
+            )
+            val item = com.example.core.layout.ShapePageItem(originalBlockIndex = 0, originalBlock = shape)
+            val nextY = com.example.data.service.PdfSpecialItemRenderer.renderShapeItem(
+                canvas = canvas,
+                item = item,
+                cursorY = curY,
+                leftMargin = 30f,
+                contentWidth = 400f
+            )
+            assertTrue(nextY > curY)
+            curY += 20f
+        }
+    }
+
+    @Test
+    fun testDocxDrawingAndShapeXmlRoundTrip() {
+        val drawing = DrawingBlock(
+            strokes = listOf(DrawingStroke(points = listOf(1f to 2f, 3f to 4f)))
+        )
+        val shape = ShapeBlock(
+            shapeType = "ARROW_RIGHT",
+            title = "Arrow Title",
+            content = "Go Next"
+        )
+        val doc = RichDocument(blocks = listOf(drawing, shape))
+        val xml = com.example.data.service.docx.DocxBodyXmlBuilder.buildDocumentXml(doc, emptyList())
+
+        assertTrue(xml.contains("✎ [Handwritten Inking Canvas"))
+        assertTrue(xml.contains("Arrow Title"))
+        assertTrue(xml.contains("Go Next"))
+    }
 }
