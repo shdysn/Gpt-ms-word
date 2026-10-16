@@ -1,8 +1,10 @@
 package com.example.ui.editor.components
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -72,7 +74,8 @@ fun DocumentCanvas(
     isDocumentAllSelected: Boolean = false,
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
-    onReplaceAllDocumentWithText: (String) -> Unit = {}
+    onReplaceAllDocumentWithText: (String) -> Unit = {},
+    onCanvasLongPress: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -94,6 +97,9 @@ fun DocumentCanvas(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
+            .pointerInput(Unit) {
+                detectTapGestures(onLongPress = { onCanvasLongPress() })
+            }
             .padding(if (isTabletOrExpanded) 28.dp else 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -151,7 +157,8 @@ fun DocumentCanvas(
                 isDocumentAllSelected = isDocumentAllSelected,
                 onSelectAllDocument = onSelectAllDocument,
                 onDeleteAllDocument = onDeleteAllDocument,
-                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+                onCanvasLongPress = onCanvasLongPress
             )
         } else {
             ContinuousSheetView(
@@ -186,7 +193,8 @@ fun DocumentCanvas(
                 isDocumentAllSelected = isDocumentAllSelected,
                 onSelectAllDocument = onSelectAllDocument,
                 onDeleteAllDocument = onDeleteAllDocument,
-                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+                onCanvasLongPress = onCanvasLongPress
             )
         }
     }

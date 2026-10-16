@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -140,17 +139,6 @@ fun EditorTopAppBar(
                     imageVector = if (viewMode == EditorViewMode.PAGINATED_A4) Icons.Default.PhoneAndroid else Icons.Default.Description,
                     contentDescription = if (viewMode == EditorViewMode.PAGINATED_A4) "Switch to Mobile View" else "Switch to Full Page A4 View",
                     tint = if (viewMode == EditorViewMode.PAGINATED_A4) WordPrimary else MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            IconButton(
-                onClick = onSelectAllClick,
-                modifier = Modifier.testTag("action_select_all")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SelectAll,
-                    contentDescription = "Select All Document",
-                    tint = if (isDocumentAllSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
                 )
             }
 

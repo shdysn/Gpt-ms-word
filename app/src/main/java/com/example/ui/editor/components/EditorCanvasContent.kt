@@ -1,9 +1,17 @@
 package com.example.ui.editor.components
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -36,6 +44,8 @@ fun EditorCanvasContent(
         val drawColorHex by viewModel.drawColorHex.collectAsStateWithLifecycle()
         val drawStrokeWidthPt by viewModel.drawStrokeWidthPt.collectAsStateWithLifecycle()
         val isDocumentAllSelected by viewModel.isDocumentAllSelected.collectAsStateWithLifecycle()
+
+        var showContextMenu by remember { mutableStateOf(false) }
 
         if (document != null) {
             DocumentCanvas(
@@ -88,13 +98,40 @@ fun EditorCanvasContent(
                 isDocumentAllSelected = isDocumentAllSelected,
                 onSelectAllDocument = viewModel::selectAllDocument,
                 onDeleteAllDocument = viewModel::deleteAllDocumentContent,
-                onReplaceAllDocumentWithText = viewModel::replaceAllDocumentWithText
+                onReplaceAllDocumentWithText = viewModel::replaceAllDocumentWithText,
+                onCanvasLongPress = { showContextMenu = true }
             )
         }
 
         val selection by viewModel.selection.collectAsStateWithLifecycle()
         val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
         val context = androidx.compose.ui.platform.LocalContext.current
+
+        if (showContextMenu) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { showContextMenu = false }
+            )
+
+            WordContextMenu(
+                isVisible = showContextMenu,
+                canCut = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max),
+                canCopy = true,
+                onCut = { viewModel.cutSelection(context) },
+                onCopy = { viewModel.copySelection(context) },
+                onPaste = { viewModel.pasteFromClipboard(context, keepSourceFormatting = false) },
+                onPasteKeepFormatting = { viewModel.pasteFromClipboard(context, keepSourceFormatting = true) },
+                onSelectAll = { viewModel.selectAllDocument() },
+                onDismiss = { showContextMenu = false },
+                modifier = Modifier
+                    .padding(top = 16.dp)
+                    .align(Alignment.TopCenter)
+            )
+        }
 
         if (!isDocumentAllSelected) {
             EditorQuickFormatBar(

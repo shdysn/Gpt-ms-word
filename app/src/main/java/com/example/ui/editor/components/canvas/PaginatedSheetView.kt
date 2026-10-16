@@ -54,7 +54,8 @@ fun PaginatedSheetView(
     isDocumentAllSelected: Boolean = false,
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
-    onReplaceAllDocumentWithText: (String) -> Unit = {}
+    onReplaceAllDocumentWithText: (String) -> Unit = {},
+    onCanvasLongPress: () -> Unit = {}
 ) {
     pagesToDisplay.forEachIndexed { pageIdx, page ->
         if (showRuler && pageIdx == 0) {
@@ -107,7 +108,8 @@ fun PaginatedSheetView(
             isDocumentAllSelected = isDocumentAllSelected,
             onSelectAllDocument = onSelectAllDocument,
             onDeleteAllDocument = onDeleteAllDocument,
-            onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+            onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+            onCanvasLongPress = onCanvasLongPress
         )
 
         Spacer(modifier = Modifier.height(24.dp))

@@ -61,7 +61,8 @@ fun PaginatedItemRenderer(
     isDocumentAllSelected: Boolean = false,
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
-    onReplaceAllDocumentWithText: (String) -> Unit = {}
+    onReplaceAllDocumentWithText: (String) -> Unit = {},
+    onLongPress: () -> Unit = {}
 ) {
     when (pageItem) {
         is ParagraphPageItem -> {
@@ -130,7 +131,8 @@ fun PaginatedItemRenderer(
                 isDocumentAllSelected = isDocumentAllSelected,
                 onSelectAllDocument = onSelectAllDocument,
                 onDeleteAllDocument = onDeleteAllDocument,
-                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+                onLongPress = onLongPress
             )
             Spacer(modifier = Modifier.height(6.dp))
         }

@@ -1,6 +1,8 @@
 package com.example.ui.editor.components.canvas
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,7 +64,8 @@ fun ContinuousSheetView(
     isDocumentAllSelected: Boolean = false,
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
-    onReplaceAllDocumentWithText: (String) -> Unit = {}
+    onReplaceAllDocumentWithText: (String) -> Unit = {},
+    onCanvasLongPress: () -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(document.layoutConfig.pageBackgroundHex))
@@ -82,7 +85,11 @@ fun ContinuousSheetView(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                detectTapGestures(onLongPress = { onCanvasLongPress() })
+            },
         color = pageBgColor
     ) {
         @Composable
@@ -128,7 +135,8 @@ fun ContinuousSheetView(
                 isDocumentAllSelected = isDocumentAllSelected,
                 onSelectAllDocument = onSelectAllDocument,
                 onDeleteAllDocument = onDeleteAllDocument,
-                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+                onLongPress = onCanvasLongPress
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

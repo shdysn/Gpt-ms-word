@@ -1,6 +1,8 @@
 package com.example.ui.editor.components.canvas
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -74,7 +76,8 @@ fun SinglePageSheet(
     isDocumentAllSelected: Boolean = false,
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
-    onReplaceAllDocumentWithText: (String) -> Unit = {}
+    onReplaceAllDocumentWithText: (String) -> Unit = {},
+    onCanvasLongPress: () -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(page.layout.pageBackgroundHex))
@@ -136,7 +139,8 @@ fun SinglePageSheet(
             isDocumentAllSelected = isDocumentAllSelected,
             onSelectAllDocument = onSelectAllDocument,
             onDeleteAllDocument = onDeleteAllDocument,
-            onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+            onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+            onLongPress = onCanvasLongPress
         )
     }
 
@@ -144,7 +148,10 @@ fun SinglePageSheet(
         modifier = Modifier
             .width(scaledMaxSheetWidth)
             .heightIn(min = sheetHeightDp)
-            .shadow(2.dp, RoundedCornerShape(0.dp)),
+            .shadow(2.dp, RoundedCornerShape(0.dp))
+            .pointerInput(Unit) {
+                detectTapGestures(onLongPress = { onCanvasLongPress() })
+            },
         shape = RoundedCornerShape(0.dp),
         color = pageBgColor,
         border = borderStroke

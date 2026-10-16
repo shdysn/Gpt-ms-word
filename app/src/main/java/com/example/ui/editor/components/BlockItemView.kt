@@ -68,7 +68,8 @@ fun BlockItemView(
     onEditShape: () -> Unit = {},
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
-    onReplaceAllDocumentWithText: (String) -> Unit = {}
+    onReplaceAllDocumentWithText: (String) -> Unit = {},
+    onLongPress: () -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -88,7 +89,8 @@ fun BlockItemView(
                 onToggleChecklistItem = onToggleChecklistItem,
                 onSelectAllDocument = onSelectAllDocument,
                 onDeleteAllDocument = onDeleteAllDocument,
-                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText,
+                onLongPress = onLongPress
             )
         }
         is TableBlock -> {

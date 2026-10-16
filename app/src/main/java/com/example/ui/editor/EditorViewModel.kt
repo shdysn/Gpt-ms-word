@@ -19,6 +19,7 @@ import com.example.editor.engine.EditorCommand
 import com.example.editor.engine.SpanOperations
 import com.example.editor.engine.UpdateLayoutCommand
 import com.example.ui.editor.viewmodel.EditorBlockUtils
+import com.example.ui.editor.viewmodel.EditorClipboardManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -177,31 +178,16 @@ class EditorViewModel(
     }
     fun clearStatusMessage() { _statusMessage.value = null }
 
-    fun selectAllDocument() {
-        _isDocumentAllSelected.value = true
-        showStatusMessage("All document content selected")
-    }
-
-    fun clearDocumentSelection() {
-        if (_isDocumentAllSelected.value) {
-            _isDocumentAllSelected.value = false
-        }
-    }
-
-    fun copyAllToClipboard(context: android.content.Context) {
-        val currentDoc = _document.value ?: return
-        val allText = currentDoc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
-        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-        val clip = android.content.ClipData.newPlainText("Document Text", allText)
-        clipboard?.setPrimaryClip(clip)
-        showStatusMessage("All document text copied to clipboard")
-    }
-
-    fun cutAllToClipboard(context: android.content.Context) {
-        copyAllToClipboard(context)
-        deleteAllDocumentContent()
-        showStatusMessage("All document text cut to clipboard")
-    }
+    internal val clipboardManager by lazy { EditorClipboardManager(this) }
+    fun setIsDocumentAllSelected(selected: Boolean) { _isDocumentAllSelected.value = selected }
+    fun selectAllDocument() = clipboardManager.selectAllDocument()
+    fun clearDocumentSelection() = clipboardManager.clearDocumentSelection()
+    fun copySelection(context: android.content.Context) = clipboardManager.copySelection(context)
+    fun cutSelection(context: android.content.Context) = clipboardManager.cutSelection(context)
+    fun pasteFromClipboard(context: android.content.Context, keepSourceFormatting: Boolean = false) =
+        clipboardManager.pasteFromClipboard(context, keepSourceFormatting)
+    fun copyAllToClipboard(context: android.content.Context) = clipboardManager.copyAllToClipboard(context)
+    fun cutAllToClipboard(context: android.content.Context) = clipboardManager.cutAllToClipboard(context)
 
     fun deleteAllDocumentContent() {
         val currentDoc = _document.value ?: return
