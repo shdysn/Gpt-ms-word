@@ -55,18 +55,18 @@ fun EditorTopAppBar(
     activeRibbonTab: RibbonTab = RibbonTab.HOME,
     onTabSelected: (RibbonTab) -> Unit = {},
     onBackClick: () -> Unit,
-    onTitleClick: () -> Unit,
+    onTitleClick: () -> Unit = {},
     onUndoClick: () -> Unit,
     onRedoClick: () -> Unit,
     onToggleViewMode: () -> Unit,
     onToggleFindReplace: () -> Unit,
     onToggleOutline: () -> Unit = {},
     onToggleRibbon: () -> Unit = {},
-    onSaveClick: () -> Unit,
-    onExportClick: () -> Unit,
-    onPageSetupClick: () -> Unit,
-    onPrintClick: () -> Unit,
-    onStatsClick: () -> Unit
+    onSaveClick: () -> Unit = {},
+    onExportClick: () -> Unit = {},
+    onPageSetupClick: () -> Unit = {},
+    onPrintClick: () -> Unit = {},
+    onStatsClick: () -> Unit = {}
 ) {
     TopAppBar(
         navigationIcon = {
@@ -81,55 +81,26 @@ fun EditorTopAppBar(
             }
         },
         title = {
-            Column(modifier = Modifier.padding(vertical = 2.dp)) {
-                // MS Word style Ribbon Tab Dropdown in the title position
-                EditorRibbonTabDropdown(
-                    activeRibbonTab = activeRibbonTab,
-                    isRibbonVisible = isRibbonVisible,
-                    onTabSelected = onTabSelected,
-                    onToggleRibbon = onToggleRibbon
+            Column(
+                modifier = Modifier.padding(vertical = 4.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-
-                // Fitted Document Name subtitle (clickable to rename)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable { onTitleClick() }
-                        .padding(top = 1.dp)
-                        .testTag("title_edit_container")
-                ) {
-                    Text(
-                        text = title,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Title",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(10.dp)
-                    )
-                    val statusText = when (autosaveStatus) {
-                        AutosaveStatus.SAVING -> " • Saving..."
-                        AutosaveStatus.SAVED -> " • Saved"
-                        AutosaveStatus.DIRTY -> " • Editing"
-                        AutosaveStatus.ERROR -> " • Unsaved"
-                        AutosaveStatus.IDLE -> ""
+                Text(
+                    text = autosaveStatus.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = when (autosaveStatus) {
+                        AutosaveStatus.SAVED -> WordPrimary
+                        AutosaveStatus.SAVING -> MaterialTheme.colorScheme.tertiary
+                        AutosaveStatus.ERROR -> MaterialTheme.colorScheme.error
+                        AutosaveStatus.DIRTY, AutosaveStatus.IDLE -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
-                    if (statusText.isNotEmpty()) {
-                        Text(
-                            text = statusText,
-                            fontSize = 10.sp,
-                            color = if (autosaveStatus == AutosaveStatus.ERROR) MaterialTheme.colorScheme.error else WordPrimary,
-                            maxLines = 1
-                        )
-                    }
-                }
+                )
             }
         },
         actions = {
@@ -178,19 +149,6 @@ fun EditorTopAppBar(
                     tint = if (isRibbonVisible) WordPrimary else MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            EditorTopAppBarOverflowMenu(
-                isFindReplaceVisible = isFindReplaceVisible,
-                isOutlineVisible = isOutlineVisible,
-                onTitleClick = onTitleClick,
-                onToggleFindReplace = onToggleFindReplace,
-                onToggleOutline = onToggleOutline,
-                onSaveClick = onSaveClick,
-                onExportClick = onExportClick,
-                onPageSetupClick = onPageSetupClick,
-                onPrintClick = onPrintClick,
-                onStatsClick = onStatsClick
-            )
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surface,

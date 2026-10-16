@@ -160,7 +160,6 @@ fun EditorScreen(
                     isFindReplaceVisible = isFindReplaceVisible,
                     isOutlineVisible = dState.showOutlineSheet,
                     onBackClick = handleBackNavigation,
-                    onTitleClick = { dState.showTitleEditDialog = true },
                     onUndoClick = { viewModel.undo() },
                     onRedoClick = { viewModel.redo() },
                     onToggleViewMode = { viewModel.toggleViewMode() },
@@ -220,7 +219,8 @@ fun EditorScreen(
                 coroutineScope = coroutineScope,
                 snackbarHostState = snackbarHostState,
                 voiceTypingLauncher = voiceTypingLauncher,
-                photoPickerLauncher = photoPickerLauncher
+                photoPickerLauncher = photoPickerLauncher,
+                safDocxSaveLauncher = safDocxSaveLauncher
             )
 
             if (recoveryAvailable) {

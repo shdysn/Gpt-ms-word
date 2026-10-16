@@ -6,22 +6,44 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.CustomStyle
 import com.example.data.model.ParagraphBlock
 import com.example.editor.engine.CaseType
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.RibbonTab
+import com.example.ui.theme.WordPrimary
 
 // Re-export ribbon buttons for backward compatibility
 @Composable
@@ -82,6 +104,12 @@ fun WordRibbon(
     onToggleChecklist: () -> Unit = {},
     onApplyCustomStyle: (CustomStyle) -> Unit = {},
     onCreateCustomStyle: () -> Unit = {},
+    onQuickSave: () -> Unit = {},
+    onSaveAs: () -> Unit = {},
+    onSaveSafDocx: () -> Unit = {},
+    onOpenExportOptions: () -> Unit = {},
+    onPrint: () -> Unit = {},
+    onToggleFindReplace: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
@@ -99,6 +127,65 @@ fun WordRibbon(
             modifier = modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
+                // Top Ribbon Tabs selector bar: [File ▸] [Home] [Insert] [Draw] [Layout] [Review] [View]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    val visibleTabs = if (activeTab == RibbonTab.FILE) {
+                        RibbonTab.entries
+                    } else {
+                        RibbonTab.entries.filter { it != RibbonTab.FILE }
+                    }
+                    visibleTabs.forEach { tab ->
+                        val isSelected = activeTab == tab
+                        val isFile = tab == RibbonTab.FILE
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isSelected) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
+                            border = if (isSelected) BorderStroke(1.dp, WordPrimary) else null,
+                            modifier = Modifier
+                                .clickable { onTabSelected(tab) }
+                                .testTag("ribbon_tab_item_${tab.name.lowercase()}")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = when (tab) {
+                                        RibbonTab.FILE -> "File"
+                                        RibbonTab.HOME -> "Home"
+                                        RibbonTab.INSERT -> "Insert"
+                                        RibbonTab.DRAW -> "Draw"
+                                        RibbonTab.LAYOUT -> "Layout"
+                                        RibbonTab.REVIEW -> "Review"
+                                        RibbonTab.VIEW -> "View"
+                                    },
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                )
+                                if (isFile) {
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = null,
+                                        tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
+
                 WordRibbonContent(
                     activeTab = activeTab,
                     activeParagraph = activeParagraph,
@@ -134,7 +221,14 @@ fun WordRibbon(
                     onOpenParagraphSpacingDialog = onOpenParagraphSpacingDialog,
                     onToggleChecklist = onToggleChecklist,
                     onApplyCustomStyle = onApplyCustomStyle,
-                    onCreateCustomStyle = onCreateCustomStyle
+                    onCreateCustomStyle = onCreateCustomStyle,
+                    onTabSelected = onTabSelected,
+                    onQuickSave = onQuickSave,
+                    onSaveAs = onSaveAs,
+                    onSaveSafDocx = onSaveSafDocx,
+                    onOpenExportOptions = onOpenExportOptions,
+                    onPrint = onPrint,
+                    onToggleFindReplace = onToggleFindReplace
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
             }

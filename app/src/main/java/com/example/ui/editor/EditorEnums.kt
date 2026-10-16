@@ -5,6 +5,7 @@ package com.example.ui.editor
  */
 enum class RibbonTab {
     HOME,
+    FILE,
     INSERT,
     DRAW,
     LAYOUT,

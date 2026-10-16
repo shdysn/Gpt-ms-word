@@ -18,6 +18,7 @@ import com.example.editor.engine.CaseType
 import com.example.ui.editor.EditorViewModel
 import com.example.ui.editor.RibbonTab
 import com.example.ui.editor.components.ribbon.DrawRibbonControls
+import com.example.ui.editor.components.ribbon.FileRibbonControls
 import com.example.ui.editor.components.ribbon.InsertRibbonControls
 import com.example.ui.editor.components.ribbon.LayoutRibbonControls
 import com.example.ui.editor.components.ribbon.ReviewRibbonControls
@@ -59,9 +60,41 @@ fun WordRibbonContent(
     onOpenParagraphSpacingDialog: () -> Unit = {},
     onToggleChecklist: () -> Unit = {},
     onApplyCustomStyle: (CustomStyle) -> Unit = {},
-    onCreateCustomStyle: () -> Unit = {}
+    onCreateCustomStyle: () -> Unit = {},
+    onTabSelected: (RibbonTab) -> Unit = {},
+    onQuickSave: () -> Unit = {},
+    onSaveAs: () -> Unit = {},
+    onSaveSafDocx: () -> Unit = {},
+    onOpenExportOptions: () -> Unit = {},
+    onPrint: () -> Unit = {},
+    onToggleFindReplace: () -> Unit = {}
 ) {
     when (activeTab) {
+        RibbonTab.FILE -> {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FileRibbonControls(
+                    viewModel = viewModel,
+                    onTabSelected = onTabSelected,
+                    onSaveNow = onQuickSave,
+                    onOpenSaveAs = onSaveAs,
+                    onSaveSafDocx = onSaveSafDocx,
+                    onOpenExportOptions = onOpenExportOptions,
+                    onOpenLayoutDialog = onOpenLayoutDialog,
+                    onPrint = onPrint,
+                    onToggleFindReplace = onToggleFindReplace,
+                    onOpenOutline = onOpenOutline,
+                    onOpenStatsDialog = onOpenStatsDialog
+                )
+            }
+        }
+
         RibbonTab.HOME -> {
             FormattingToolbar(
                 activeParagraph = activeParagraph,
@@ -93,7 +126,8 @@ fun WordRibbonContent(
                 onToggleChecklist = onToggleChecklist,
                 customStyles = customStyles,
                 onApplyCustomStyle = onApplyCustomStyle,
-                onCreateCustomStyle = onCreateCustomStyle
+                onCreateCustomStyle = onCreateCustomStyle,
+                onOpenFileTab = { onTabSelected(RibbonTab.FILE) }
             )
         }
 

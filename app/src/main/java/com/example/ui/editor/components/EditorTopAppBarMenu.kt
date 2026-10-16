@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.Gesture
@@ -114,6 +115,7 @@ fun EditorRibbonTabDropdown(
 
 private fun getRibbonTabMetadata(tab: RibbonTab): Pair<ImageVector, String> {
     return when (tab) {
+        RibbonTab.FILE -> Icons.Default.Description to "File"
         RibbonTab.HOME -> Icons.Default.Home to "Home"
         RibbonTab.INSERT -> Icons.Default.AddCircleOutline to "Insert"
         RibbonTab.DRAW -> Icons.Default.Gesture to "Draw"
@@ -130,7 +132,7 @@ private fun getRibbonTabMetadata(tab: RibbonTab): Pair<ImageVector, String> {
 fun EditorTopAppBarOverflowMenu(
     isFindReplaceVisible: Boolean,
     isOutlineVisible: Boolean,
-    onTitleClick: () -> Unit,
+    onTitleClick: () -> Unit = {},
     onToggleFindReplace: () -> Unit,
     onToggleOutline: () -> Unit,
     onSaveClick: () -> Unit,
@@ -150,12 +152,6 @@ fun EditorTopAppBarOverflowMenu(
             expanded = showOptionsMenu,
             onDismissRequest = { showOptionsMenu = false }
         ) {
-            DropdownMenuItem(
-                text = { Text("Rename Document") },
-                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = WordPrimary) },
-                onClick = { showOptionsMenu = false; onTitleClick() },
-                modifier = Modifier.testTag("menu_rename_document")
-            )
             DropdownMenuItem(
                 text = { Text("Find & Replace") },
                 leadingIcon = {

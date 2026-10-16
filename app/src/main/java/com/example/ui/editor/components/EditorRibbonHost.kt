@@ -26,7 +26,8 @@ fun EditorRibbonHost(
     coroutineScope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     voiceTypingLauncher: ActivityResultLauncher<Intent>,
-    photoPickerLauncher: ActivityResultLauncher<PickVisualMediaRequest>
+    photoPickerLauncher: ActivityResultLauncher<PickVisualMediaRequest>,
+    safDocxSaveLauncher: ActivityResultLauncher<String>? = null
 ) {
     WordRibbon(
         activeTab = activeRibbonTab,
@@ -36,6 +37,14 @@ fun EditorRibbonHost(
         activeParagraph = activeParagraph,
         viewModel = viewModel,
         context = context,
+        onQuickSave = { viewModel.saveNow() },
+        onSaveAs = { dState.showSaveAsDialog = true },
+        onSaveSafDocx = {
+            safDocxSaveLauncher?.launch("${viewModel.document.value?.title ?: "Document"}.docx")
+        },
+        onOpenExportOptions = { dState.showExportOptionsDialog = true },
+        onPrint = { viewModel.printDocument(context) },
+        onToggleFindReplace = { viewModel.toggleFindReplace() },
         onOpenTableDialog = { dState.showTableDialog = true },
         onOpenPhotoPicker = {
             photoPickerLauncher.launch(
