@@ -78,10 +78,11 @@ fun SinglePageSheet(
     }
 
     val sheetHeightDp = (scaledMaxSheetWidth.value / page.layout.aspectRatio).dp
-    val leftMarginDp = ((page.layout.leftMarginPt / page.layout.pageWidthPt) * scaledMaxSheetWidth.value).dp
-    val rightMarginDp = ((page.layout.rightMarginPt / page.layout.pageWidthPt) * scaledMaxSheetWidth.value).dp
-    val topMarginDp = ((page.layout.topMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
-    val bottomMarginDp = ((page.layout.bottomMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value).dp
+    val marginScale = if (scaledMaxSheetWidth.value < 500f) 0.65f else 1.0f
+    val leftMarginDp = (((page.layout.leftMarginPt / page.layout.pageWidthPt) * scaledMaxSheetWidth.value) * marginScale).coerceAtLeast(10f).dp
+    val rightMarginDp = (((page.layout.rightMarginPt / page.layout.pageWidthPt) * scaledMaxSheetWidth.value) * marginScale).coerceAtLeast(10f).dp
+    val topMarginDp = (((page.layout.topMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value) * marginScale).coerceAtLeast(12f).dp
+    val bottomMarginDp = (((page.layout.bottomMarginPt / page.layout.pageHeightPt) * sheetHeightDp.value) * marginScale).coerceAtLeast(12f).dp
 
     @Composable
     fun RenderItem(item: PageItem) {

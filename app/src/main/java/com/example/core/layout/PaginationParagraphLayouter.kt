@@ -30,7 +30,7 @@ object PaginationParagraphLayouter {
             } catch (_: Throwable) {}
         }
 
-        val lineHeight = fontSizePt * block.lineSpacingMultiplier + 2f
+        val lineHeight = if (block.isRtl) (fontSizePt * block.lineSpacingMultiplier * 1.6f + 3f) else (fontSizePt * block.lineSpacingMultiplier + 2f)
         val paragraphSpacing = if (block.spaceAfterPt > 0f) {
             block.spaceAfterPt
         } else {

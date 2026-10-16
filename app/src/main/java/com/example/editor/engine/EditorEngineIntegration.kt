@@ -134,6 +134,13 @@ object EditorEngineIntegration {
             androidx.compose.ui.text.style.TextIndent(firstLine = firstLineIndent, restLine = restLineIndent)
         } else null
 
+        val isRtl = paragraph.isRtl
+        val effectiveLineHeight = if (isRtl) {
+            (28f * paragraph.lineSpacingMultiplier * zoomScale).sp
+        } else {
+            (18f * paragraph.lineSpacingMultiplier * zoomScale).sp
+        }
+
         return ParagraphStyle(
             textAlign = when (paragraph.alignment) {
                 TextAlignment.START -> TextAlign.Start
@@ -141,9 +148,14 @@ object EditorEngineIntegration {
                 TextAlignment.END -> TextAlign.End
                 TextAlignment.JUSTIFY -> TextAlign.Justify
             },
-            textDirection = if (paragraph.isRtl) TextDirection.Rtl else TextDirection.Ltr,
-            lineHeight = (18f * paragraph.lineSpacingMultiplier * zoomScale).sp,
-            textIndent = indent
+            textDirection = if (isRtl) TextDirection.Rtl else TextDirection.Ltr,
+            lineHeight = effectiveLineHeight,
+            textIndent = indent,
+            platformStyle = androidx.compose.ui.text.PlatformParagraphStyle(includeFontPadding = true),
+            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.None
+            )
         )
     }
 

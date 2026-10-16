@@ -65,24 +65,33 @@ object ContinuousAnnotatedTextBuilder {
 
                 val textDir = if (isRtl) TextDirection.Rtl else TextDirection.Ltr
 
-                val lineSpacingMult = if (isRtl) block.lineSpacingMultiplier.coerceAtLeast(1.4f) else block.lineSpacingMultiplier
                 val unscaledFontSize = when (block.headingStyle) {
-                    HeadingStyle.TITLE -> 26f
-                    HeadingStyle.SUBTITLE -> 18f
-                    HeadingStyle.HEADING_1 -> 22f
-                    HeadingStyle.HEADING_2 -> 18f
-                    HeadingStyle.HEADING_3 -> 16f
-                    HeadingStyle.QUOTE -> 15f
-                    HeadingStyle.NORMAL -> 15f
+                    HeadingStyle.TITLE -> if (isRtl) 19f else 22f
+                    HeadingStyle.SUBTITLE -> if (isRtl) 15f else 16f
+                    HeadingStyle.HEADING_1 -> if (isRtl) 16.5f else 18f
+                    HeadingStyle.HEADING_2 -> if (isRtl) 15f else 16f
+                    HeadingStyle.HEADING_3 -> if (isRtl) 13.5f else 14.5f
+                    HeadingStyle.QUOTE -> if (isRtl) 13f else 14f
+                    HeadingStyle.NORMAL -> if (isRtl) 13.5f else 14.5f
                 }
                 val baseFontSize = (unscaledFontSize * zoomScale).sp
+                val effectiveLineHeight = if (isRtl) {
+                    (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 2.3f)).sp
+                } else {
+                    (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 1.35f)).sp
+                }
 
                 // Add ParagraphStyle for this specific paragraph range
                 addStyle(
                     style = ParagraphStyle(
                         textAlign = align,
                         textDirection = textDir,
-                        lineHeight = baseFontSize * lineSpacingMult
+                        lineHeight = effectiveLineHeight,
+                        platformStyle = androidx.compose.ui.text.PlatformParagraphStyle(includeFontPadding = true),
+                        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.None
+                        )
                     ),
                     start = range.start,
                     end = range.end

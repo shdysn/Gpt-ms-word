@@ -40,6 +40,7 @@ fun EditorCanvasContent(
                 zoomPercent = zoomPercent,
                 showRuler = showRuler,
                 isTabletOrExpanded = isTabletOrExpanded,
+                containerWidthDp = maxWidth.value,
                 activeBlockIndex = activeBlockIndex,
                 onBlockSelected = viewModel::setActiveBlock,
                 onUpdateBlockText = { index, text, sel -> viewModel.updateParagraphText(index, text, sel) },

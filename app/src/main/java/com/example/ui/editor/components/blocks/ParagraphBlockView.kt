@@ -81,15 +81,21 @@ fun ParagraphBlockView(
     )
 
     val unscaledFontSize = when (block.headingStyle) {
-        HeadingStyle.TITLE -> 26f
-        HeadingStyle.SUBTITLE -> 18f
-        HeadingStyle.HEADING_1 -> 22f
-        HeadingStyle.HEADING_2 -> 18f
-        HeadingStyle.HEADING_3 -> 16f
-        HeadingStyle.QUOTE -> 15f
-        HeadingStyle.NORMAL -> 15f
+        HeadingStyle.TITLE -> if (block.isRtl) 19f else 22f
+        HeadingStyle.SUBTITLE -> if (block.isRtl) 15f else 16f
+        HeadingStyle.HEADING_1 -> if (block.isRtl) 16.5f else 18f
+        HeadingStyle.HEADING_2 -> if (block.isRtl) 15f else 16f
+        HeadingStyle.HEADING_3 -> if (block.isRtl) 13.5f else 14.5f
+        HeadingStyle.QUOTE -> if (block.isRtl) 13f else 14f
+        HeadingStyle.NORMAL -> if (block.isRtl) 13.5f else 14.5f
     }
     val baseFontSize = (unscaledFontSize * zoomScale).sp
+
+    val effectiveLineHeight = if (block.isRtl) {
+        (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 2.3f)).sp
+    } else {
+        (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 1.35f)).sp
+    }
 
     val defaultTextColor = when {
         block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 ->
@@ -206,9 +212,14 @@ fun ParagraphBlockView(
                         color = if (block.isChecked) (if (isDarkPage) Color(0xFF64748B) else Color(0xFF94A3B8)) else defaultTextColor,
                         textAlign = align,
                         textDirection = textDirection,
-                        lineHeight = baseFontSize * (if (block.isRtl) block.lineSpacingMultiplier.coerceAtLeast(1.4f) else block.lineSpacingMultiplier),
+                        lineHeight = effectiveLineHeight,
                         textIndent = textIndent,
-                        textDecoration = if (block.isChecked) TextDecoration.LineThrough else null
+                        textDecoration = if (block.isChecked) TextDecoration.LineThrough else null,
+                        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = true),
+                        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                            alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                            trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.None
+                        )
                     ),
                     cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                     modifier = Modifier
@@ -252,7 +263,8 @@ fun ParagraphBlockView(
                                         fontFamily = effectiveFontFamily,
                                         color = if (isDarkPage) Color(0xFF64748B) else Color(0xFF94A3B8),
                                         textAlign = align,
-                                        textDirection = textDirection
+                                        textDirection = textDirection,
+                                        lineHeight = effectiveLineHeight
                                     )
                                 )
                             }

@@ -97,13 +97,19 @@ fun UnifiedTextCanvas(
         }
     }
 
-    val baseFontSize = (15f * zoomScale).sp
-    val defaultTextColor = if (isDarkPage) Color(0xFFF8FAFC) else Color(0xFF1E293B)
-
     val isRtl = remember(paragraphs, fullText) {
         paragraphs.any { it.isRtl } || BidiUtils.detectParagraphIsRtl(fullText)
     }
     val textDirection = if (isRtl) TextDirection.Rtl else TextDirection.Ltr
+
+    val unscaledFontSize = if (isRtl) 13.5f else 14.5f
+    val baseFontSize = (unscaledFontSize * zoomScale).sp
+    val effectiveLineHeight = if (isRtl) {
+        (baseFontSize.value * 2.3f).sp
+    } else {
+        (baseFontSize.value * 1.35f).sp
+    }
+    val defaultTextColor = if (isDarkPage) Color(0xFFF8FAFC) else Color(0xFF1E293B)
 
     val effectiveFontFamily = DocumentFontManager.getFontFamily(
         fontName = paragraphs.firstOrNull { it.spans.any { sp -> sp.fontFamilyName != null } }
@@ -181,7 +187,12 @@ fun UnifiedTextCanvas(
                     color = defaultTextColor,
                     textAlign = TextAlign.Unspecified,
                     textDirection = textDirection,
-                    lineHeight = baseFontSize * (if (isRtl) 1.4f else 1.25f)
+                    lineHeight = effectiveLineHeight,
+                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = true),
+                    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                        alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                        trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.None
+                    )
                 ),
                 cursorBrush = SolidColor(if (isDarkPage) Color(0xFF60A5FA) else WordPrimary),
                 modifier = Modifier

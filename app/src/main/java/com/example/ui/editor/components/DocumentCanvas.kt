@@ -32,6 +32,7 @@ fun DocumentCanvas(
     zoomPercent: Int,
     showRuler: Boolean = true,
     isTabletOrExpanded: Boolean,
+    containerWidthDp: Float = 0f,
     activeBlockIndex: Int,
     onBlockSelected: (Int) -> Unit,
     onUpdateBlockText: (Int, String, TextRange) -> Unit,
@@ -93,7 +94,12 @@ fun DocumentCanvas(
                 PaginationEngine.paginate(document)
             }
 
-            val a4PortraitReferenceWidth = if (isTabletOrExpanded) 720f else 580f
+            val availableMobileWidth = if (containerWidthDp > 0f) {
+                (containerWidthDp - 24f).coerceIn(310f, 480f)
+            } else {
+                350f
+            }
+            val a4PortraitReferenceWidth = if (isTabletOrExpanded) 720f else availableMobileWidth
             val baseSheetWidth = (document.layoutConfig.pageWidthPt.toFloat() / 595f) * a4PortraitReferenceWidth
             val scaledMaxSheetWidth = (baseSheetWidth * zoomScale).dp
 
