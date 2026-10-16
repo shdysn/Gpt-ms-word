@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FormatListNumbered
@@ -41,15 +40,6 @@ fun FileRibbonControls(
     onOpenOutline: () -> Unit,
     onOpenStatsDialog: () -> Unit
 ) {
-    // Quick back to Home ribbon
-    RibbonActionButton(
-        icon = Icons.AutoMirrored.Filled.ArrowBack,
-        label = "Home",
-        onClick = { onTabSelected(RibbonTab.HOME) }
-    )
-
-    Box(modifier = Modifier.height(20.dp).width(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
     // Save
     RibbonActionButton(
         icon = Icons.Default.Save,

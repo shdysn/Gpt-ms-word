@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
@@ -45,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -67,11 +70,7 @@ fun RibbonActionButton(icon: ImageVector, label: String, onClick: () -> Unit) =
 fun RibbonToggleButton(icon: ImageVector, label: String, isSelected: Boolean, onClick: () -> Unit, tag: String = "") =
     com.example.ui.editor.components.ribbon.RibbonToggleButton(icon, label, isSelected, onClick, tag)
 
-/**
- * WordRibbon container component.
- * Displays the active tab's tool buttons cleanly below the Top Bar when expanded.
- * Tab switching is controlled via the MS Word style dropdown situated in the top bar.
- */
+/** WordRibbon container component with modern tab dropdown selector. */
 @Composable
 fun WordRibbon(
     activeTab: RibbonTab,
@@ -94,28 +93,17 @@ fun WordRibbon(
     onStartVoiceTyping: () -> Unit,
     onOpenSignatureDialog: () -> Unit,
     onOpenShapeDialog: () -> Unit,
-    onOpenCommentsDialog: () -> Unit = {},
-    onOpenTrackChangesDialog: () -> Unit = {},
-    onOpenPageBordersDialog: () -> Unit = {},
-    onOpenPageColorDialog: () -> Unit = {},
-    onOpenFootnoteDialog: () -> Unit = {},
-    onOpenSmartWritingDialog: () -> Unit = {},
-    onOpenOcrScanDialog: () -> Unit = {},
-    onOpenOutline: () -> Unit = {},
-    onClearFormatting: () -> Unit = {},
-    onChangeCase: (CaseType) -> Unit = {},
-    onOpenTypographyEffectsDialog: () -> Unit = {},
-    onOpenParagraphSpacingDialog: () -> Unit = {},
-    onToggleChecklist: () -> Unit = {},
-    onApplyCustomStyle: (CustomStyle) -> Unit = {},
-    onCreateCustomStyle: () -> Unit = {},
-    onQuickSave: () -> Unit = {},
-    onSaveAs: () -> Unit = {},
-    onSaveSafDocx: () -> Unit = {},
-    onOpenExportOptions: () -> Unit = {},
-    onPrint: () -> Unit = {},
-    onToggleFindReplace: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onOpenCommentsDialog: () -> Unit = {}, onOpenTrackChangesDialog: () -> Unit = {},
+    onOpenPageBordersDialog: () -> Unit = {}, onOpenPageColorDialog: () -> Unit = {},
+    onOpenFootnoteDialog: () -> Unit = {}, onOpenSmartWritingDialog: () -> Unit = {},
+    onOpenOcrScanDialog: () -> Unit = {}, onOpenOutline: () -> Unit = {},
+    onClearFormatting: () -> Unit = {}, onChangeCase: (CaseType) -> Unit = {},
+    onOpenTypographyEffectsDialog: () -> Unit = {}, onOpenParagraphSpacingDialog: () -> Unit = {},
+    onToggleChecklist: () -> Unit = {}, onApplyCustomStyle: (CustomStyle) -> Unit = {},
+    onCreateCustomStyle: () -> Unit = {}, onQuickSave: () -> Unit = {},
+    onSaveAs: () -> Unit = {}, onSaveSafDocx: () -> Unit = {},
+    onOpenExportOptions: () -> Unit = {}, onPrint: () -> Unit = {},
+    onToggleFindReplace: () -> Unit = {}, modifier: Modifier = Modifier
 ) {
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
     val isFormatPainterActive by viewModel.isFormatPainterActive.collectAsStateWithLifecycle()
@@ -132,8 +120,12 @@ fun WordRibbon(
             modifier = modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Ribbon Header Bar with Tab Dropdown Selector (including File tab)
+                // Ribbon Header Bar with Modern Tab Dropdown Selector (including File tab)
                 var isTabDropdownOpen by remember { mutableStateOf(false) }
+                val arrowRotation by animateFloatAsState(
+                    targetValue = if (isTabDropdownOpen) 180f else 0f,
+                    label = "tabArrowRotation"
+                )
 
                 Row(
                     modifier = Modifier
@@ -145,23 +137,23 @@ fun WordRibbon(
                 ) {
                     Box {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(20.dp),
                             color = WordPrimary.copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, WordPrimary.copy(alpha = 0.35f)),
+                            border = BorderStroke(1.dp, WordPrimary.copy(alpha = 0.4f)),
                             modifier = Modifier
                                 .clickable { isTabDropdownOpen = true }
                                 .testTag("ribbon_tab_dropdown_button")
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                             ) {
                                 val (currentIcon, currentTitle) = getRibbonTabMetadata(activeTab)
                                 Icon(
                                     imageVector = currentIcon,
                                     contentDescription = null,
                                     tint = WordPrimary,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
@@ -175,14 +167,17 @@ fun WordRibbon(
                                     imageVector = Icons.Default.ArrowDropDown,
                                     contentDescription = "Select Ribbon Tab",
                                     tint = WordPrimary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .rotate(arrowRotation)
                                 )
                             }
                         }
 
                         DropdownMenu(
                             expanded = isTabDropdownOpen,
-                            onDismissRequest = { isTabDropdownOpen = false }
+                            onDismissRequest = { isTabDropdownOpen = false },
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             RibbonTab.entries.forEach { tab ->
                                 val isSelected = activeTab == tab
@@ -223,18 +218,24 @@ fun WordRibbon(
                     }
 
                     // Collapse ribbon quick button
-                    IconButton(
-                        onClick = onToggleRibbon,
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier
-                            .size(32.dp)
+                            .clickable { onToggleRibbon() }
                             .testTag("ribbon_collapse_button")
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowUp,
-                            contentDescription = "Collapse Ribbon",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Collapse Ribbon",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
