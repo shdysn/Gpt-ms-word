@@ -9,8 +9,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,20 +18,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Gesture
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.RateReview
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -47,20 +60,12 @@ import com.example.ui.theme.WordPrimary
 
 // Re-export ribbon buttons for backward compatibility
 @Composable
-fun RibbonActionButton(
-    icon: ImageVector,
-    label: String,
-    onClick: () -> Unit
-) = com.example.ui.editor.components.ribbon.RibbonActionButton(icon, label, onClick)
+fun RibbonActionButton(icon: ImageVector, label: String, onClick: () -> Unit) =
+    com.example.ui.editor.components.ribbon.RibbonActionButton(icon, label, onClick)
 
 @Composable
-fun RibbonToggleButton(
-    icon: ImageVector,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    tag: String = ""
-) = com.example.ui.editor.components.ribbon.RibbonToggleButton(icon, label, isSelected, onClick, tag)
+fun RibbonToggleButton(icon: ImageVector, label: String, isSelected: Boolean, onClick: () -> Unit, tag: String = "") =
+    com.example.ui.editor.components.ribbon.RibbonToggleButton(icon, label, isSelected, onClick, tag)
 
 /**
  * WordRibbon container component.
@@ -127,61 +132,109 @@ fun WordRibbon(
             modifier = modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Top Ribbon Tabs selector bar: [File ▸] [Home] [Insert] [Draw] [Layout] [Review] [View]
+                // Ribbon Header Bar with Tab Dropdown Selector (including File tab)
+                var isTabDropdownOpen by remember { mutableStateOf(false) }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                        .horizontalScroll(rememberScrollState())
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    val visibleTabs = if (activeTab == RibbonTab.FILE) {
-                        RibbonTab.entries
-                    } else {
-                        RibbonTab.entries.filter { it != RibbonTab.FILE }
-                    }
-                    visibleTabs.forEach { tab ->
-                        val isSelected = activeTab == tab
-                        val isFile = tab == RibbonTab.FILE
+                    Box {
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isSelected) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
-                            border = if (isSelected) BorderStroke(1.dp, WordPrimary) else null,
+                            shape = RoundedCornerShape(8.dp),
+                            color = WordPrimary.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, WordPrimary.copy(alpha = 0.35f)),
                             modifier = Modifier
-                                .clickable { onTabSelected(tab) }
-                                .testTag("ribbon_tab_item_${tab.name.lowercase()}")
+                                .clickable { isTabDropdownOpen = true }
+                                .testTag("ribbon_tab_dropdown_button")
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(
-                                    text = when (tab) {
-                                        RibbonTab.FILE -> "File"
-                                        RibbonTab.HOME -> "Home"
-                                        RibbonTab.INSERT -> "Insert"
-                                        RibbonTab.DRAW -> "Draw"
-                                        RibbonTab.LAYOUT -> "Layout"
-                                        RibbonTab.REVIEW -> "Review"
-                                        RibbonTab.VIEW -> "View"
-                                    },
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                val (currentIcon, currentTitle) = getRibbonTabMetadata(activeTab)
+                                Icon(
+                                    imageVector = currentIcon,
+                                    contentDescription = null,
+                                    tint = WordPrimary,
+                                    modifier = Modifier.size(16.dp)
                                 )
-                                if (isFile) {
-                                    Spacer(modifier = Modifier.width(3.dp))
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                        contentDescription = null,
-                                        tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = currentTitle,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = WordPrimary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Ribbon Tab",
+                                    tint = WordPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
+
+                        DropdownMenu(
+                            expanded = isTabDropdownOpen,
+                            onDismissRequest = { isTabDropdownOpen = false }
+                        ) {
+                            RibbonTab.entries.forEach { tab ->
+                                val isSelected = activeTab == tab
+                                val (tabIcon, tabTitle) = getRibbonTabMetadata(tab)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = tabTitle,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = tabIcon,
+                                            contentDescription = null,
+                                            tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    trailingIcon = if (isSelected) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = WordPrimary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    } else null,
+                                    onClick = {
+                                        isTabDropdownOpen = false
+                                        onTabSelected(tab)
+                                    },
+                                    modifier = Modifier.testTag("ribbon_tab_item_${tab.name.lowercase()}")
+                                )
+                            }
+                        }
+                    }
+
+                    // Collapse ribbon quick button
+                    IconButton(
+                        onClick = onToggleRibbon,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("ribbon_collapse_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Collapse Ribbon",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)

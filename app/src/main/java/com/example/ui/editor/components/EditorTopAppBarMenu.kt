@@ -113,7 +113,7 @@ fun EditorRibbonTabDropdown(
     }
 }
 
-private fun getRibbonTabMetadata(tab: RibbonTab): Pair<ImageVector, String> {
+internal fun getRibbonTabMetadata(tab: RibbonTab): Pair<ImageVector, String> {
     return when (tab) {
         RibbonTab.FILE -> Icons.Default.Description to "File"
         RibbonTab.HOME -> Icons.Default.Home to "Home"
