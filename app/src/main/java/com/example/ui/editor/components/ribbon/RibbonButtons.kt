@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -30,9 +31,8 @@ fun RibbonActionButton(
     onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(6.dp),
+        color = Color.Transparent,
         modifier = Modifier
             .height(34.dp)
             .clickable(onClick = onClick)
@@ -50,7 +50,7 @@ fun RibbonActionButton(
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = label,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -67,12 +67,9 @@ fun RibbonToggleButton(
     tag: String = ""
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        border = BorderStroke(
-            if (isSelected) 1.dp else 0.5.dp,
-            if (isSelected) WordPrimary else MaterialTheme.colorScheme.outlineVariant
-        ),
+        shape = RoundedCornerShape(6.dp),
+        color = if (isSelected) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
+        border = if (isSelected) BorderStroke(1.dp, WordPrimary) else null,
         modifier = Modifier
             .height(34.dp)
             .clickable(onClick = onClick)
@@ -86,14 +83,14 @@ fun RibbonToggleButton(
                 imageVector = icon,
                 contentDescription = label,
                 modifier = Modifier.size(16.dp),
-                tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = label,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
             )
         }
     }

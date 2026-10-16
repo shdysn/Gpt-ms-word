@@ -1,5 +1,6 @@
 package com.example.ui.editor.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -36,8 +37,9 @@ fun TableHeaderBar(
     onEditProperties: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth(widthFraction)
     ) {
         Row(

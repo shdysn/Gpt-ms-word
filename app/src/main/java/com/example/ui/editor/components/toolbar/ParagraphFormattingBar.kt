@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -184,7 +185,7 @@ fun ParagraphFormattingBar(
 
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = if (isRtl) WordPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+            color = if (isRtl) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
             border = if (isRtl) androidx.compose.foundation.BorderStroke(1.5.dp, WordPrimary) else null,
             modifier = Modifier
                 .clickable(onClick = onToggleRtl)

@@ -55,7 +55,7 @@ fun EditorQuickFormatBar(
         ) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 6.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
@@ -71,7 +71,7 @@ fun EditorQuickFormatBar(
                         Icon(
                             imageVector = Icons.Default.FormatBold,
                             contentDescription = "Bold",
-                            tint = if (activeFormatting.isBold) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (activeFormatting.isBold) WordPrimary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(
@@ -81,7 +81,7 @@ fun EditorQuickFormatBar(
                         Icon(
                             imageVector = Icons.Default.FormatItalic,
                             contentDescription = "Italic",
-                            tint = if (activeFormatting.isItalic) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (activeFormatting.isItalic) WordPrimary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(
@@ -91,7 +91,7 @@ fun EditorQuickFormatBar(
                         Icon(
                             imageVector = Icons.Default.FormatUnderlined,
                             contentDescription = "Underline",
-                            tint = if (activeFormatting.isUnderline) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (activeFormatting.isUnderline) WordPrimary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(
@@ -101,7 +101,7 @@ fun EditorQuickFormatBar(
                         Icon(
                             imageVector = Icons.Default.FormatStrikethrough,
                             contentDescription = "Strikethrough",
-                            tint = if (activeFormatting.isStrikethrough) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (activeFormatting.isStrikethrough) WordPrimary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                     IconButton(

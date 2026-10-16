@@ -127,7 +127,7 @@ fun WordRibbon(
                     onPrint = onPrint,
                     onToggleFindReplace = onToggleFindReplace
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
             }
         }
     }

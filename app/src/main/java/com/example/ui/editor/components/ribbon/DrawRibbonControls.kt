@@ -89,8 +89,8 @@ fun DrawRibbonControls(
     swatches.forEach { (hex, name) ->
         Surface(
             shape = RoundedCornerShape(6.dp),
-            color = if (currentColorHex == hex) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            border = BorderStroke(if (currentColorHex == hex) 1.5.dp else 0.5.dp, if (currentColorHex == hex) WordPrimary else MaterialTheme.colorScheme.outlineVariant),
+            color = if (currentColorHex == hex) WordPrimary.copy(alpha = 0.15f) else Color.Transparent,
+            border = if (currentColorHex == hex) BorderStroke(1.dp, WordPrimary) else null,
             modifier = Modifier
                 .height(34.dp)
                 .clickable {
