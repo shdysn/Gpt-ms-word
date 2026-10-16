@@ -4,6 +4,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -75,7 +76,7 @@ fun DocumentCanvas(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onCanvasLongPress: () -> Unit = {}
+    onCanvasLongPress: (Offset) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -98,7 +99,7 @@ fun DocumentCanvas(
             .fillMaxSize()
             .verticalScroll(scrollState)
             .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { onCanvasLongPress() })
+                detectTapGestures(onLongPress = { offset -> onCanvasLongPress(offset) })
             }
             .padding(if (isTabletOrExpanded) 28.dp else 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.example.core.layout.DocumentPage
@@ -62,7 +63,7 @@ fun PaginatedItemRenderer(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onLongPress: () -> Unit = {}
+    onLongPress: (Offset) -> Unit = {}
 ) {
     when (pageItem) {
         is ParagraphPageItem -> {

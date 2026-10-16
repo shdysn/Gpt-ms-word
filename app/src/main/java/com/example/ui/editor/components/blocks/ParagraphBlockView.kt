@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -76,7 +77,7 @@ fun ParagraphBlockView(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onLongPress: () -> Unit = {}
+    onLongPress: (Offset) -> Unit = {}
 ) {
     val align = when (block.alignment) {
         TextAlignment.CENTER -> TextAlign.Center
@@ -168,7 +169,7 @@ fun ParagraphBlockView(
                 .pointerInput(block.id) {
                     detectTapGestures(
                         onTap = { onFocus() },
-                        onLongPress = { onLongPress() }
+                        onLongPress = { offset -> onLongPress(offset) }
                     )
                 },
             verticalAlignment = Alignment.Top

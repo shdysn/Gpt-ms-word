@@ -2,6 +2,7 @@ package com.example.ui.editor.components.canvas
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +66,7 @@ fun ContinuousSheetView(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onCanvasLongPress: () -> Unit = {}
+    onCanvasLongPress: (Offset) -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(document.layoutConfig.pageBackgroundHex))
@@ -88,7 +89,7 @@ fun ContinuousSheetView(
         modifier = Modifier
             .fillMaxWidth()
             .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { onCanvasLongPress() })
+                detectTapGestures(onLongPress = { offset -> onCanvasLongPress(offset) })
             },
         color = pageBgColor
     ) {

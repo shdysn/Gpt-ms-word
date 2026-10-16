@@ -1,6 +1,7 @@
 package com.example.ui.editor.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextRange
 import com.example.core.layout.DocumentPage
 import com.example.data.model.BlockElement
@@ -69,7 +70,7 @@ fun BlockItemView(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onLongPress: () -> Unit = {}
+    onLongPress: (Offset) -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {

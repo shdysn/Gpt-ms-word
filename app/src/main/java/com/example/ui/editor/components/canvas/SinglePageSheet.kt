@@ -2,6 +2,7 @@ package com.example.ui.editor.components.canvas
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +78,7 @@ fun SinglePageSheet(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onCanvasLongPress: () -> Unit = {}
+    onCanvasLongPress: (Offset) -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(page.layout.pageBackgroundHex))
@@ -150,7 +151,7 @@ fun SinglePageSheet(
             .heightIn(min = sheetHeightDp)
             .shadow(2.dp, RoundedCornerShape(0.dp))
             .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { onCanvasLongPress() })
+                detectTapGestures(onLongPress = { offset -> onCanvasLongPress(offset) })
             },
         shape = RoundedCornerShape(0.dp),
         color = pageBgColor,

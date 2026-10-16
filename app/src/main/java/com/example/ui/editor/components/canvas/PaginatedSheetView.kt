@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -55,7 +56,7 @@ fun PaginatedSheetView(
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
-    onCanvasLongPress: () -> Unit = {}
+    onCanvasLongPress: (Offset) -> Unit = {}
 ) {
     pagesToDisplay.forEachIndexed { pageIdx, page ->
         if (showRuler && pageIdx == 0) {

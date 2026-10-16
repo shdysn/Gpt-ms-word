@@ -87,7 +87,7 @@ fun EditorRibbonTabDropdown(
                 val (tabIcon, tabTitle) = getRibbonTabMetadata(activeRibbonTab)
                 Icon(tabIcon, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(tabTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
+                Text(tabTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = WordPrimary, maxLines = 1, softWrap = false)
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
