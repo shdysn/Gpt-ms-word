@@ -80,10 +80,8 @@ fun ParagraphBlockView(
     onLongPress: (Offset) -> Unit = {}
 ) {
     val align = when (block.alignment) {
-        TextAlignment.CENTER -> TextAlign.Center
-        TextAlignment.END -> TextAlign.End
-        TextAlignment.JUSTIFY -> TextAlign.Justify
-        TextAlignment.START -> TextAlign.Start
+        TextAlignment.CENTER -> TextAlign.Center; TextAlignment.END -> TextAlign.End
+        TextAlignment.JUSTIFY -> TextAlign.Justify; TextAlignment.START -> TextAlign.Start
     }
 
     val textDirection = if (block.isRtl) TextDirection.Rtl else TextDirection.Ltr
@@ -149,11 +147,7 @@ fun ParagraphBlockView(
         }
     }
 
-    val indentPadding = if (block.leftIndentPt > 0f) {
-        (block.leftIndentPt * zoomScale).dp
-    } else {
-        ((block.indentationLevel + block.listLevel) * 20 * zoomScale).dp
-    }
+    val indentPadding = if (block.leftIndentPt > 0f) (block.leftIndentPt * zoomScale).dp else ((block.indentationLevel + block.listLevel) * 20 * zoomScale).dp
     val spaceBeforeDp = (block.spaceBeforePt * zoomScale).dp
     val spaceAfterDp = (block.spaceAfterPt * zoomScale).dp
 
@@ -167,10 +161,7 @@ fun ParagraphBlockView(
                 .background(rowBg, RoundedCornerShape(6.dp))
                 .padding(start = indentPadding, top = spaceBeforeDp, bottom = spaceAfterDp)
                 .pointerInput(block.id) {
-                    detectTapGestures(
-                        onTap = { onFocus() },
-                        onLongPress = { offset -> onLongPress(offset) }
-                    )
+                    detectTapGestures(onTap = { onFocus() }, onLongPress = { offset -> onLongPress(offset) })
                 },
             verticalAlignment = Alignment.Top
         ) {
@@ -196,10 +187,17 @@ fun ParagraphBlockView(
                         if (isDocumentAllSelected && newTfv.text != textFieldValue.text) {
                             onReplaceAllDocumentWithText(newTfv.text)
                         } else if (newTfv.text.contains("\n")) {
-                            val newlineIndex = newTfv.text.indexOf('\n')
-                            val textBefore = newTfv.text.substring(0, newlineIndex)
-                            textFieldValue = TextFieldValue(text = textBefore, selection = TextRange(textBefore.length))
-                            onEnterPressed(newlineIndex)
+                            val isSingleEnterKey = (newTfv.text.length == textFieldValue.text.length + 1) && (newTfv.text.count { it == '\n' } == 1)
+                            if (isSingleEnterKey) {
+                                val newlineIndex = newTfv.text.indexOf('\n')
+                                val textBefore = newTfv.text.substring(0, newlineIndex)
+                                textFieldValue = TextFieldValue(text = textBefore, selection = TextRange(textBefore.length))
+                                onEnterPressed(newlineIndex)
+                            } else {
+                                textFieldValue = newTfv
+                                onSelectionChanged(newTfv.selection)
+                                onTextChanged(newTfv.text, newTfv.selection)
+                            }
                         } else {
                             textFieldValue = newTfv
                             onSelectionChanged(newTfv.selection)

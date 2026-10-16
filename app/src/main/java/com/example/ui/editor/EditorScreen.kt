@@ -22,7 +22,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -30,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ParagraphBlock
 import com.example.ui.editor.components.DocumentOutlineSheet
 import com.example.ui.editor.components.EditorCanvasContent
+import com.example.ui.editor.components.EditorQuickFormatBar
 import com.example.ui.editor.components.EditorRecoveryBanner
 import com.example.ui.editor.components.EditorRibbonHost
 import com.example.ui.editor.components.EditorStatusBar
@@ -74,6 +79,10 @@ fun EditorScreen(
     val showWordCount by viewModel.showWordCount.collectAsStateWithLifecycle()
     val showRuler by viewModel.showRuler.collectAsStateWithLifecycle()
     val isDocumentAllSelected by viewModel.isDocumentAllSelected.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+    val density = LocalDensity.current
+    val isImeVisible = WindowInsets.ime.getBottom(density) > 0
 
     val actualPageCount = remember(paginatedPages, document) {
         if (paginatedPages.isNotEmpty()) paginatedPages.size else (document?.estimatedPageCount ?: 1)
@@ -153,30 +162,18 @@ fun EditorScreen(
         topBar = {
             Column {
                 EditorTopAppBar(
-                    title = document?.title ?: "Document",
-                    autosaveStatus = autosaveStatus,
-                    canUndo = canUndo,
-                    canRedo = canRedo,
-                    viewMode = viewMode,
-                    isFindReplaceVisible = isFindReplaceVisible,
-                    isOutlineVisible = dState.showOutlineSheet,
-                    onBackClick = handleBackNavigation,
-                    onUndoClick = { viewModel.undo() },
-                    onRedoClick = { viewModel.redo() },
-                    onToggleViewMode = { viewModel.toggleViewMode() },
-                    onToggleFindReplace = { viewModel.toggleFindReplace() },
+                    title = document?.title ?: "Document", autosaveStatus = autosaveStatus,
+                    canUndo = canUndo, canRedo = canRedo, viewMode = viewMode,
+                    isFindReplaceVisible = isFindReplaceVisible, isOutlineVisible = dState.showOutlineSheet,
+                    onBackClick = handleBackNavigation, onUndoClick = viewModel::undo, onRedoClick = viewModel::redo,
+                    onToggleViewMode = viewModel::toggleViewMode, onToggleFindReplace = viewModel::toggleFindReplace,
                     onToggleOutline = { dState.showOutlineSheet = !dState.showOutlineSheet },
-                    isRibbonVisible = isRibbonVisible,
-                    activeRibbonTab = activeRibbonTab,
-                    onTabSelected = viewModel::selectRibbonTab,
-                    onToggleRibbon = { viewModel.toggleRibbonVisibility() },
-                    onSaveClick = { dState.showSaveOptionsDialog = true },
-                    onExportClick = { dState.showExportOptionsDialog = true },
-                    onPageSetupClick = { dState.showLayoutDialog = true },
-                    onPrintClick = { viewModel.printDocument(context) },
-                    onStatsClick = { dState.showStatsDialog = true },
-                    isDocumentAllSelected = isDocumentAllSelected,
-                    onSelectAllClick = { viewModel.selectAllDocument() }
+                    isRibbonVisible = isRibbonVisible, activeRibbonTab = activeRibbonTab,
+                    onTabSelected = viewModel::selectRibbonTab, onToggleRibbon = viewModel::toggleRibbonVisibility,
+                    onSaveClick = { dState.showSaveOptionsDialog = true }, onExportClick = { dState.showExportOptionsDialog = true },
+                    onPageSetupClick = { dState.showLayoutDialog = true }, onPrintClick = { viewModel.printDocument(context) },
+                    onStatsClick = { dState.showStatsDialog = true }, isDocumentAllSelected = isDocumentAllSelected,
+                    onSelectAllClick = viewModel::selectAllDocument
                 )
 
                 FindReplaceBar(
@@ -192,37 +189,28 @@ fun EditorScreen(
             }
         },
         bottomBar = {
-            EditorStatusBar(
-                document = document,
-                currentPageNumber = currentPageNumber,
-                totalPages = actualPageCount,
-                showWordCount = showWordCount,
-                autosaveStatus = autosaveStatus,
-                zoomPercent = zoomPercent,
-                activeBlock = activeParagraph,
-                onOpenLayoutDialog = { dState.showLayoutDialog = true }
-            )
+            if (!isImeVisible) {
+                EditorStatusBar(
+                    document = document, currentPageNumber = currentPageNumber, totalPages = actualPageCount,
+                    showWordCount = showWordCount, autosaveStatus = autosaveStatus, zoomPercent = zoomPercent,
+                    activeBlock = activeParagraph, onOpenLayoutDialog = { dState.showLayoutDialog = true }
+                )
+            }
         }
     ) { innerPadding ->
         val deskCanvasColor = if (isSystemInDarkTheme()) WordDeskCanvasDark else WordDeskCanvasLight
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(top = innerPadding.calculateTopPadding(), bottom = if (isImeVisible) 0.dp else innerPadding.calculateBottomPadding())
                 .background(deskCanvasColor)
                 .imePadding()
         ) {
             EditorRibbonHost(
-                viewModel = viewModel,
-                dState = dState,
-                activeRibbonTab = activeRibbonTab,
-                isRibbonVisible = isRibbonVisible,
-                activeParagraph = activeParagraph,
-                context = context,
-                coroutineScope = coroutineScope,
-                snackbarHostState = snackbarHostState,
-                voiceTypingLauncher = voiceTypingLauncher,
-                photoPickerLauncher = photoPickerLauncher,
+                viewModel = viewModel, dState = dState, activeRibbonTab = activeRibbonTab,
+                isRibbonVisible = isRibbonVisible, activeParagraph = activeParagraph, context = context,
+                coroutineScope = coroutineScope, snackbarHostState = snackbarHostState,
+                voiceTypingLauncher = voiceTypingLauncher, photoPickerLauncher = photoPickerLauncher,
                 safDocxSaveLauncher = safDocxSaveLauncher
             )
 
@@ -234,29 +222,44 @@ fun EditorScreen(
             }
 
             EditorCanvasContent(
-                document = document,
-                viewModel = viewModel,
-                paginatedPages = paginatedPages,
-                viewMode = viewMode,
-                zoomPercent = zoomPercent,
-                showRuler = showRuler,
-                activeBlockIndex = activeBlockIndex,
-                dState = dState,
-                modifier = Modifier.weight(1f)
+                document = document, viewModel = viewModel, paginatedPages = paginatedPages,
+                viewMode = viewMode, zoomPercent = zoomPercent, showRuler = showRuler,
+                activeBlockIndex = activeBlockIndex, dState = dState, modifier = Modifier.weight(1f)
+            )
+
+            EditorQuickFormatBar(
+                selection = selection,
+                isDocumentAllSelected = isDocumentAllSelected,
+                isKeyboardVisible = isImeVisible,
+                activeFormatting = activeFormatting,
+                canCut = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max),
+                canCopy = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max) || (activeParagraph?.text?.isNotEmpty() == true),
+                canPaste = true,
+                onCut = { viewModel.cutSelection(context) },
+                onCopy = { viewModel.copySelection(context) },
+                onPaste = { viewModel.pasteFromClipboard(context) },
+                onSelectAll = { viewModel.selectAllDocument() },
+                onToggleBold = { viewModel.toggleBold() },
+                onToggleItalic = { viewModel.toggleItalic() },
+                onToggleUnderline = { viewModel.toggleUnderline() },
+                onToggleStrikethrough = { viewModel.toggleStrikethrough() },
+                onHighlightClick = {
+                    if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
+                    else viewModel.setHighlightColor("#FEF08A")
+                },
+                onTextColorClick = {
+                    if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
+                    else viewModel.setTextColor("#185ABD")
+                },
+                onDeselect = { viewModel.clearDocumentSelection() }
             )
         }
     }
 
     EditorDialogsWiring(
-        viewModel = viewModel,
-        document = document,
-        context = context,
-        actualPageCount = actualPageCount,
-        activeParagraph = activeParagraph,
-        dState = dState,
-        onNavigateBack = onNavigateBack,
-        safDocxSaveLauncher = safDocxSaveLauncher,
-        safPdfSaveLauncher = safPdfSaveLauncher
+        viewModel = viewModel, document = document, context = context,
+        actualPageCount = actualPageCount, activeParagraph = activeParagraph, dState = dState,
+        onNavigateBack = onNavigateBack, safDocxSaveLauncher = safDocxSaveLauncher, safPdfSaveLauncher = safPdfSaveLauncher
     )
 
     if (dState.showOutlineSheet && document != null) {

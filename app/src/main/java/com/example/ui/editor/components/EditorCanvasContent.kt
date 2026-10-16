@@ -48,28 +48,10 @@ fun EditorCanvasContent(
         val drawStrokeWidthPt by viewModel.drawStrokeWidthPt.collectAsStateWithLifecycle()
         val isDocumentAllSelected by viewModel.isDocumentAllSelected.collectAsStateWithLifecycle()
 
-        val density = LocalDensity.current
-        var contextMenuState by remember { mutableStateOf(ContextMenuDisplayState()) }
-
-        val wordTextToolbar = remember(density) {
+        val wordTextToolbar = remember {
             WordTextToolbar(
-                onShow = { rect, onCopy, onPaste, onCut, onSelectAll ->
-                    val x = with(density) { rect.center.x.toDp() }
-                    val y = with(density) { (rect.top.toDp() - 52.dp).coerceAtLeast(10.dp) }
-                    contextMenuState = ContextMenuDisplayState(
-                        isVisible = true,
-                        anchorX = x.value,
-                        anchorY = y.value,
-                        onCopy = onCopy,
-                        onPaste = onPaste,
-                        onCut = onCut,
-                        onSelectAll = onSelectAll,
-                        isFromTextSelection = true
-                    )
-                },
-                onHide = {
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                }
+                onShow = { _, _, _, _, _ -> },
+                onHide = {}
             )
         }
 
@@ -126,107 +108,23 @@ fun EditorCanvasContent(
                     onSelectAllDocument = viewModel::selectAllDocument,
                     onDeleteAllDocument = viewModel::deleteAllDocumentContent,
                     onReplaceAllDocumentWithText = viewModel::replaceAllDocumentWithText,
-                    onCanvasLongPress = { offset ->
-                        val x = with(density) { offset.x.toDp() }
-                        val y = with(density) { (offset.y.toDp() - 52.dp).coerceAtLeast(10.dp) }
-                        contextMenuState = ContextMenuDisplayState(
-                            isVisible = true,
-                            anchorX = x.value,
-                            anchorY = y.value,
-                            isFromTextSelection = false
-                        )
-                    }
+                    onCanvasLongPress = { }
                 )
             }
         }
 
-        val selection by viewModel.selection.collectAsStateWithLifecycle()
-        val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
         val context = androidx.compose.ui.platform.LocalContext.current
 
-        if (contextMenuState.isVisible) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        wordTextToolbar.hide()
-                        contextMenuState = contextMenuState.copy(isVisible = false)
-                    }
-            )
-
-            val menuStartOffset = ((contextMenuState.anchorX.dp) - 130.dp).coerceIn(8.dp, (maxWidth - 280.dp).coerceAtLeast(8.dp))
-            val menuTopOffset = contextMenuState.anchorY.dp.coerceIn(8.dp, 360.dp)
-
-            WordContextMenu(
-                isVisible = contextMenuState.isVisible,
-                canCut = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max),
-                canCopy = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max) || (document?.blocks?.getOrNull(activeBlockIndex) as? com.example.data.model.ParagraphBlock)?.text?.isNotEmpty() == true,
-                onCut = {
-                    contextMenuState.onCut?.invoke() ?: viewModel.cutSelection(context)
-                    wordTextToolbar.hide()
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                },
-                onCopy = {
-                    contextMenuState.onCopy?.invoke() ?: viewModel.copySelection(context)
-                    wordTextToolbar.hide()
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                },
-                onPaste = {
-                    contextMenuState.onPaste?.invoke() ?: viewModel.pasteFromClipboard(context, keepSourceFormatting = false)
-                    wordTextToolbar.hide()
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                },
-                onPasteKeepFormatting = {
-                    viewModel.pasteFromClipboard(context, keepSourceFormatting = true)
-                    wordTextToolbar.hide()
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                },
-                onSelectAll = {
-                    contextMenuState.onSelectAll?.invoke() ?: viewModel.selectAllDocument()
-                    wordTextToolbar.hide()
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                },
-                onDismiss = {
-                    wordTextToolbar.hide()
-                    contextMenuState = contextMenuState.copy(isVisible = false)
-                },
-                modifier = Modifier
-                    .padding(start = menuStartOffset, top = menuTopOffset)
-                    .align(Alignment.TopStart)
-            )
-        }
-
-        if (!isDocumentAllSelected) {
-            EditorQuickFormatBar(
-                selection = selection,
-                activeFormatting = activeFormatting,
-                onToggleBold = { viewModel.toggleBold() },
-                onToggleItalic = { viewModel.toggleItalic() },
-                onToggleUnderline = { viewModel.toggleUnderline() },
-                onToggleStrikethrough = { viewModel.toggleStrikethrough() },
-                onHighlightClick = {
-                    if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
-                    else viewModel.setHighlightColor("#FEF08A")
-                },
-                onTextColorClick = {
-                    if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
-                    else viewModel.setTextColor("#185ABD")
-                },
+        if (isDocumentAllSelected) {
+            DocumentSelectionBanner(
+                isVisible = true,
+                paragraphCount = document?.blocks?.filterIsInstance<com.example.data.model.ParagraphBlock>()?.size ?: 1,
+                onCopyAll = { viewModel.copyAllToClipboard(context) },
+                onCutAll = { viewModel.cutAllToClipboard(context) },
+                onDeleteAll = { viewModel.deleteAllDocumentContent() },
+                onDismiss = { viewModel.clearDocumentSelection() },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
-
-        DocumentSelectionBanner(
-            isVisible = isDocumentAllSelected,
-            paragraphCount = document?.blocks?.filterIsInstance<com.example.data.model.ParagraphBlock>()?.size ?: 1,
-            onCopyAll = { viewModel.copyAllToClipboard(context) },
-            onCutAll = { viewModel.cutAllToClipboard(context) },
-            onDeleteAll = { viewModel.deleteAllDocumentContent() },
-            onDismiss = { viewModel.clearDocumentSelection() },
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }

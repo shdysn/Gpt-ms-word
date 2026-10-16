@@ -18,6 +18,12 @@ class EditorClipboardManager(
     private val vm: EditorViewModel
 ) {
     fun selectAllDocument() {
+        val currentDoc = vm.currentDocument ?: return
+        val activeIdx = vm.activeBlockIndex.value.coerceIn(0, (currentDoc.blocks.size - 1).coerceAtLeast(0))
+        val activeBlock = currentDoc.blocks.getOrNull(activeIdx) as? ParagraphBlock
+        if (activeBlock != null && activeBlock.text.isNotEmpty()) {
+            vm.updateSelection(TextRange(0, activeBlock.text.length))
+        }
         vm.setIsDocumentAllSelected(true)
         vm.showStatusMessage("All document content selected")
     }
@@ -26,6 +32,7 @@ class EditorClipboardManager(
         if (vm.isDocumentAllSelected.value) {
             vm.setIsDocumentAllSelected(false)
         }
+        vm.updateSelection(TextRange.Zero)
     }
 
     fun copySelection(context: Context) {
