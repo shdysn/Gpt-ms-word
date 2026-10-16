@@ -173,8 +173,17 @@ class EditorViewModel(
     fun clearStatusMessage() { _statusMessage.value = null }
     fun setDrawTool(tool: String) {
         _drawTool.value = tool
-        val hasDrawing = currentDocument?.blocks?.any { it is DrawingBlock } == true
-        if (!hasDrawing && (tool == "PEN" || tool == "HIGHLIGHTER")) {
+        val existingIndex = currentDocument?.blocks?.indexOfFirst { it is DrawingBlock } ?: -1
+        if (existingIndex >= 0) {
+            setActiveBlock(existingIndex)
+            val toolName = when (tool) {
+                "PEN" -> "Pen"
+                "HIGHLIGHTER" -> "Highlighter"
+                "ERASER" -> "Eraser"
+                else -> tool
+            }
+            showStatusMessage("$toolName active - Draw on inking canvas")
+        } else if (tool == "PEN" || tool == "HIGHLIGHTER") {
             insertDrawing()
         }
     }

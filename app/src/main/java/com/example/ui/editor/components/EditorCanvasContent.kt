@@ -32,6 +32,10 @@ fun EditorCanvasContent(
     ) {
         val isTabletOrExpanded = maxWidth > 600.dp
 
+        val drawTool by viewModel.drawTool.collectAsStateWithLifecycle()
+        val drawColorHex by viewModel.drawColorHex.collectAsStateWithLifecycle()
+        val drawStrokeWidthPt by viewModel.drawStrokeWidthPt.collectAsStateWithLifecycle()
+
         if (document != null) {
             DocumentCanvas(
                 document = document,
@@ -66,6 +70,12 @@ fun EditorCanvasContent(
                 onRefreshTOC = viewModel::refreshTableOfContents,
                 onToggleChecklistItem = { viewModel.toggleChecklistItem(it) },
                 onUpdateDrawingStrokes = { id, strokes -> viewModel.updateDrawingStrokes(id, strokes) },
+                drawTool = drawTool,
+                drawColorHex = drawColorHex,
+                drawStrokeWidthPt = drawStrokeWidthPt,
+                onSetDrawTool = viewModel::setDrawTool,
+                onSetDrawColorHex = viewModel::setDrawColorHex,
+                onSetDrawStrokeWidthPt = viewModel::setDrawStrokeWidthPt,
                 onUpdateTextBox = { id, text -> viewModel.updateTextBox(id, text) },
                 onUpdateTextBoxGeometry = { id, ox, oy, w, h -> viewModel.updateTextBoxGeometry(id, ox, oy, w, h) },
                 onUpdateTextBoxColor = { id, bg, bdr ->

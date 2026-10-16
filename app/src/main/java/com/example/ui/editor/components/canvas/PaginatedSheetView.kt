@@ -8,6 +8,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.core.layout.DocumentPage
+import com.example.data.model.DrawingStroke
 import com.example.data.model.ImageBlock
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.RichDocument
@@ -39,6 +40,13 @@ fun PaginatedSheetView(
     onEditImageProperties: (ImageBlock) -> Unit,
     onRefreshTOC: () -> Unit,
     onToggleChecklistItem: (String) -> Unit,
+    onUpdateDrawingStrokes: (String, List<DrawingStroke>) -> Unit = { _, _ -> },
+    drawTool: String = "PEN",
+    drawColorHex: String = "#0F172A",
+    drawStrokeWidthPt: Float = 2.5f,
+    onSetDrawTool: (String) -> Unit = {},
+    onSetDrawColorHex: (String) -> Unit = {},
+    onSetDrawStrokeWidthPt: (Float) -> Unit = {},
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
@@ -81,6 +89,13 @@ fun PaginatedSheetView(
             onEditImageProperties = onEditImageProperties,
             onRefreshTOC = onRefreshTOC,
             onToggleChecklistItem = onToggleChecklistItem,
+            onUpdateDrawingStrokes = onUpdateDrawingStrokes,
+            drawTool = drawTool,
+            drawColorHex = drawColorHex,
+            drawStrokeWidthPt = drawStrokeWidthPt,
+            onSetDrawTool = onSetDrawTool,
+            onSetDrawColorHex = onSetDrawColorHex,
+            onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt,
             onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
             onUpdateTextBox = onUpdateTextBox,
             onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,

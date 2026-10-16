@@ -32,6 +32,7 @@ import com.example.core.layout.ShapePageItem
 import com.example.core.layout.SignaturePageItem
 import com.example.core.layout.TableOfContentsPageItem
 import com.example.core.layout.TextBoxPageItem
+import com.example.data.model.DrawingStroke
 import com.example.data.model.RichDocument
 import com.example.ui.editor.components.BlockItemView
 import com.example.ui.theme.WordPrimary
@@ -43,9 +44,17 @@ fun PaginatedSpecialItemRenderer(
     paginatedPages: List<DocumentPage>,
     isDarkPage: Boolean,
     zoomScale: Float,
+    activeBlockIndex: Int = -1,
     onBlockSelected: (Int) -> Unit,
     onDeleteBlockById: (String) -> Unit,
     onRefreshTOC: () -> Unit,
+    onUpdateDrawingStrokes: (String, List<DrawingStroke>) -> Unit = { _, _ -> },
+    drawTool: String = "PEN",
+    drawColorHex: String = "#0F172A",
+    drawStrokeWidthPt: Float = 2.5f,
+    onSetDrawTool: (String) -> Unit = {},
+    onSetDrawColorHex: (String) -> Unit = {},
+    onSetDrawStrokeWidthPt: (Float) -> Unit = {},
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
@@ -166,14 +175,21 @@ fun PaginatedSpecialItemRenderer(
             BlockItemView(
                 block = pageItem.originalBlock,
                 itemNumber = null,
-                isActive = false,
+                isActive = pageItem.originalBlockIndex == activeBlockIndex,
                 isDarkPage = isDarkPage,
                 zoomScale = zoomScale,
                 canDeleteBlock = document.blocks.size > 1,
                 onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
                 onSelectionChanged = {},
                 onTextChanged = { _, _ -> },
-                onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) },
+                onUpdateDrawingStrokes = { strokes -> onUpdateDrawingStrokes(pageItem.originalBlock.id, strokes) },
+                drawTool = drawTool,
+                drawColorHex = drawColorHex,
+                drawStrokeWidthPt = drawStrokeWidthPt,
+                onSetDrawTool = onSetDrawTool,
+                onSetDrawColorHex = onSetDrawColorHex,
+                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import com.example.core.layout.DocumentPage
 import com.example.data.model.BlockElement
+import com.example.data.model.DrawingStroke
 import com.example.data.model.ImageBlock
 import com.example.data.model.ListType
 import com.example.data.model.ParagraphBlock
@@ -50,7 +51,14 @@ fun ContinuousSheetView(
     onQuickDeleteTableCol: (String) -> Unit,
     onEditImageProperties: (ImageBlock) -> Unit,
     onRefreshTOC: () -> Unit,
-    onToggleChecklistItem: (String) -> Unit
+    onToggleChecklistItem: (String) -> Unit,
+    onUpdateDrawingStrokes: (String, List<DrawingStroke>) -> Unit = { _, _ -> },
+    drawTool: String = "PEN",
+    drawColorHex: String = "#0F172A",
+    drawStrokeWidthPt: Float = 2.5f,
+    onSetDrawTool: (String) -> Unit = {},
+    onSetDrawColorHex: (String) -> Unit = {},
+    onSetDrawStrokeWidthPt: (Float) -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(document.layoutConfig.pageBackgroundHex))
@@ -105,7 +113,14 @@ fun ContinuousSheetView(
                 paginatedPages = paginatedPages,
                 onNavigateToBlock = { onBlockSelected(it) },
                 onRefreshTOC = onRefreshTOC,
-                onToggleChecklistItem = onToggleChecklistItem
+                onToggleChecklistItem = onToggleChecklistItem,
+                onUpdateDrawingStrokes = { strokes -> onUpdateDrawingStrokes(block.id, strokes) },
+                drawTool = drawTool,
+                drawColorHex = drawColorHex,
+                drawStrokeWidthPt = drawStrokeWidthPt,
+                onSetDrawTool = onSetDrawTool,
+                onSetDrawColorHex = onSetDrawColorHex,
+                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

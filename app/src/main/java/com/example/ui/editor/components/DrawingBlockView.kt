@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,26 +55,35 @@ fun DrawingBlockView(
     block: DrawingBlock,
     isDarkPage: Boolean = false,
     zoomScale: Float = 1f,
+    currentTool: String = "PEN",
+    currentColorHex: String = "#0F172A",
+    currentStrokeWidthPt: Float = 2.5f,
+    onToolChanged: (String) -> Unit = {},
+    onColorChanged: (String) -> Unit = {},
+    onStrokeWidthChanged: (Float) -> Unit = {},
     onStrokesChanged: (List<DrawingStroke>) -> Unit,
     onDeleteBlock: () -> Unit
 ) {
-    var selectedTool by remember { mutableStateOf("PEN") } // PEN, HIGHLIGHTER, ERASER
-    var selectedColorHex by remember { mutableStateOf("#0F172A") }
-    var selectedStrokeWidthPt by remember { mutableStateOf(2.5f) }
-    var canvasHeightDp by remember { mutableStateOf(block.heightDp) }
+    var canvasHeightDp by remember { mutableIntStateOf(block.heightDp) }
 
     val currentStrokes = remember(block.strokes) {
         mutableStateListOf<DrawingStroke>().apply { addAll(block.strokes) }
     }
 
-    var activeStrokePoints by remember { mutableStateOf<List<Pair<Float, Float>>>(emptyList()) }
-
-    val palette = listOf("#0F172A", "#1E40AF", "#DC2626", "#059669", "#D97706", "#7C3AED", "#FFF59D", "#A7F3D0")
+    val palette = listOf(
+        "#0F172A", // Black
+        "#1E40AF", // Navy
+        "#DC2626", // Red
+        "#059669", // Green
+        "#D97706", // Amber
+        "#7C3AED", // Purple
+        "#FBBF24"  // Yellow
+    )
 
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = if (isDarkPage) Color(0xFF1E293B) else Color(0xFFF8FAFC),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, if (currentTool == "PEN" || currentTool == "HIGHLIGHTER") WordPrimary else MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
@@ -128,7 +139,7 @@ fun DrawingBlockView(
                 }
             }
 
-            // Quick Tool Bar
+            // Quick Tool Bar synced with Ribbon
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -137,30 +148,30 @@ fun DrawingBlockView(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 FilterChip(
-                    selected = selectedTool == "PEN",
+                    selected = currentTool == "PEN",
                     onClick = {
-                        selectedTool = "PEN"
-                        selectedStrokeWidthPt = 2.5f
-                        if (selectedColorHex == "#FFF59D") selectedColorHex = "#0F172A"
+                        onToolChanged("PEN")
+                        if (currentStrokeWidthPt > 4f) onStrokeWidthChanged(2.5f)
+                        if (currentColorHex == "#FBBF24") onColorChanged("#0F172A")
                     },
                     label = { Text("Pen", fontSize = 11.sp) },
                     modifier = Modifier.height(28.dp)
                 )
 
                 FilterChip(
-                    selected = selectedTool == "HIGHLIGHTER",
+                    selected = currentTool == "HIGHLIGHTER",
                     onClick = {
-                        selectedTool = "HIGHLIGHTER"
-                        selectedStrokeWidthPt = 7f
-                        selectedColorHex = "#FFF59D"
+                        onToolChanged("HIGHLIGHTER")
+                        onStrokeWidthChanged(7f)
+                        onColorChanged("#FBBF24")
                     },
                     label = { Text("Highlighter", fontSize = 11.sp) },
                     modifier = Modifier.height(28.dp)
                 )
 
                 FilterChip(
-                    selected = selectedTool == "ERASER",
-                    onClick = { selectedTool = "ERASER" },
+                    selected = currentTool == "ERASER",
+                    onClick = { onToolChanged("ERASER") },
                     label = { Text("Eraser", fontSize = 11.sp) },
                     modifier = Modifier.height(28.dp)
                 )
@@ -169,7 +180,7 @@ fun DrawingBlockView(
 
                 // Color Swatches
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    palette.take(5).forEach { hex ->
+                    palette.take(6).forEach { hex ->
                         val col = try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { Color.Black }
                         Box(
                             modifier = Modifier
@@ -177,13 +188,13 @@ fun DrawingBlockView(
                                 .clip(CircleShape)
                                 .background(col)
                                 .border(
-                                    if (selectedColorHex == hex) 2.dp else 0.5.dp,
-                                    if (selectedColorHex == hex) WordPrimary else Color.LightGray,
+                                    if (currentColorHex == hex) 2.dp else 0.5.dp,
+                                    if (currentColorHex == hex) WordPrimary else Color.LightGray,
                                     CircleShape
                                 )
                                 .clickable {
-                                    selectedColorHex = hex
-                                    if (selectedTool == "ERASER") selectedTool = "PEN"
+                                    onColorChanged(hex)
+                                    if (currentTool == "ERASER") onToolChanged("PEN")
                                 }
                         )
                     }
@@ -196,12 +207,10 @@ fun DrawingBlockView(
                 canvasHeight = canvasHeight,
                 isDarkPage = isDarkPage,
                 zoomScale = zoomScale,
-                selectedTool = selectedTool,
-                selectedColorHex = selectedColorHex,
-                selectedStrokeWidthPt = selectedStrokeWidthPt,
+                selectedTool = currentTool,
+                selectedColorHex = currentColorHex,
+                selectedStrokeWidthPt = currentStrokeWidthPt,
                 currentStrokes = currentStrokes,
-                activeStrokePoints = activeStrokePoints,
-                onActiveStrokePointsChanged = { activeStrokePoints = it },
                 onStrokesChanged = onStrokesChanged
             )
         }

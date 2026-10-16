@@ -198,7 +198,8 @@ class EditorMediaBlockManager(
         val insertIndex = (vm.activeBlockIndex.value + 1).coerceIn(0, (vm.currentDocument?.blocks?.size ?: 0))
         val drawingBlock = DrawingBlock(heightDp = heightDp, backgroundColorHex = null)
         vm.executeCommand(InsertBlockCommand(insertIndex, drawingBlock))
-        vm.showStatusMessage("Inking Canvas inserted")
+        vm.setActiveBlock(insertIndex)
+        vm.showStatusMessage("Inking Canvas ready - Draw with touch or pen")
     }
 
     fun updateDrawingStrokes(blockId: String, strokes: List<DrawingStroke>) {

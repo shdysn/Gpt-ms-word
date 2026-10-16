@@ -58,6 +58,12 @@ fun DocumentCanvas(
     onRefreshTOC: () -> Unit = {},
     onToggleChecklistItem: (String) -> Unit = {},
     onUpdateDrawingStrokes: (String, List<DrawingStroke>) -> Unit = { _, _ -> },
+    drawTool: String = "PEN",
+    drawColorHex: String = "#0F172A",
+    drawStrokeWidthPt: Float = 2.5f,
+    onSetDrawTool: (String) -> Unit = {},
+    onSetDrawColorHex: (String) -> Unit = {},
+    onSetDrawStrokeWidthPt: (Float) -> Unit = {},
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
@@ -127,6 +133,13 @@ fun DocumentCanvas(
                 onEditImageProperties = onEditImageProperties,
                 onRefreshTOC = onRefreshTOC,
                 onToggleChecklistItem = onToggleChecklistItem,
+                onUpdateDrawingStrokes = onUpdateDrawingStrokes,
+                drawTool = drawTool,
+                drawColorHex = drawColorHex,
+                drawStrokeWidthPt = drawStrokeWidthPt,
+                onSetDrawTool = onSetDrawTool,
+                onSetDrawColorHex = onSetDrawColorHex,
+                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt,
                 onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
                 onUpdateTextBox = onUpdateTextBox,
                 onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
@@ -154,7 +167,14 @@ fun DocumentCanvas(
                 onQuickDeleteTableCol = onQuickDeleteTableCol,
                 onEditImageProperties = onEditImageProperties,
                 onRefreshTOC = onRefreshTOC,
-                onToggleChecklistItem = onToggleChecklistItem
+                onToggleChecklistItem = onToggleChecklistItem,
+                onUpdateDrawingStrokes = onUpdateDrawingStrokes,
+                drawTool = drawTool,
+                drawColorHex = drawColorHex,
+                drawStrokeWidthPt = drawStrokeWidthPt,
+                onSetDrawTool = onSetDrawTool,
+                onSetDrawColorHex = onSetDrawColorHex,
+                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt
             )
         }
     }
