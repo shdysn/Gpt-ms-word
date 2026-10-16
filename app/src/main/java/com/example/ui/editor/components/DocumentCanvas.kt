@@ -68,7 +68,11 @@ fun DocumentCanvas(
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
-    onEditShape: (ShapeBlock) -> Unit = {}
+    onEditShape: (ShapeBlock) -> Unit = {},
+    isDocumentAllSelected: Boolean = false,
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     val zoomScale = (zoomPercent / 100f).coerceIn(0.5f, 2.0f)
@@ -143,7 +147,11 @@ fun DocumentCanvas(
                 onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
                 onUpdateTextBox = onUpdateTextBox,
                 onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
-                onUpdateTextBoxColor = onUpdateTextBoxColor
+                onUpdateTextBoxColor = onUpdateTextBoxColor,
+                isDocumentAllSelected = isDocumentAllSelected,
+                onSelectAllDocument = onSelectAllDocument,
+                onDeleteAllDocument = onDeleteAllDocument,
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
             )
         } else {
             ContinuousSheetView(
@@ -174,7 +182,11 @@ fun DocumentCanvas(
                 drawStrokeWidthPt = drawStrokeWidthPt,
                 onSetDrawTool = onSetDrawTool,
                 onSetDrawColorHex = onSetDrawColorHex,
-                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt
+                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt,
+                isDocumentAllSelected = isDocumentAllSelected,
+                onSelectAllDocument = onSelectAllDocument,
+                onDeleteAllDocument = onDeleteAllDocument,
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
             )
         }
     }

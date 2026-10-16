@@ -35,6 +35,7 @@ fun EditorCanvasContent(
         val drawTool by viewModel.drawTool.collectAsStateWithLifecycle()
         val drawColorHex by viewModel.drawColorHex.collectAsStateWithLifecycle()
         val drawStrokeWidthPt by viewModel.drawStrokeWidthPt.collectAsStateWithLifecycle()
+        val isDocumentAllSelected by viewModel.isDocumentAllSelected.collectAsStateWithLifecycle()
 
         if (document != null) {
             DocumentCanvas(
@@ -83,28 +84,45 @@ fun EditorCanvasContent(
                     viewModel.updateTextBox(blockId = id, text = curText, bgHex = bg, borderHex = bdr)
                 },
                 onUpdateImagePositionAndSize = { id, ox, oy, w, h -> viewModel.updateImagePositionAndSize(id, ox, oy, w, h) },
-                onEditShape = { shape -> dState.selectedShapeForEdit = shape }
+                onEditShape = { shape -> dState.selectedShapeForEdit = shape },
+                isDocumentAllSelected = isDocumentAllSelected,
+                onSelectAllDocument = viewModel::selectAllDocument,
+                onDeleteAllDocument = viewModel::deleteAllDocumentContent,
+                onReplaceAllDocumentWithText = viewModel::replaceAllDocumentWithText
             )
         }
 
         val selection by viewModel.selection.collectAsStateWithLifecycle()
         val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
+        val context = androidx.compose.ui.platform.LocalContext.current
 
-        EditorQuickFormatBar(
-            selection = selection,
-            activeFormatting = activeFormatting,
-            onToggleBold = { viewModel.toggleBold() },
-            onToggleItalic = { viewModel.toggleItalic() },
-            onToggleUnderline = { viewModel.toggleUnderline() },
-            onToggleStrikethrough = { viewModel.toggleStrikethrough() },
-            onHighlightClick = {
-                if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
-                else viewModel.setHighlightColor("#FEF08A")
-            },
-            onTextColorClick = {
-                if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
-                else viewModel.setTextColor("#185ABD")
-            },
+        if (!isDocumentAllSelected) {
+            EditorQuickFormatBar(
+                selection = selection,
+                activeFormatting = activeFormatting,
+                onToggleBold = { viewModel.toggleBold() },
+                onToggleItalic = { viewModel.toggleItalic() },
+                onToggleUnderline = { viewModel.toggleUnderline() },
+                onToggleStrikethrough = { viewModel.toggleStrikethrough() },
+                onHighlightClick = {
+                    if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
+                    else viewModel.setHighlightColor("#FEF08A")
+                },
+                onTextColorClick = {
+                    if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
+                    else viewModel.setTextColor("#185ABD")
+                },
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        DocumentSelectionBanner(
+            isVisible = isDocumentAllSelected,
+            paragraphCount = document?.blocks?.filterIsInstance<com.example.data.model.ParagraphBlock>()?.size ?: 1,
+            onCopyAll = { viewModel.copyAllToClipboard(context) },
+            onCutAll = { viewModel.cutAllToClipboard(context) },
+            onDeleteAll = { viewModel.deleteAllDocumentContent() },
+            onDismiss = { viewModel.clearDocumentSelection() },
             modifier = Modifier.align(Alignment.BottomCenter)
         )
     }

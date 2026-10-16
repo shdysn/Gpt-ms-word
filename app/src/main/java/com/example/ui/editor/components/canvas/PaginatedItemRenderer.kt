@@ -57,7 +57,11 @@ fun PaginatedItemRenderer(
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
-    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    isDocumentAllSelected: Boolean = false,
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     when (pageItem) {
         is ParagraphPageItem -> {
@@ -122,7 +126,11 @@ fun PaginatedItemRenderer(
                 paginatedPages = paginatedPages,
                 onNavigateToBlock = { onBlockSelected(it) },
                 onRefreshTOC = onRefreshTOC,
-                onToggleChecklistItem = onToggleChecklistItem
+                onToggleChecklistItem = onToggleChecklistItem,
+                isDocumentAllSelected = isDocumentAllSelected,
+                onSelectAllDocument = onSelectAllDocument,
+                onDeleteAllDocument = onDeleteAllDocument,
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
             )
             Spacer(modifier = Modifier.height(6.dp))
         }

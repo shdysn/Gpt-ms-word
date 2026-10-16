@@ -73,6 +73,7 @@ fun EditorScreen(
     val matchCount by viewModel.matchCount.collectAsStateWithLifecycle()
     val showWordCount by viewModel.showWordCount.collectAsStateWithLifecycle()
     val showRuler by viewModel.showRuler.collectAsStateWithLifecycle()
+    val isDocumentAllSelected by viewModel.isDocumentAllSelected.collectAsStateWithLifecycle()
 
     val actualPageCount = remember(paginatedPages, document) {
         if (paginatedPages.isNotEmpty()) paginatedPages.size else (document?.estimatedPageCount ?: 1)
@@ -173,7 +174,9 @@ fun EditorScreen(
                     onExportClick = { dState.showExportOptionsDialog = true },
                     onPageSetupClick = { dState.showLayoutDialog = true },
                     onPrintClick = { viewModel.printDocument(context) },
-                    onStatsClick = { dState.showStatsDialog = true }
+                    onStatsClick = { dState.showStatsDialog = true },
+                    isDocumentAllSelected = isDocumentAllSelected,
+                    onSelectAllClick = { viewModel.selectAllDocument() }
                 )
 
                 FindReplaceBar(

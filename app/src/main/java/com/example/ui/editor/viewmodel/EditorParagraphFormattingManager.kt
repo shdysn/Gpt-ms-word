@@ -36,16 +36,8 @@ class EditorParagraphFormattingManager(
 
     fun setAlignment(alignment: TextAlignment) {
         val currentDoc = vm.currentDocument ?: return
-        val sel = vm.selection.value
-        val targetIndices = vm.findParagraphBlockIndicesForRange(currentDoc.blocks, sel.min, sel.max)
-        if (targetIndices.size > 1) {
-            val targetBlocks = targetIndices.mapNotNull { currentDoc.blocks.getOrNull(it) as? ParagraphBlock }
-            val oldAlignments = targetBlocks.associate { it.id to it.alignment }
-            vm.executeCommand(ChangeMultipleParagraphsAlignmentCommand(targetBlocks.map { it.id }, oldAlignments, alignment))
-        } else {
-            val block = currentDoc.blocks.getOrNull(vm.activeBlockIndex.value) as? ParagraphBlock ?: return
-            vm.executeCommand(ChangeAlignmentCommand(block.id, block.alignment, alignment))
-        }
+        val block = currentDoc.blocks.getOrNull(vm.activeBlockIndex.value) as? ParagraphBlock ?: return
+        vm.executeCommand(ChangeAlignmentCommand(block.id, block.alignment, alignment))
     }
 
     fun setLineSpacing(multiplier: Float) {

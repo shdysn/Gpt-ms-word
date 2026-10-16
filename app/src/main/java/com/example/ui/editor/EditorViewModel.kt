@@ -15,6 +15,7 @@ import com.example.data.model.TextAlignment
 import com.example.data.repository.DocumentRepository
 import com.example.editor.engine.ActiveFormatting
 import com.example.editor.engine.AutosaveStatus
+import com.example.editor.engine.EditorCommand
 import com.example.editor.engine.SpanOperations
 import com.example.editor.engine.UpdateLayoutCommand
 import com.example.ui.editor.viewmodel.EditorBlockUtils
@@ -64,6 +65,9 @@ class EditorViewModel(
 
     private val _activeBlockIndex = MutableStateFlow(0)
     val activeBlockIndex: StateFlow<Int> = _activeBlockIndex.asStateFlow()
+
+    private val _isDocumentAllSelected = MutableStateFlow(false)
+    val isDocumentAllSelected: StateFlow<Boolean> = _isDocumentAllSelected.asStateFlow()
 
     private val _statusMessage = MutableStateFlow<String?>(null)
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
@@ -167,10 +171,74 @@ class EditorViewModel(
     fun zoomOut() = setZoomPercent(_zoomPercent.value - 10)
     fun zoom100() = setZoomPercent(100)
     fun setActiveBlock(index: Int) {
+        clearDocumentSelection()
         if (formattingManager.isFormatPainterActive.value && index != _activeBlockIndex.value) formattingManager.applyFormatPainterIfActive(index)
         _activeBlockIndex.value = index
     }
     fun clearStatusMessage() { _statusMessage.value = null }
+
+    fun selectAllDocument() {
+        _isDocumentAllSelected.value = true
+        showStatusMessage("All document content selected")
+    }
+
+    fun clearDocumentSelection() {
+        if (_isDocumentAllSelected.value) {
+            _isDocumentAllSelected.value = false
+        }
+    }
+
+    fun copyAllToClipboard(context: android.content.Context) {
+        val currentDoc = _document.value ?: return
+        val allText = currentDoc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
+        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText("Document Text", allText)
+        clipboard?.setPrimaryClip(clip)
+        showStatusMessage("All document text copied to clipboard")
+    }
+
+    fun cutAllToClipboard(context: android.content.Context) {
+        copyAllToClipboard(context)
+        deleteAllDocumentContent()
+        showStatusMessage("All document text cut to clipboard")
+    }
+
+    fun deleteAllDocumentContent() {
+        val currentDoc = _document.value ?: return
+        val emptyBlock = ParagraphBlock(id = java.util.UUID.randomUUID().toString(), text = "")
+        val newDoc = currentDoc.copy(blocks = listOf(emptyBlock), updatedAt = System.currentTimeMillis())
+        executeCommand(object : EditorCommand {
+            override val description: String = "Clear All Content"
+            override fun apply(document: RichDocument) = newDoc
+            override fun revert(document: RichDocument) = currentDoc
+        })
+        updateDocumentInternal(newDoc)
+        _activeBlockIndex.value = 0
+        _selection.value = TextRange.Zero
+        _isDocumentAllSelected.value = false
+        historyManager.scheduleDocumentAutosave()
+    }
+
+    fun replaceAllDocumentWithText(newText: String) {
+        val currentDoc = _document.value ?: return
+        val firstPara = currentDoc.blocks.filterIsInstance<ParagraphBlock>().firstOrNull() ?: ParagraphBlock()
+        val newBlock = firstPara.copy(
+            id = java.util.UUID.randomUUID().toString(),
+            text = newText,
+            spans = emptyList()
+        )
+        val newDoc = currentDoc.copy(blocks = listOf(newBlock), updatedAt = System.currentTimeMillis())
+        executeCommand(object : EditorCommand {
+            override val description: String = "Replace All Text"
+            override fun apply(document: RichDocument) = newDoc
+            override fun revert(document: RichDocument) = currentDoc
+        })
+        updateDocumentInternal(newDoc)
+        _activeBlockIndex.value = 0
+        _selection.value = TextRange(newText.length)
+        _isDocumentAllSelected.value = false
+        historyManager.scheduleDocumentAutosave()
+    }
     fun setDrawTool(tool: String) {
         _drawTool.value = tool
         val existingIndex = currentDocument?.blocks?.indexOfFirst { it is DrawingBlock } ?: -1
@@ -203,6 +271,7 @@ class EditorViewModel(
     }
     fun updateSelection(newSelection: TextRange) { _selection.value = newSelection }
     fun updateSelectionForBlock(blockIndex: Int, newSelection: TextRange) {
+        clearDocumentSelection()
         _activeBlockIndex.value = blockIndex
         _selection.value = newSelection
     }

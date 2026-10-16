@@ -58,7 +58,11 @@ fun ContinuousSheetView(
     drawStrokeWidthPt: Float = 2.5f,
     onSetDrawTool: (String) -> Unit = {},
     onSetDrawColorHex: (String) -> Unit = {},
-    onSetDrawStrokeWidthPt: (Float) -> Unit = {}
+    onSetDrawStrokeWidthPt: (Float) -> Unit = {},
+    isDocumentAllSelected: Boolean = false,
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(document.layoutConfig.pageBackgroundHex))
@@ -120,7 +124,11 @@ fun ContinuousSheetView(
                 drawStrokeWidthPt = drawStrokeWidthPt,
                 onSetDrawTool = onSetDrawTool,
                 onSetDrawColorHex = onSetDrawColorHex,
-                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt
+                onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt,
+                isDocumentAllSelected = isDocumentAllSelected,
+                onSelectAllDocument = onSelectAllDocument,
+                onDeleteAllDocument = onDeleteAllDocument,
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

@@ -50,7 +50,11 @@ fun PaginatedSheetView(
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
-    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    isDocumentAllSelected: Boolean = false,
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     pagesToDisplay.forEachIndexed { pageIdx, page ->
         if (showRuler && pageIdx == 0) {
@@ -99,7 +103,11 @@ fun PaginatedSheetView(
             onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
             onUpdateTextBox = onUpdateTextBox,
             onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
-            onUpdateTextBoxColor = onUpdateTextBoxColor
+            onUpdateTextBoxColor = onUpdateTextBoxColor,
+            isDocumentAllSelected = isDocumentAllSelected,
+            onSelectAllDocument = onSelectAllDocument,
+            onDeleteAllDocument = onDeleteAllDocument,
+            onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
         )
 
         Spacer(modifier = Modifier.height(24.dp))

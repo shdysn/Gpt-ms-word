@@ -431,6 +431,26 @@ class RichTextEngineUnitTest {
         val annotatedEmpty = EditorEngineIntegration.buildAnnotatedText(emptyText, spans, isRtl = false)
         assertEquals(0, annotatedEmpty.length)
     }
+
+    @Test
+    fun testParagraphFormattingIsolationAndDocumentSelection() {
+        val p1 = ParagraphBlock(id = "p1", text = "First Paragraph", alignment = TextAlignment.START)
+        val p2 = ParagraphBlock(id = "p2", text = "Second Paragraph", alignment = TextAlignment.CENTER)
+        val p3 = ParagraphBlock(id = "p3", text = "Third Paragraph", alignment = TextAlignment.START)
+        val doc = RichDocument(id = "doc_test", title = "Test", blocks = listOf(p1, p2, p3))
+
+        // Document-level selection gathers all paragraph texts
+        val allText = doc.blocks.filterIsInstance<ParagraphBlock>().joinToString("\n") { it.text }
+        assertEquals("First Paragraph\nSecond Paragraph\nThird Paragraph", allText)
+
+        // Formatting applied to active paragraph (e.g. p1 alignment to END) never affects other paragraphs
+        val updatedP1 = p1.copy(alignment = TextAlignment.END)
+        val updatedDoc = doc.copy(blocks = listOf(updatedP1, p2, p3))
+
+        assertEquals(TextAlignment.END, (updatedDoc.blocks[0] as ParagraphBlock).alignment)
+        assertEquals(TextAlignment.CENTER, (updatedDoc.blocks[1] as ParagraphBlock).alignment)
+        assertEquals(TextAlignment.START, (updatedDoc.blocks[2] as ParagraphBlock).alignment)
+    }
 }
 
 

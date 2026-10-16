@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
@@ -161,7 +162,8 @@ fun EditorTopAppBarOverflowMenu(
     onExportClick: () -> Unit,
     onPageSetupClick: () -> Unit,
     onPrintClick: () -> Unit,
-    onStatsClick: () -> Unit
+    onStatsClick: () -> Unit,
+    onSelectAllClick: () -> Unit = {}
 ) {
     var showOptionsMenu by remember { mutableStateOf(false) }
 
@@ -174,6 +176,18 @@ fun EditorTopAppBarOverflowMenu(
             expanded = showOptionsMenu,
             onDismissRequest = { showOptionsMenu = false }
         ) {
+            DropdownMenuItem(
+                text = { Text("Select All Document") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.SelectAll,
+                        contentDescription = null,
+                        tint = WordPrimary
+                    )
+                },
+                onClick = { showOptionsMenu = false; onSelectAllClick() },
+                modifier = Modifier.testTag("action_menu_select_all")
+            )
             DropdownMenuItem(
                 text = { Text("Find & Replace") },
                 leadingIcon = {

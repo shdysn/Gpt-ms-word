@@ -70,7 +70,11 @@ fun SinglePageSheet(
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
-    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    isDocumentAllSelected: Boolean = false,
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     val pageBgColor = try {
         Color(android.graphics.Color.parseColor(page.layout.pageBackgroundHex))
@@ -128,7 +132,11 @@ fun SinglePageSheet(
             onUpdateImagePositionAndSize = onUpdateImagePositionAndSize,
             onUpdateTextBox = onUpdateTextBox,
             onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
-            onUpdateTextBoxColor = onUpdateTextBoxColor
+            onUpdateTextBoxColor = onUpdateTextBoxColor,
+            isDocumentAllSelected = isDocumentAllSelected,
+            onSelectAllDocument = onSelectAllDocument,
+            onDeleteAllDocument = onDeleteAllDocument,
+            onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
         )
     }
 

@@ -35,6 +35,7 @@ fun BlockItemView(
     isDarkPage: Boolean = false,
     zoomScale: Float = 1f,
     canDeleteBlock: Boolean = false,
+    isDocumentAllSelected: Boolean = false,
     onFocus: () -> Unit,
     onSelectionChanged: (TextRange) -> Unit,
     onTextChanged: (String, TextRange) -> Unit,
@@ -64,7 +65,10 @@ fun BlockItemView(
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
-    onEditShape: () -> Unit = {}
+    onEditShape: () -> Unit = {},
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     when (block) {
         is ParagraphBlock -> {
@@ -75,12 +79,16 @@ fun BlockItemView(
                 isDarkPage = isDarkPage,
                 zoomScale = zoomScale,
                 canDeleteBlock = canDeleteBlock,
+                isDocumentAllSelected = isDocumentAllSelected,
                 onFocus = onFocus,
                 onSelectionChanged = onSelectionChanged,
                 onTextChanged = onTextChanged,
                 onEnterPressed = onEnterPressed,
                 onDeleteOrMergeWithPrevious = onDeleteOrMergeWithPrevious,
-                onToggleChecklistItem = onToggleChecklistItem
+                onToggleChecklistItem = onToggleChecklistItem,
+                onSelectAllDocument = onSelectAllDocument,
+                onDeleteAllDocument = onDeleteAllDocument,
+                onReplaceAllDocumentWithText = onReplaceAllDocumentWithText
             )
         }
         is TableBlock -> {

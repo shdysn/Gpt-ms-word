@@ -1,11 +1,13 @@
 package com.example.ui.editor.components.blocks
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -61,12 +65,16 @@ fun ParagraphBlockView(
     isDarkPage: Boolean = false,
     zoomScale: Float = 1f,
     canDeleteBlock: Boolean = false,
+    isDocumentAllSelected: Boolean = false,
     onFocus: () -> Unit,
     onSelectionChanged: (TextRange) -> Unit,
     onTextChanged: (String, TextRange) -> Unit,
     onEnterPressed: (Int) -> Unit = {},
     onDeleteOrMergeWithPrevious: () -> Unit = {},
-    onToggleChecklistItem: (String) -> Unit = {}
+    onToggleChecklistItem: (String) -> Unit = {},
+    onSelectAllDocument: () -> Unit = {},
+    onDeleteAllDocument: () -> Unit = {},
+    onReplaceAllDocumentWithText: (String) -> Unit = {}
 ) {
     val align = when (block.alignment) {
         TextAlignment.CENTER -> TextAlign.Center
@@ -149,9 +157,11 @@ fun ParagraphBlockView(
     CompositionLocalProvider(
         LocalLayoutDirection provides (if (block.isRtl) LayoutDirection.Rtl else LayoutDirection.Ltr)
     ) {
+        val rowBg = if (isDocumentAllSelected) WordPrimary.copy(alpha = 0.16f) else Color.Transparent
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(rowBg, RoundedCornerShape(6.dp))
                 .padding(start = indentPadding, top = spaceBeforeDp, bottom = spaceAfterDp)
                 .clickable(onClick = onFocus),
             verticalAlignment = Alignment.Top
@@ -175,20 +185,17 @@ fun ParagraphBlockView(
                 BasicTextField(
                     value = textFieldValue,
                     onValueChange = { newTfv ->
-                        if (newTfv.text.contains("\n")) {
+                        if (isDocumentAllSelected && newTfv.text != textFieldValue.text) {
+                            onReplaceAllDocumentWithText(newTfv.text)
+                        } else if (newTfv.text.contains("\n")) {
                             val newlineIndex = newTfv.text.indexOf('\n')
                             val textBefore = newTfv.text.substring(0, newlineIndex)
-                            textFieldValue = TextFieldValue(
-                                text = textBefore,
-                                selection = TextRange(textBefore.length)
-                            )
+                            textFieldValue = TextFieldValue(text = textBefore, selection = TextRange(textBefore.length))
                             onEnterPressed(newlineIndex)
                         } else {
                             textFieldValue = newTfv
                             onSelectionChanged(newTfv.selection)
-                            if (newTfv.text != block.text) {
-                                onTextChanged(newTfv.text, newTfv.selection)
-                            }
+                            if (newTfv.text != block.text) onTextChanged(newTfv.text, newTfv.selection)
                         }
                     },
                     visualTransformation = richTransformation,
@@ -214,13 +221,17 @@ fun ParagraphBlockView(
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
                         .onPreviewKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && event.key == Key.Backspace) {
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.A && (event.isCtrlPressed || event.isMetaPressed)) {
+                                onSelectAllDocument()
+                                true
+                            } else if (isDocumentAllSelected && event.type == KeyEventType.KeyDown && (event.key == Key.Backspace || event.key == Key.Delete)) {
+                                onDeleteAllDocument()
+                                true
+                            } else if (event.type == KeyEventType.KeyDown && event.key == Key.Backspace) {
                                 if (textFieldValue.selection.collapsed && textFieldValue.selection.start == 0) {
                                     onDeleteOrMergeWithPrevious()
                                     true
-                                } else {
-                                    false
-                                }
+                                } else false
                             } else if (event.type == KeyEventType.KeyDown && (event.key == Key.Enter || event.key == Key.NumPadEnter)) {
                                 if (!event.isShiftPressed) {
                                     val cursor = textFieldValue.selection.start.coerceIn(0, block.text.length)
@@ -228,12 +239,8 @@ fun ParagraphBlockView(
                                     textFieldValue = TextFieldValue(text = textBefore, selection = TextRange(cursor))
                                     onEnterPressed(cursor)
                                     true
-                                } else {
-                                    false
-                                }
-                            } else {
-                                false
-                            }
+                                } else false
+                            } else false
                         }
                         .onFocusChanged { focusState ->
                             if (focusState.isFocused) {
