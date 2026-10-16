@@ -81,19 +81,20 @@ fun EditorTopAppBar(
             }
         },
         title = {
-            Column(
-                modifier = Modifier.padding(vertical = 4.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                EditorRibbonTabDropdown(
+                    activeRibbonTab = activeRibbonTab,
+                    isRibbonVisible = isRibbonVisible,
+                    onTabSelected = onTabSelected,
+                    onToggleRibbon = onToggleRibbon
                 )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = autosaveStatus.label,
                     style = MaterialTheme.typography.labelSmall,
+                    fontSize = 11.sp,
                     color = when (autosaveStatus) {
                         AutosaveStatus.SAVED -> WordPrimary
                         AutosaveStatus.SAVING -> MaterialTheme.colorScheme.tertiary

@@ -1,5 +1,7 @@
 package com.example.ui.editor.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -12,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatListNumbered
@@ -41,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -50,7 +54,7 @@ import com.example.ui.editor.RibbonTab
 import com.example.ui.theme.WordPrimary
 
 /**
- * Dropdown selector for the active ribbon tab in MS Word style.
+ * Dropdown selector for the active ribbon tab in MS Word style situated in TopAppBar.
  */
 @Composable
 fun EditorRibbonTabDropdown(
@@ -61,31 +65,44 @@ fun EditorRibbonTabDropdown(
     modifier: Modifier = Modifier
 ) {
     var isTabDropdownOpen by remember { mutableStateOf(false) }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (isTabDropdownOpen) 180f else 0f,
+        label = "ribbonTabArrowRotation"
+    )
 
     Box(modifier = modifier) {
         Surface(
             color = WordPrimary.copy(alpha = 0.12f),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, WordPrimary.copy(alpha = 0.4f)),
             modifier = Modifier
                 .clickable { isTabDropdownOpen = true }
                 .testTag("ribbon_tab_dropdown_button")
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
             ) {
                 val (tabIcon, tabTitle) = getRibbonTabMetadata(activeRibbonTab)
-                Icon(tabIcon, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(tabTitle, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
-                Spacer(modifier = Modifier.width(3.dp))
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch Tab", tint = WordPrimary, modifier = Modifier.size(18.dp))
+                Icon(tabIcon, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(tabTitle, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = WordPrimary)
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Switch Tab",
+                    tint = WordPrimary,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .rotate(arrowRotation)
+                )
             }
         }
 
         DropdownMenu(
             expanded = isTabDropdownOpen,
-            onDismissRequest = { isTabDropdownOpen = false }
+            onDismissRequest = { isTabDropdownOpen = false },
+            shape = RoundedCornerShape(12.dp)
         ) {
             RibbonTab.entries.forEach { tab ->
                 val isSelected = activeRibbonTab == tab
@@ -101,6 +118,11 @@ fun EditorRibbonTabDropdown(
                     leadingIcon = {
                         Icon(tabIcon, contentDescription = null, tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
                     },
+                    trailingIcon = if (isSelected) {
+                        {
+                            Icon(Icons.Default.Check, contentDescription = "Selected", tint = WordPrimary, modifier = Modifier.size(16.dp))
+                        }
+                    } else null,
                     onClick = {
                         isTabDropdownOpen = false
                         onTabSelected(tab)
