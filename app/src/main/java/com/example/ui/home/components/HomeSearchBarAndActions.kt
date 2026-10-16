@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.theme.WordPrimary
 
 @Composable
@@ -39,48 +40,50 @@ fun HomeSearchBarAndActions(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
-                placeholder = { Text("Search documents by title or keywords...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                placeholder = { Text("Search documents...", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { onSearchQueryChanged("") }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear")
+                            Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
                         }
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 modifier = Modifier.fillMaxWidth().testTag("search_text_field")
             )
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(
                 onClick = onNewDocument,
                 colors = ButtonDefaults.buttonColors(containerColor = WordPrimary),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_new_document")
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                modifier = Modifier.weight(1f).height(38.dp).testTag("btn_new_document")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("New Document", fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("New Document", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
 
             OutlinedButton(
                 onClick = onOpenDocx,
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.weight(1f).height(44.dp).testTag("btn_open_document")
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                modifier = Modifier.weight(1f).height(38.dp).testTag("btn_open_document")
             ) {
-                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp), tint = WordPrimary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Open DOCX", color = WordPrimary, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp), tint = WordPrimary)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Open DOCX", color = WordPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
         }
     }

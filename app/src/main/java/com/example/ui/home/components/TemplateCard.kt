@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.repository.TemplateType
 import com.example.ui.home.HomeFilter
 import com.example.ui.theme.WordPrimary
@@ -50,49 +51,50 @@ fun TemplateCard(
 ) {
     Card(
         modifier = Modifier
-            .width(130.dp)
-            .height(170.dp)
+            .width(104.dp)
+            .height(125.dp)
             .clickable(onClick = onClick)
             .testTag("template_${template.name.lowercase()}"),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(10.dp),
+                .padding(7.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Simulated Paper Thumbnail
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(95.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .height(68.dp)
+                    .clip(RoundedCornerShape(5.dp))
                     .background(Color(0xFFF8F9FA))
-                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(6.dp))
-                    .padding(8.dp)
+                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(5.dp))
+                    .padding(6.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.6f)
-                            .height(6.dp)
-                            .background(WordPrimary, RoundedCornerShape(3.dp))
+                            .height(5.dp)
+                            .background(WordPrimary, RoundedCornerShape(2.dp))
                     )
-                    Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(Color(0xFFCBD5E1), RoundedCornerShape(2.dp)))
-                    Box(modifier = Modifier.fillMaxWidth(0.85f).height(4.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(2.dp)))
-                    Box(modifier = Modifier.fillMaxWidth(0.7f).height(4.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(2.dp)))
+                    Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Color(0xFFCBD5E1), RoundedCornerShape(2.dp)))
+                    Box(modifier = Modifier.fillMaxWidth(0.85f).height(3.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(2.dp)))
+                    Box(modifier = Modifier.fillMaxWidth(0.7f).height(3.dp).background(Color(0xFFE2E8F0), RoundedCornerShape(2.dp)))
                 }
             }
 
             Column {
                 Text(
                     text = template.title,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
+                    fontSize = 11.sp,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }

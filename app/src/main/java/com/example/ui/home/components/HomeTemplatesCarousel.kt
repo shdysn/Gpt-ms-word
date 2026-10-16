@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.repository.TemplateType
 import com.example.ui.theme.WordPrimary
 
@@ -25,7 +26,7 @@ fun HomeTemplatesCarousel(
     onSelectTemplate: (TemplateType) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.padding(top = 12.dp, bottom = 8.dp)) {
+    Column(modifier = modifier.padding(top = 4.dp, bottom = 2.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -35,17 +36,21 @@ fun HomeTemplatesCarousel(
         ) {
             Text(
                 text = "Start from a template",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp
             )
-            TextButton(onClick = onOpenMoreTemplates) {
-                Text("More templates", color = WordPrimary)
+            TextButton(
+                onClick = onOpenMoreTemplates,
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            ) {
+                Text("More templates", color = WordPrimary, fontSize = 12.sp)
             }
         }
 
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(TemplateType.entries.toTypedArray()) { template ->
                 TemplateCard(

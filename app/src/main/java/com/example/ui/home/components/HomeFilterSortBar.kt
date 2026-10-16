@@ -48,7 +48,7 @@ fun HomeFilterSortBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -60,7 +60,7 @@ fun HomeFilterSortBar(
             FilterChip(
                 selected = activeFilter == HomeFilter.ALL,
                 onClick = { onFilterChanged(HomeFilter.ALL) },
-                label = { Text("All") },
+                label = { Text("All", fontSize = 11.sp) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -69,17 +69,17 @@ fun HomeFilterSortBar(
             FilterChip(
                 selected = activeFilter == HomeFilter.RECENT,
                 onClick = { onFilterChanged(HomeFilter.RECENT) },
-                label = { Text("Recent") }
+                label = { Text("Recent", fontSize = 11.sp) }
             )
             FilterChip(
                 selected = activeFilter == HomeFilter.PINNED,
                 onClick = { onFilterChanged(HomeFilter.PINNED) },
-                label = { Text("Pinned") }
+                label = { Text("Pinned", fontSize = 11.sp) }
             )
             FilterChip(
                 selected = activeFilter == HomeFilter.FAVORITES,
                 onClick = { onFilterChanged(HomeFilter.FAVORITES) },
-                label = { Text("Favorites") }
+                label = { Text("Favorites", fontSize = 11.sp) }
             )
         }
 
