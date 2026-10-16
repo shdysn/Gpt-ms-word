@@ -44,12 +44,14 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.core.typography.AdaptiveFontManager
 import com.example.core.typography.DocumentFontManager
 import com.example.data.model.HeadingStyle
 import com.example.data.model.ParagraphBlock
 import com.example.data.model.TextAlignment
 import com.example.editor.engine.EditorEngineIntegration
 import com.example.ui.theme.WordPrimary
+import androidx.compose.ui.platform.LocalConfiguration
 
 @Composable
 fun ParagraphBlockView(
@@ -80,22 +82,19 @@ fun ParagraphBlockView(
         isRtl = block.isRtl
     )
 
-    val unscaledFontSize = when (block.headingStyle) {
-        HeadingStyle.TITLE -> if (block.isRtl) 19f else 22f
-        HeadingStyle.SUBTITLE -> if (block.isRtl) 15f else 16f
-        HeadingStyle.HEADING_1 -> if (block.isRtl) 16.5f else 18f
-        HeadingStyle.HEADING_2 -> if (block.isRtl) 15f else 16f
-        HeadingStyle.HEADING_3 -> if (block.isRtl) 13.5f else 14.5f
-        HeadingStyle.QUOTE -> if (block.isRtl) 13f else 14f
-        HeadingStyle.NORMAL -> if (block.isRtl) 13.5f else 14.5f
-    }
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.toFloat()
+    val unscaledFontSize = AdaptiveFontManager.getAdaptiveFontSizeSp(
+        headingStyle = block.headingStyle,
+        isRtl = block.isRtl,
+        containerWidthDp = screenWidthDp
+    )
     val baseFontSize = (unscaledFontSize * zoomScale).sp
 
-    val effectiveLineHeight = if (block.isRtl) {
-        (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 2.3f)).sp
-    } else {
-        (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 1.35f)).sp
-    }
+    val effectiveLineHeight = AdaptiveFontManager.getAdaptiveLineHeightSp(
+        baseFontSizeSp = baseFontSize.value,
+        isRtl = block.isRtl,
+        lineSpacingMultiplier = block.lineSpacingMultiplier
+    ).sp
 
     val defaultTextColor = when {
         block.headingStyle == HeadingStyle.TITLE || block.headingStyle == HeadingStyle.HEADING_1 ->
@@ -124,17 +123,6 @@ fun ParagraphBlockView(
             try {
                 focusRequester.requestFocus()
             } catch (_: Exception) {}
-        }
-    }
-
-    LaunchedEffect(block.text) {
-        if (textFieldValue.text != block.text) {
-            val safeStart = textFieldValue.selection.start.coerceIn(0, block.text.length)
-            val safeEnd = textFieldValue.selection.end.coerceIn(safeStart, block.text.length)
-            textFieldValue = textFieldValue.copy(
-                text = block.text,
-                selection = TextRange(safeStart, safeEnd)
-            )
         }
     }
 

@@ -44,6 +44,8 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalConfiguration
+import com.example.core.typography.AdaptiveFontManager
 import com.example.core.typography.BidiUtils
 import com.example.core.typography.DocumentFontManager
 import com.example.data.model.ParagraphBlock
@@ -102,13 +104,18 @@ fun UnifiedTextCanvas(
     }
     val textDirection = if (isRtl) TextDirection.Rtl else TextDirection.Ltr
 
-    val unscaledFontSize = if (isRtl) 13.5f else 14.5f
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp.toFloat()
+    val unscaledFontSize = AdaptiveFontManager.getAdaptiveFontSizeSp(
+        headingStyle = firstParagraph.headingStyle,
+        isRtl = isRtl,
+        containerWidthDp = screenWidthDp
+    )
     val baseFontSize = (unscaledFontSize * zoomScale).sp
-    val effectiveLineHeight = if (isRtl) {
-        (baseFontSize.value * 2.3f).sp
-    } else {
-        (baseFontSize.value * 1.35f).sp
-    }
+    val effectiveLineHeight = AdaptiveFontManager.getAdaptiveLineHeightSp(
+        baseFontSizeSp = baseFontSize.value,
+        isRtl = isRtl,
+        lineSpacingMultiplier = firstParagraph.lineSpacingMultiplier
+    ).sp
     val defaultTextColor = if (isDarkPage) Color(0xFFF8FAFC) else Color(0xFF1E293B)
 
     val effectiveFontFamily = DocumentFontManager.getFontFamily(
@@ -117,12 +124,13 @@ fun UnifiedTextCanvas(
         isRtl = isRtl
     )
 
-    val richTransformation = remember(paragraphs, isDarkPage, zoomScale) {
+    val richTransformation = remember(paragraphs, isDarkPage, zoomScale, screenWidthDp) {
         VisualTransformation { inputText ->
             val annotated = EditorEngineIntegration.buildAnnotatedTextWithParagraphBlocks(
                 text = inputText.text,
                 paragraphs = paragraphs,
-                zoomScale = zoomScale
+                zoomScale = zoomScale,
+                containerWidthDp = screenWidthDp
             )
             TransformedText(annotated, OffsetMapping.Identity)
         }

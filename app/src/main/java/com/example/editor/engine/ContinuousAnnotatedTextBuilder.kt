@@ -10,6 +10,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.sp
+import com.example.core.typography.AdaptiveFontManager
 import com.example.core.typography.BidiUtils
 import com.example.core.typography.DocumentFontManager
 import com.example.data.model.HeadingStyle
@@ -46,7 +47,8 @@ object ContinuousAnnotatedTextBuilder {
     fun buildAnnotatedTextWithParagraphBlocks(
         text: String,
         paragraphs: List<ParagraphBlock>,
-        zoomScale: Float = 1f
+        zoomScale: Float = 1f,
+        containerWidthDp: Float = 390f
     ): AnnotatedString {
         val ranges = getParagraphRanges(text)
         return buildAnnotatedString {
@@ -65,21 +67,17 @@ object ContinuousAnnotatedTextBuilder {
 
                 val textDir = if (isRtl) TextDirection.Rtl else TextDirection.Ltr
 
-                val unscaledFontSize = when (block.headingStyle) {
-                    HeadingStyle.TITLE -> if (isRtl) 19f else 22f
-                    HeadingStyle.SUBTITLE -> if (isRtl) 15f else 16f
-                    HeadingStyle.HEADING_1 -> if (isRtl) 16.5f else 18f
-                    HeadingStyle.HEADING_2 -> if (isRtl) 15f else 16f
-                    HeadingStyle.HEADING_3 -> if (isRtl) 13.5f else 14.5f
-                    HeadingStyle.QUOTE -> if (isRtl) 13f else 14f
-                    HeadingStyle.NORMAL -> if (isRtl) 13.5f else 14.5f
-                }
+                val unscaledFontSize = AdaptiveFontManager.getAdaptiveFontSizeSp(
+                    headingStyle = block.headingStyle,
+                    isRtl = isRtl,
+                    containerWidthDp = containerWidthDp
+                )
                 val baseFontSize = (unscaledFontSize * zoomScale).sp
-                val effectiveLineHeight = if (isRtl) {
-                    (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 2.3f)).sp
-                } else {
-                    (baseFontSize.value * (block.lineSpacingMultiplier.coerceAtLeast(1.0f) * 1.35f)).sp
-                }
+                val effectiveLineHeight = AdaptiveFontManager.getAdaptiveLineHeightSp(
+                    baseFontSizeSp = baseFontSize.value,
+                    isRtl = isRtl,
+                    lineSpacingMultiplier = block.lineSpacingMultiplier
+                ).sp
 
                 // Add ParagraphStyle for this specific paragraph range
                 addStyle(
@@ -124,7 +122,7 @@ object ContinuousAnnotatedTextBuilder {
                     }
 
                     val computedFontSize = when {
-                        span.fontSizeSp != null -> (span.fontSizeSp * zoomScale).sp
+                        span.fontSizeSp != null -> (AdaptiveFontManager.getAdaptiveSpanFontSizeSp(span.fontSizeSp, isRtl, containerWidthDp) * zoomScale).sp
                         span.isSuperscript || span.isSubscript -> (10f * zoomScale).sp
                         else -> androidx.compose.ui.unit.TextUnit.Unspecified
                     }

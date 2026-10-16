@@ -10,6 +10,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.sp
+import com.example.core.typography.AdaptiveFontManager
 import com.example.core.typography.BidiUtils
 import com.example.core.typography.DocumentFontManager
 import com.example.data.model.InlineSpan
@@ -31,7 +32,8 @@ object EditorEngineIntegration {
         inputText: String,
         spans: List<InlineSpan>,
         isRtl: Boolean,
-        zoomScale: Float = 1f
+        zoomScale: Float = 1f,
+        containerWidthDp: Float = 390f
     ): AnnotatedString {
         return buildAnnotatedString {
             append(inputText)
@@ -52,7 +54,7 @@ object EditorEngineIntegration {
                 }
 
                 val computedFontSize = when {
-                    span.fontSizeSp != null -> (span.fontSizeSp * zoomScale).sp
+                    span.fontSizeSp != null -> (AdaptiveFontManager.getAdaptiveSpanFontSizeSp(span.fontSizeSp, isRtl, containerWidthDp) * zoomScale).sp
                     span.isSuperscript || span.isSubscript -> (10f * zoomScale).sp
                     else -> androidx.compose.ui.unit.TextUnit.Unspecified
                 }
@@ -216,9 +218,10 @@ object EditorEngineIntegration {
     fun buildAnnotatedTextWithParagraphBlocks(
         text: String,
         paragraphs: List<ParagraphBlock>,
-        zoomScale: Float = 1f
+        zoomScale: Float = 1f,
+        containerWidthDp: Float = 390f
     ): AnnotatedString {
-        return ContinuousAnnotatedTextBuilder.buildAnnotatedTextWithParagraphBlocks(text, paragraphs, zoomScale)
+        return ContinuousAnnotatedTextBuilder.buildAnnotatedTextWithParagraphBlocks(text, paragraphs, zoomScale, containerWidthDp)
     }
 
     fun parseColorSafe(hex: String): androidx.compose.ui.graphics.Color? {

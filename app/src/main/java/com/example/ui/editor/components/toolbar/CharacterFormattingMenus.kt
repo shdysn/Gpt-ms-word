@@ -114,7 +114,7 @@ fun FontSizeSelector(
     modifier: Modifier = Modifier
 ) {
     var sizeMenuExpanded by remember { mutableStateOf(false) }
-    val fontSizes = listOf(10f, 11f, 12f, 14f, 16f, 18f, 20f, 24f, 28f, 36f)
+    val fontSizes = listOf(10f, 11f, 12f, 14f, 16f, 18f, 20f, 22f, 24f, 26f, 28f, 36f)
 
     Box(modifier = modifier) {
         Surface(
