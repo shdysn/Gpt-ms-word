@@ -126,16 +126,19 @@ class EditorMediaBlockManager(
 
     fun insertShape(
         shapeType: String,
-        title: String,
-        content: String,
-        bgHex: String,
-        borderHex: String,
+        title: String = "",
+        content: String = "",
+        bgHex: String = "#41719C",
+        borderHex: String = "#1B365D",
         strokeWidthPt: Float = 1.5f,
         rotationDeg: Float = 0f,
-        widthDp: Int = 220,
-        heightDp: Int = 110
+        widthDp: Int = -1,
+        heightDp: Int = -1
     ) {
-        insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, widthDp, heightDp)
+        val (defW, defH) = getDefaultShapeDimensions(shapeType)
+        val finalW = if (widthDp > 0) widthDp else defW
+        val finalH = if (heightDp > 0) heightDp else defH
+        insertVectorShape(shapeType, title, content, bgHex, borderHex, strokeWidthPt, rotationDeg, finalW, finalH)
     }
 
     fun insertVectorShape(
@@ -162,7 +165,26 @@ class EditorMediaBlockManager(
             heightDp = heightDp
         )
         vm.executeCommand(InsertBlockCommand(insertIndex, shapeBlock))
-        vm.showStatusMessage("Vector Shape ($shapeType) inserted")
+        vm.setActiveBlock(insertIndex)
+        vm.showStatusMessage("Shape inserted")
+    }
+
+    private fun getDefaultShapeDimensions(shapeType: String): Pair<Int, Int> {
+        val upper = shapeType.uppercase()
+        return when {
+            upper == "LINE" || upper == "ARROW_LINE" || upper == "DOUBLE_ARROW" -> 260 to 24
+            upper == "ELBOW" || upper == "CURVE" -> 160 to 80
+            upper == "OVAL" || upper == "FLOW_CONN" -> 120 to 120
+            upper in listOf("TRIANGLE", "RIGHT_TRIANGLE", "DIAMOND", "FLOW_DECISION", "PENTAGON", "HEXAGON", "OCTAGON", "CROSS", "CUBE", "HEART", "LIGHTNING", "SUN", "MOON", "CLOUD") -> 120 to 120
+            upper.startsWith("STAR") || upper == "EXPLOSION" -> 120 to 120
+            upper == "ARROW_UP" || upper == "ARROW_DOWN" || upper == "ARROW_UPDOWN" -> 80 to 140
+            upper == "ARROW_QUAD" -> 130 to 130
+            upper.startsWith("ARROW_") -> 160 to 70
+            upper in listOf("PLUS", "MINUS", "MULTIPLY", "DIVIDE", "EQUAL", "NOT_EQUAL") -> 90 to 90
+            upper in listOf("RIBBON_UP", "RIBBON_DOWN", "SCROLL", "BANNER_WAVE") -> 220 to 80
+            upper.startsWith("CALLOUT") || upper in listOf("NOTE", "WARNING", "SUCCESS", "QUOTE") -> 180 to 100
+            else -> 180 to 90
+        }
     }
 
     fun updateShape(

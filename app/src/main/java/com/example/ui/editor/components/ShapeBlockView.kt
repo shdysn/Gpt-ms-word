@@ -77,95 +77,12 @@ fun ShapeBlockView(
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val strokeW = block.strokeWidthPt * density * zoomScale
-
-                when (block.shapeType.uppercase()) {
-                    "OVAL" -> {
-                        drawOval(color = bgCol, style = Fill)
-                        drawOval(color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    "STAR" -> {
-                        val path = Path()
-                        val cx = size.width / 2f
-                        val cy = size.height / 2f
-                        val rOuter = minOf(size.width, size.height) / 2f - strokeW
-                        val rInner = rOuter * 0.42f
-                        for (i in 0 until 10) {
-                            val r = if (i % 2 == 0) rOuter else rInner
-                            val angle = (i * 36 - 90) * Math.PI / 180.0
-                            val px = (cx + r * Math.cos(angle)).toFloat()
-                            val py = (cy + r * Math.sin(angle)).toFloat()
-                            if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
-                        }
-                        path.close()
-                        drawPath(path, color = bgCol, style = Fill)
-                        drawPath(path, color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    "DIAMOND" -> {
-                        val path = Path().apply {
-                            moveTo(size.width / 2f, strokeW / 2)
-                            lineTo(size.width - strokeW / 2, size.height / 2f)
-                            lineTo(size.width / 2f, size.height - strokeW / 2)
-                            lineTo(strokeW / 2, size.height / 2f)
-                            close()
-                        }
-                        drawPath(path, color = bgCol, style = Fill)
-                        drawPath(path, color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    "ARROW_RIGHT" -> {
-                        val path = Path().apply {
-                            val my = size.height / 2f
-                            val headW = size.width * 0.35f
-                            val hH = size.height * 0.25f
-                            moveTo(strokeW, my - hH)
-                            lineTo(size.width - headW, my - hH)
-                            lineTo(size.width - headW, strokeW)
-                            lineTo(size.width - strokeW, my)
-                            lineTo(size.width - headW, size.height - strokeW)
-                            lineTo(size.width - headW, my + hH)
-                            lineTo(strokeW, my + hH)
-                            close()
-                        }
-                        drawPath(path, color = bgCol, style = Fill)
-                        drawPath(path, color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    "ARROW_LEFT" -> {
-                        val path = Path().apply {
-                            val my = size.height / 2f
-                            val headW = size.width * 0.35f
-                            val hH = size.height * 0.25f
-                            moveTo(size.width - strokeW, my - hH)
-                            lineTo(headW, my - hH)
-                            lineTo(headW, strokeW)
-                            lineTo(strokeW, my)
-                            lineTo(headW, size.height - strokeW)
-                            lineTo(headW, my + hH)
-                            lineTo(size.width - strokeW, my + hH)
-                            close()
-                        }
-                        drawPath(path, color = bgCol, style = Fill)
-                        drawPath(path, color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    "CALLOUT" -> {
-                        val bubbleH = size.height * 0.78f
-                        val path = Path().apply {
-                            addRoundRect(RoundRect(Rect(Offset(0f, 0f), Size(size.width, bubbleH)), CornerRadius(16f, 16f)))
-                            moveTo(size.width * 0.25f, bubbleH)
-                            lineTo(size.width * 0.35f, size.height - 4f)
-                            lineTo(size.width * 0.45f, bubbleH)
-                        }
-                        drawPath(path, color = bgCol, style = Fill)
-                        drawPath(path, color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    "RECTANGLE" -> {
-                        drawRect(color = bgCol, style = Fill)
-                        drawRect(color = borderCol, style = Stroke(width = strokeW))
-                    }
-                    else -> {
-                        // ROUNDED_RECT, NOTE, WARNING, QUOTE, etc.
-                        drawRoundRect(color = bgCol, cornerRadius = CornerRadius(16f, 16f), style = Fill)
-                        drawRoundRect(color = borderCol, cornerRadius = CornerRadius(16f, 16f), style = Stroke(width = strokeW))
-                    }
-                }
+                drawShapeGeometry(
+                    shapeType = block.shapeType,
+                    bgCol = bgCol,
+                    borderCol = borderCol,
+                    strokeW = strokeW
+                )
             }
 
             // Content Overlay

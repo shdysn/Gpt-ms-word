@@ -246,19 +246,101 @@ object PdfSpecialItemRenderer {
                 canvas.drawPath(path, bgPaint)
                 canvas.drawPath(path, bdrPaint)
             }
-            "CALLOUT" -> {
-                val bubbleH = shapeH * 0.78f
+            "LINE" -> {
+                canvas.drawLine(boxRect.left, boxRect.centerY(), boxRect.right, boxRect.centerY(), bdrPaint)
+            }
+            "ARROW_LINE" -> {
+                canvas.drawLine(boxRect.left, boxRect.centerY(), boxRect.right, boxRect.centerY(), bdrPaint)
                 val path = android.graphics.Path()
-                path.addRoundRect(android.graphics.RectF(boxRect.left, boxRect.top, boxRect.right, boxRect.top + bubbleH), 12f, 12f, android.graphics.Path.Direction.CW)
-                path.moveTo(boxRect.left + shapeW * 0.25f, boxRect.top + bubbleH)
-                path.lineTo(boxRect.left + shapeW * 0.35f, boxRect.bottom)
-                path.lineTo(boxRect.left + shapeW * 0.45f, boxRect.top + bubbleH)
+                path.moveTo(boxRect.right - 10f, boxRect.centerY() - 6f)
+                path.lineTo(boxRect.right, boxRect.centerY())
+                path.lineTo(boxRect.right - 10f, boxRect.centerY() + 6f)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "DOUBLE_ARROW" -> {
+                canvas.drawLine(boxRect.left, boxRect.centerY(), boxRect.right, boxRect.centerY(), bdrPaint)
+                val path = android.graphics.Path()
+                path.moveTo(boxRect.right - 10f, boxRect.centerY() - 6f)
+                path.lineTo(boxRect.right, boxRect.centerY())
+                path.lineTo(boxRect.right - 10f, boxRect.centerY() + 6f)
+                path.moveTo(boxRect.left + 10f, boxRect.centerY() - 6f)
+                path.lineTo(boxRect.left, boxRect.centerY())
+                path.lineTo(boxRect.left + 10f, boxRect.centerY() + 6f)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "TRIANGLE" -> {
+                val path = android.graphics.Path()
+                path.moveTo(boxRect.centerX(), boxRect.top)
+                path.lineTo(boxRect.right, boxRect.bottom)
+                path.lineTo(boxRect.left, boxRect.bottom)
+                path.close()
                 canvas.drawPath(path, bgPaint)
                 canvas.drawPath(path, bdrPaint)
             }
+            "RIGHT_TRIANGLE" -> {
+                val path = android.graphics.Path()
+                path.moveTo(boxRect.left, boxRect.top)
+                path.lineTo(boxRect.right, boxRect.bottom)
+                path.lineTo(boxRect.left, boxRect.bottom)
+                path.close()
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "HEXAGON", "OCTAGON", "PENTAGON" -> {
+                val sides = if (shape.shapeType.uppercase() == "HEXAGON") 6 else if (shape.shapeType.uppercase() == "OCTAGON") 8 else 5
+                val path = android.graphics.Path()
+                val cx = boxRect.centerX()
+                val cy = boxRect.centerY()
+                val r = minOf(shapeW, shapeH) / 2f
+                for (i in 0 until sides) {
+                    val angle = (i * (360.0 / sides) - 90) * Math.PI / 180.0
+                    val px = (cx + r * Math.cos(angle)).toFloat()
+                    val py = (cy + r * Math.sin(angle)).toFloat()
+                    if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                }
+                path.close()
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "CROSS", "PLUS" -> {
+                val cw = shapeW * 0.3f
+                val ch = shapeH * 0.3f
+                val path = android.graphics.Path()
+                path.moveTo(boxRect.left + cw, boxRect.top)
+                path.lineTo(boxRect.right - cw, boxRect.top)
+                path.lineTo(boxRect.right - cw, boxRect.top + ch)
+                path.lineTo(boxRect.right, boxRect.top + ch)
+                path.lineTo(boxRect.right, boxRect.bottom - ch)
+                path.lineTo(boxRect.right - cw, boxRect.bottom - ch)
+                path.lineTo(boxRect.right - cw, boxRect.bottom)
+                path.lineTo(boxRect.left + cw, boxRect.bottom)
+                path.lineTo(boxRect.left + cw, boxRect.bottom - ch)
+                path.lineTo(boxRect.left, boxRect.bottom - ch)
+                path.lineTo(boxRect.left, boxRect.top + ch)
+                path.lineTo(boxRect.left + cw, boxRect.top + ch)
+                path.close()
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "HEART" -> {
+                val path = android.graphics.Path()
+                val cx = boxRect.centerX()
+                path.moveTo(cx, boxRect.top + shapeH * 0.8f)
+                path.cubicTo(boxRect.left, boxRect.top + shapeH * 0.5f, boxRect.left, boxRect.top + shapeH * 0.1f, boxRect.left + shapeW * 0.25f, boxRect.top)
+                path.cubicTo(boxRect.left + shapeW * 0.4f, boxRect.top, cx, boxRect.top + shapeH * 0.15f, cx, boxRect.top + shapeH * 0.3f)
+                path.cubicTo(cx, boxRect.top + shapeH * 0.15f, boxRect.right - shapeW * 0.4f, boxRect.top, boxRect.right - shapeW * 0.25f, boxRect.top)
+                path.cubicTo(boxRect.right, boxRect.top + shapeH * 0.1f, boxRect.right, boxRect.top + shapeH * 0.5f, cx, boxRect.top + shapeH * 0.8f)
+                path.close()
+                canvas.drawPath(path, bgPaint)
+                canvas.drawPath(path, bdrPaint)
+            }
+            "ROUNDED_RECT", "FLOW_TERM" -> {
+                canvas.drawRoundRect(boxRect, 14f, 14f, bgPaint)
+                canvas.drawRoundRect(boxRect, 14f, 14f, bdrPaint)
+            }
             else -> {
-                canvas.drawRoundRect(boxRect, 6f, 6f, bgPaint)
-                canvas.drawRoundRect(boxRect, 6f, 6f, bdrPaint)
+                canvas.drawRoundRect(boxRect, 8f, 8f, bgPaint)
+                canvas.drawRoundRect(boxRect, 8f, 8f, bdrPaint)
             }
         }
 

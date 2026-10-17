@@ -17,7 +17,9 @@ import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -74,7 +76,7 @@ fun SubmenuHeaderBar(
         )
 
         IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Default.ArrowDropDown, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -132,7 +134,7 @@ fun MainRibbonHeaderBar(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { isDropdownOpen = true }
+                    .clickable { isDropdownOpen = !isDropdownOpen }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -147,7 +149,11 @@ fun MainRibbonHeaderBar(
                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Switch Tab", tint = Color(0xFF1F497D))
             }
 
-            DropdownMenu(expanded = isDropdownOpen, onDismissRequest = { isDropdownOpen = false }) {
+            DropdownMenu(
+                expanded = isDropdownOpen,
+                onDismissRequest = { isDropdownOpen = false },
+                properties = PopupProperties(focusable = true, dismissOnClickOutside = true, dismissOnBackPress = true)
+            ) {
                 RibbonTab.entries.forEach { tab ->
                     val isSelected = activeTab == tab
                     val (tabIcon, tabTitle) = getRibbonTabMetadata(tab)
@@ -176,7 +182,7 @@ fun MainRibbonHeaderBar(
                 Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo", tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f), modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Collapse", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Collapse", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             }
         }
     }

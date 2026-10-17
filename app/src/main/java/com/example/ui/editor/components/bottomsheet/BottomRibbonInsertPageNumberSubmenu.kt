@@ -138,7 +138,8 @@ fun BottomRibbonInsertPageNumberSubmenu(
 
             DropdownMenu(
                 expanded = isFormatDropdownOpen,
-                onDismissRequest = { isFormatDropdownOpen = false }
+                onDismissRequest = { isFormatDropdownOpen = false },
+                properties = androidx.compose.ui.window.PopupProperties(focusable = true, dismissOnClickOutside = true, dismissOnBackPress = true)
             ) {
                 formats.forEachIndexed { index, format ->
                     DropdownMenuItem(

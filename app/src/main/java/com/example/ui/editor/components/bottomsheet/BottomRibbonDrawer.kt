@@ -61,6 +61,33 @@ fun BottomRibbonDrawer(
     var insertSubmenu by remember { mutableStateOf(InsertSubmenu.ROOT) }
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
+
+    androidx.activity.compose.BackHandler(enabled = isExpanded) {
+        if (activeTab == RibbonTab.INSERT && insertSubmenu != InsertSubmenu.ROOT) {
+            insertSubmenu = InsertSubmenu.ROOT
+        } else if (activeTab == RibbonTab.HOME && homeSubmenu != HomeSubmenu.ROOT) {
+            homeSubmenu = when (homeSubmenu) {
+                HomeSubmenu.SPECIAL_INDENT, HomeSubmenu.LINE_SPACING -> HomeSubmenu.PARAGRAPH_FORMATTING
+                HomeSubmenu.CHANGE_CASE -> HomeSubmenu.MORE_FORMATTING
+                else -> HomeSubmenu.ROOT
+            }
+        } else {
+            onDismiss()
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(isExpanded, activeTab) {
+        if (!isExpanded) {
+            homeSubmenu = HomeSubmenu.ROOT
+            insertSubmenu = InsertSubmenu.ROOT
+        }
+        scrollState.scrollTo(0)
+    }
+
+    androidx.compose.runtime.LaunchedEffect(homeSubmenu, insertSubmenu) {
+        scrollState.scrollTo(0)
+    }
 
     AnimatedVisibility(
         visible = isExpanded,
@@ -138,7 +165,7 @@ fun BottomRibbonDrawer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
                     when (activeTab) {

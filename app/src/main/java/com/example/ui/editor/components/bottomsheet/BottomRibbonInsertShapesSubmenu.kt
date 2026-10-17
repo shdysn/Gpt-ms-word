@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.editor.EditorViewModel
 
+import androidx.compose.runtime.remember
+
 /**
  * Microsoft Word Mobile Shapes Submenu.
  * Displays categorized shape collections with gray header bars.
@@ -28,7 +30,8 @@ fun BottomRibbonInsertShapesSubmenu(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val categories = listOf(
+    val categories = remember {
+        listOf(
         "Lines" to listOf(
             WordShapeItem("LINE", "Line", "Lines"),
             WordShapeItem("ARROW_LINE", "Arrow", "Lines"),
@@ -104,7 +107,8 @@ fun BottomRibbonInsertShapesSubmenu(
             WordShapeItem("CALLOUT_OVAL", "Oval Callout", "Callouts"),
             WordShapeItem("CALLOUT_CLOUD", "Cloud Callout", "Callouts")
         )
-    )
+        )
+    }
 
     Column(
         modifier = modifier
@@ -142,12 +146,12 @@ fun BottomRibbonInsertShapesSubmenu(
                         onClick = {
                             viewModel.insertShape(
                                 shapeType = shape.type,
-                                title = shape.label,
+                                title = "",
                                 content = "",
                                 bgHex = "#41719C",
                                 borderHex = "#1B365D"
                             )
-                            viewModel.showStatusMessage("${shape.label} shape inserted")
+                            viewModel.showStatusMessage("${shape.label} inserted")
                             onBack()
                         }
                     )
