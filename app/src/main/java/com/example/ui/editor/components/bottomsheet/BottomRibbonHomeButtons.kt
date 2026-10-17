@@ -108,6 +108,7 @@ private fun SegmentedButton(
                 fontSize = 17.sp,
                 fontWeight = fontWeight,
                 fontStyle = fontStyle,
+                fontFamily = com.example.ui.theme.OfficeFontFamily,
                 textDecoration = textDecoration,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -139,7 +140,7 @@ fun IndentAndDirectionButtonRow(
             modifier = Modifier.weight(1f).clip(RoundedCornerShape(2.dp)).clickable { if (isRtl) onToggleRtl() }
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(text = ">¶", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = ">¶", fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = com.example.ui.theme.OfficeFontFamily, color = MaterialTheme.colorScheme.onSurface)
             }
         }
 
@@ -149,7 +150,7 @@ fun IndentAndDirectionButtonRow(
             modifier = Modifier.weight(1f).clip(RoundedCornerShape(2.dp)).clickable { if (!isRtl) onToggleRtl() }
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Text(text = "¶<", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(text = "¶<", fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = com.example.ui.theme.OfficeFontFamily, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
