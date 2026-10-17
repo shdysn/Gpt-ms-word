@@ -57,7 +57,14 @@ fun PaginatedSpecialItemRenderer(
     onSetDrawStrokeWidthPt: (Float) -> Unit = {},
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
-    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> }
+    onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    onEditShape: (com.example.data.model.ShapeBlock) -> Unit = {},
+    onUpdateShapeGeometry: (String, Int, Int, Float) -> Unit = { _, _, _, _ -> },
+    onUpdateShapeText: (String, String, String) -> Unit = { _, _, _ -> },
+    onDuplicateShape: (String) -> Unit = {},
+    onCutShape: (String) -> Unit = {},
+    onCopyShape: (String) -> Unit = {},
+    onAddCommentForBlock: (String) -> Unit = {}
 ) {
     when (pageItem) {
         is DividerPageItem -> {
@@ -159,14 +166,21 @@ fun PaginatedSpecialItemRenderer(
             BlockItemView(
                 block = pageItem.originalBlock,
                 itemNumber = null,
-                isActive = false,
+                isActive = pageItem.originalBlockIndex == activeBlockIndex,
                 isDarkPage = isDarkPage,
                 zoomScale = zoomScale,
                 canDeleteBlock = document.blocks.size > 1,
                 onFocus = { onBlockSelected(pageItem.originalBlockIndex) },
                 onSelectionChanged = {},
                 onTextChanged = { _, _ -> },
-                onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) }
+                onDeleteBlock = { onDeleteBlockById(pageItem.originalBlock.id) },
+                onEditShape = { onEditShape(pageItem.originalBlock) },
+                onUpdateShapeGeometry = onUpdateShapeGeometry,
+                onUpdateShapeText = onUpdateShapeText,
+                onDuplicateShape = onDuplicateShape,
+                onCutShape = onCutShape,
+                onCopyShape = onCopyShape,
+                onAddCommentForBlock = onAddCommentForBlock
             )
             Spacer(modifier = Modifier.height(8.dp))
         }

@@ -59,6 +59,13 @@ fun PaginatedItemRenderer(
     onUpdateTextBox: (String, String) -> Unit = { _, _ -> },
     onUpdateTextBoxGeometry: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
+    onEditShape: (com.example.data.model.ShapeBlock) -> Unit = {},
+    onUpdateShapeGeometry: (String, Int, Int, Float) -> Unit = { _, _, _, _ -> },
+    onUpdateShapeText: (String, String, String) -> Unit = { _, _, _ -> },
+    onDuplicateShape: (String) -> Unit = {},
+    onCutShape: (String) -> Unit = {},
+    onCopyShape: (String) -> Unit = {},
+    onAddCommentForBlock: (String) -> Unit = {},
     isDocumentAllSelected: Boolean = false,
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
@@ -186,7 +193,14 @@ fun PaginatedItemRenderer(
                 onSetDrawStrokeWidthPt = onSetDrawStrokeWidthPt,
                 onUpdateTextBox = onUpdateTextBox,
                 onUpdateTextBoxGeometry = onUpdateTextBoxGeometry,
-                onUpdateTextBoxColor = onUpdateTextBoxColor
+                onUpdateTextBoxColor = onUpdateTextBoxColor,
+                onEditShape = onEditShape,
+                onUpdateShapeGeometry = onUpdateShapeGeometry,
+                onUpdateShapeText = onUpdateShapeText,
+                onDuplicateShape = onDuplicateShape,
+                onCutShape = onCutShape,
+                onCopyShape = onCopyShape,
+                onAddCommentForBlock = onAddCommentForBlock
             )
         }
     }

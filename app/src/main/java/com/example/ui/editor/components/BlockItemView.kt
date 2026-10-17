@@ -67,6 +67,12 @@ fun BlockItemView(
     onUpdateTextBoxColor: (String, String, String) -> Unit = { _, _, _ -> },
     onUpdateImagePositionAndSize: (String, Float, Float, Int, Int) -> Unit = { _, _, _, _, _ -> },
     onEditShape: () -> Unit = {},
+    onUpdateShapeGeometry: (String, Int, Int, Float) -> Unit = { _, _, _, _ -> },
+    onUpdateShapeText: (String, String, String) -> Unit = { _, _, _ -> },
+    onDuplicateShape: (String) -> Unit = {},
+    onCutShape: (String) -> Unit = {},
+    onCopyShape: (String) -> Unit = {},
+    onAddCommentForBlock: (String) -> Unit = {},
     onSelectAllDocument: () -> Unit = {},
     onDeleteAllDocument: () -> Unit = {},
     onReplaceAllDocumentWithText: (String) -> Unit = {},
@@ -170,9 +176,17 @@ fun BlockItemView(
         is ShapeBlock -> {
             ShapeBlockView(
                 block = block,
+                isActive = isActive,
                 zoomScale = zoomScale,
+                onFocus = onFocus,
                 onEditShape = onEditShape,
-                onDeleteShape = onDeleteBlock
+                onDeleteShape = onDeleteBlock,
+                onDuplicateShape = { onDuplicateShape(block.id) },
+                onCutShape = { onCutShape(block.id) },
+                onCopyShape = { onCopyShape(block.id) },
+                onAddComment = { onAddCommentForBlock(block.id) },
+                onUpdateGeometry = { w, h, rot -> onUpdateShapeGeometry(block.id, w, h, rot) },
+                onUpdateText = { t, c -> onUpdateShapeText(block.id, t, c) }
             )
         }
         is DrawingBlock -> {

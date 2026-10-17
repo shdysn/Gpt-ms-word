@@ -103,7 +103,71 @@ fun EditorCanvasContent(
                         viewModel.updateTextBox(blockId = id, text = curText, bgHex = bg, borderHex = bdr)
                     },
                     onUpdateImagePositionAndSize = { id, ox, oy, w, h -> viewModel.updateImagePositionAndSize(id, ox, oy, w, h) },
-                    onEditShape = { shape -> dState.selectedShapeForEdit = shape },
+                    onEditShape = { shape ->
+                        val idx = document.blocks.indexOfFirst { it.id == shape.id }
+                        if (idx >= 0) viewModel.setActiveBlock(idx)
+                        dState.selectedShapeForEdit = shape
+                    },
+                    onUpdateShapeGeometry = { id, w, h, rot ->
+                        val shape = document.blocks.filterIsInstance<com.example.data.model.ShapeBlock>().firstOrNull { it.id == id }
+                        if (shape != null) {
+                            viewModel.updateShape(
+                                blockId = id,
+                                shapeType = shape.shapeType,
+                                title = shape.title,
+                                content = shape.content,
+                                bgHex = shape.backgroundColorHex,
+                                borderHex = shape.borderColorHex,
+                                strokeWidthPt = shape.strokeWidthPt,
+                                rotationDeg = rot,
+                                widthDp = w,
+                                heightDp = h
+                            )
+                        }
+                    },
+                    onUpdateShapeText = { id, title, content ->
+                        val shape = document.blocks.filterIsInstance<com.example.data.model.ShapeBlock>().firstOrNull { it.id == id }
+                        if (shape != null) {
+                            viewModel.updateShape(
+                                blockId = id,
+                                shapeType = shape.shapeType,
+                                title = title,
+                                content = content,
+                                bgHex = shape.backgroundColorHex,
+                                borderHex = shape.borderColorHex,
+                                strokeWidthPt = shape.strokeWidthPt,
+                                rotationDeg = shape.rotationDeg,
+                                widthDp = shape.widthDp,
+                                heightDp = shape.heightDp
+                            )
+                        }
+                    },
+                    onDuplicateShape = { id ->
+                        val shape = document.blocks.filterIsInstance<com.example.data.model.ShapeBlock>().firstOrNull { it.id == id }
+                        if (shape != null) {
+                            viewModel.insertVectorShape(
+                                shapeType = shape.shapeType,
+                                title = shape.title,
+                                content = shape.content,
+                                bgHex = shape.backgroundColorHex,
+                                borderHex = shape.borderColorHex,
+                                strokeWidthPt = shape.strokeWidthPt,
+                                rotationDeg = shape.rotationDeg,
+                                widthDp = shape.widthDp,
+                                heightDp = shape.heightDp
+                            )
+                        }
+                    },
+                    onCutShape = { id ->
+                        viewModel.deleteBlockById(id)
+                        viewModel.showStatusMessage("Shape cut")
+                    },
+                    onCopyShape = { id ->
+                        viewModel.showStatusMessage("Shape copied")
+                    },
+                    onAddCommentForBlock = { _ ->
+                        dState.showCommentsDialog = true
+                    },
                     isDocumentAllSelected = isDocumentAllSelected,
                     onSelectAllDocument = viewModel::selectAllDocument,
                     onDeleteAllDocument = viewModel::deleteAllDocumentContent,
