@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,13 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.FormatAlignLeft
-import androidx.compose.material.icons.automirrored.filled.FormatAlignRight
-import androidx.compose.material.icons.automirrored.filled.FormatIndentDecrease
-import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.FormatAlignCenter
-import androidx.compose.material.icons.filled.FormatAlignJustify
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -36,6 +32,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.TextAlignment
+import com.example.ui.theme.OfficeFontFamily
+
+private val SelectedCellColor = Color(0xFFD6D6D6)
 
 /**
  * 4-Segment button row: B, I, U, ab (Screenshot 11).
@@ -56,34 +55,10 @@ fun BasicFormatButtonRow(
         modifier = modifier.fillMaxWidth().height(42.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        SegmentedButton(
-            label = "B",
-            fontWeight = FontWeight.Bold,
-            isSelected = isBold,
-            onClick = onToggleBold,
-            modifier = Modifier.weight(1f)
-        )
-        SegmentedButton(
-            label = "I",
-            fontStyle = FontStyle.Italic,
-            isSelected = isItalic,
-            onClick = onToggleItalic,
-            modifier = Modifier.weight(1f)
-        )
-        SegmentedButton(
-            label = "U",
-            textDecoration = TextDecoration.Underline,
-            isSelected = isUnderline,
-            onClick = onToggleUnderline,
-            modifier = Modifier.weight(1f)
-        )
-        SegmentedButton(
-            label = "ab",
-            textDecoration = TextDecoration.LineThrough,
-            isSelected = isStrikethrough,
-            onClick = onToggleStrikethrough,
-            modifier = Modifier.weight(1f)
-        )
+        SegmentedButton("B", isBold, onToggleBold, Modifier.weight(1f), FontWeight.Bold)
+        SegmentedButton("I", isItalic, onToggleItalic, Modifier.weight(1f), fontStyle = FontStyle.Italic)
+        SegmentedButton("U", isUnderline, onToggleUnderline, Modifier.weight(1f), textDecoration = TextDecoration.Underline)
+        SegmentedButton("ab", isStrikethrough, onToggleStrikethrough, Modifier.weight(1f), textDecoration = TextDecoration.LineThrough)
     }
 }
 
@@ -98,9 +73,8 @@ private fun SegmentedButton(
     textDecoration: TextDecoration? = null
 ) {
     Surface(
-        shape = RoundedCornerShape(2.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f) else Color.Transparent,
-        modifier = modifier.clip(RoundedCornerShape(2.dp)).clickable { onClick() }
+        color = if (isSelected) SelectedCellColor else Color.Transparent,
+        modifier = modifier.fillMaxHeight().clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
@@ -108,7 +82,7 @@ private fun SegmentedButton(
                 fontSize = 17.sp,
                 fontWeight = fontWeight,
                 fontStyle = fontStyle,
-                fontFamily = com.example.ui.theme.OfficeFontFamily,
+                fontFamily = OfficeFontFamily,
                 textDecoration = textDecoration,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -131,27 +105,17 @@ fun IndentAndDirectionButtonRow(
         modifier = modifier.fillMaxWidth().height(42.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        IconButtonWithBg(icon = Icons.AutoMirrored.Filled.FormatIndentDecrease, isSelected = false, onClick = onDecreaseIndent, modifier = Modifier.weight(1f))
-        IconButtonWithBg(icon = Icons.AutoMirrored.Filled.FormatIndentIncrease, isSelected = false, onClick = onIncreaseIndent, modifier = Modifier.weight(1f))
-
-        Surface(
-            shape = RoundedCornerShape(2.dp),
-            color = if (!isRtl) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f) else Color.Transparent,
-            modifier = Modifier.weight(1f).clip(RoundedCornerShape(2.dp)).clickable { if (isRtl) onToggleRtl() }
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = ">¶", fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = com.example.ui.theme.OfficeFontFamily, color = MaterialTheme.colorScheme.onSurface)
-            }
+        WordGridCell(isSelected = false, onClick = onDecreaseIndent, modifier = Modifier.weight(1f)) {
+            WordDecreaseIndentIcon()
         }
-
-        Surface(
-            shape = RoundedCornerShape(2.dp),
-            color = if (isRtl) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f) else Color.Transparent,
-            modifier = Modifier.weight(1f).clip(RoundedCornerShape(2.dp)).clickable { if (!isRtl) onToggleRtl() }
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = "¶<", fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = com.example.ui.theme.OfficeFontFamily, color = MaterialTheme.colorScheme.onSurface)
-            }
+        WordGridCell(isSelected = false, onClick = onIncreaseIndent, modifier = Modifier.weight(1f)) {
+            WordIncreaseIndentIcon()
+        }
+        WordGridCell(isSelected = !isRtl, onClick = { if (isRtl) onToggleRtl() }, modifier = Modifier.weight(1f)) {
+            WordLtrDirectionIcon()
+        }
+        WordGridCell(isSelected = isRtl, onClick = { if (!isRtl) onToggleRtl() }, modifier = Modifier.weight(1f)) {
+            WordRtlDirectionIcon()
         }
     }
 }
@@ -169,41 +133,49 @@ fun AlignmentButtonRow(
         modifier = modifier.fillMaxWidth().height(42.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        IconButtonWithBg(icon = Icons.AutoMirrored.Filled.FormatAlignLeft, isSelected = currentAlignment == TextAlignment.START, onClick = { onSetAlignment(TextAlignment.START) }, modifier = Modifier.weight(1f))
-        IconButtonWithBg(icon = Icons.Default.FormatAlignCenter, isSelected = currentAlignment == TextAlignment.CENTER, onClick = { onSetAlignment(TextAlignment.CENTER) }, modifier = Modifier.weight(1f))
-        IconButtonWithBg(icon = Icons.AutoMirrored.Filled.FormatAlignRight, isSelected = currentAlignment == TextAlignment.END, onClick = { onSetAlignment(TextAlignment.END) }, modifier = Modifier.weight(1f))
-        IconButtonWithBg(icon = Icons.Default.FormatAlignJustify, isSelected = currentAlignment == TextAlignment.JUSTIFY, onClick = { onSetAlignment(TextAlignment.JUSTIFY) }, modifier = Modifier.weight(1f))
+        WordGridCell(isSelected = currentAlignment == TextAlignment.START, onClick = { onSetAlignment(TextAlignment.START) }, modifier = Modifier.weight(1f)) {
+            WordAlignLeftIcon()
+        }
+        WordGridCell(isSelected = currentAlignment == TextAlignment.CENTER, onClick = { onSetAlignment(TextAlignment.CENTER) }, modifier = Modifier.weight(1f)) {
+            WordAlignCenterIcon()
+        }
+        WordGridCell(isSelected = currentAlignment == TextAlignment.END, onClick = { onSetAlignment(TextAlignment.END) }, modifier = Modifier.weight(1f)) {
+            WordAlignRightIcon()
+        }
+        WordGridCell(isSelected = currentAlignment == TextAlignment.JUSTIFY, onClick = { onSetAlignment(TextAlignment.JUSTIFY) }, modifier = Modifier.weight(1f)) {
+            WordAlignJustifyIcon()
+        }
     }
 }
 
 @Composable
-private fun IconButtonWithBg(
-    icon: ImageVector,
+private fun WordGridCell(
     isSelected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(2.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f) else Color.Transparent,
-        modifier = modifier.clip(RoundedCornerShape(2.dp)).clickable { onClick() }
+        color = if (isSelected) SelectedCellColor else Color.Transparent,
+        modifier = modifier.fillMaxHeight().clickable { onClick() }
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+            content()
         }
     }
 }
 
 /**
- * List row item with leading icon, title, optional underline bar, and trailing chevron (Screenshot 11).
+ * List row item with leading icon/content, title, optional underline bar, and trailing chevron (Screenshot 11).
  */
 @Composable
 fun HomeMenuItem(
-    icon: ImageVector,
+    icon: ImageVector? = null,
     title: String,
     hasChevron: Boolean,
     badgeColorHex: String? = null,
     underlineColorHex: String? = null,
+    customLeadingContent: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -217,7 +189,11 @@ fun HomeMenuItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                if (customLeadingContent != null) {
+                    customLeadingContent()
+                } else if (icon != null) {
+                    Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                }
                 if (underlineColorHex != null) {
                     val color = try { Color(android.graphics.Color.parseColor(underlineColorHex)) } catch (_: Exception) { Color.Red }
                     Box(modifier = Modifier.align(Alignment.BottomCenter).width(16.dp).height(3.dp).background(color))

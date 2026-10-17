@@ -128,7 +128,7 @@ fun BottomRibbonHomeRootView(
         )
 
         HomeMenuItem(
-            icon = Icons.Default.Subscript,
+            customLeadingContent = { WordMoreFormattingIcon() },
             title = "More Formatting",
             hasChevron = true,
             onClick = { onNavigate(HomeSubmenu.MORE_FORMATTING) }
@@ -138,14 +138,14 @@ fun BottomRibbonHomeRootView(
 
         // Bullets & Numbering rows
         HomeMenuItem(
-            icon = Icons.AutoMirrored.Filled.FormatListBulleted,
+            customLeadingContent = { WordBulletsIcon() },
             title = "Bullets",
             hasChevron = true,
             onClick = { onNavigate(HomeSubmenu.BULLETS) }
         )
 
         HomeMenuItem(
-            icon = Icons.Default.FormatListNumbered,
+            customLeadingContent = { WordNumberingIcon() },
             title = "Numbering",
             hasChevron = true,
             onClick = { onNavigate(HomeSubmenu.NUMBERING) }
@@ -155,7 +155,7 @@ fun BottomRibbonHomeRootView(
 
         // Paragraph Formatting & Styles & Find
         HomeMenuItem(
-            icon = Icons.AutoMirrored.Filled.FormatAlignLeft,
+            customLeadingContent = { WordAlignLeftIcon() },
             title = "Paragraph Formatting",
             hasChevron = true,
             onClick = { onNavigate(HomeSubmenu.PARAGRAPH_FORMATTING) }

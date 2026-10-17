@@ -2,6 +2,7 @@ package com.example.ui.editor.components.bottomsheet
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -52,7 +53,7 @@ fun ParagraphSubmenuView(
     ) {
         WordRowButton(
             title = "Special Indent",
-            icon = Icons.AutoMirrored.Filled.FormatIndentIncrease,
+            customLeadingContent = { WordIncreaseIndentIcon() },
             hasChevron = true,
             onClick = { onNavigate(HomeSubmenu.SPECIAL_INDENT) }
         )
@@ -102,19 +103,19 @@ fun SpecialIndentSubmenuView(
     ) {
         WordRowButton(
             title = "None",
-            icon = Icons.AutoMirrored.Filled.FormatAlignLeft,
+            customLeadingContent = { WordAlignLeftIcon() },
             isSelected = isNone,
             onClick = { onSetIndent(0f, 0f) }
         )
         WordRowButton(
             title = "First Line",
-            icon = Icons.AutoMirrored.Filled.FormatIndentIncrease,
+            customLeadingContent = { WordIncreaseIndentIcon() },
             isSelected = isFirstLine,
             onClick = { onSetIndent(24f, 0f) }
         )
         WordRowButton(
             title = "Hanging",
-            icon = Icons.AutoMirrored.Filled.FormatIndentDecrease,
+            customLeadingContent = { WordDecreaseIndentIcon() },
             isSelected = isHanging,
             onClick = { onSetIndent(0f, 24f) }
         )
@@ -151,6 +152,7 @@ fun LineSpacingSubmenuView(
 fun WordRowButton(
     title: String,
     icon: ImageVector? = null,
+    customLeadingContent: (@Composable () -> Unit)? = null,
     value: String? = null,
     hasChevron: Boolean = false,
     isSelected: Boolean = false,
@@ -168,7 +170,12 @@ fun WordRowButton(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (icon != null) {
+            if (customLeadingContent != null) {
+                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    customLeadingContent()
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+            } else if (icon != null) {
                 Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(14.dp))
             }
