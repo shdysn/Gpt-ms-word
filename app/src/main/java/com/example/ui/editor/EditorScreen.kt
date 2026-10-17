@@ -19,13 +19,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -34,9 +39,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ParagraphBlock
 import com.example.ui.editor.components.DocumentOutlineSheet
 import com.example.ui.editor.components.EditorCanvasContent
-import com.example.ui.editor.components.EditorQuickFormatBar
+import com.example.ui.editor.components.EditorQuickActionsArea
 import com.example.ui.editor.components.EditorRecoveryBanner
-import com.example.ui.editor.components.EditorRibbonHost
 import com.example.ui.editor.components.EditorStatusBar
 import com.example.ui.editor.components.EditorTopAppBar
 import com.example.ui.editor.components.FindReplaceBar
@@ -60,7 +64,6 @@ fun EditorScreen(
 
     val document by viewModel.document.collectAsStateWithLifecycle()
     val activeRibbonTab by viewModel.activeRibbonTab.collectAsStateWithLifecycle()
-    val isRibbonVisible by viewModel.isRibbonVisible.collectAsStateWithLifecycle()
     val viewMode by viewModel.viewMode.collectAsStateWithLifecycle()
     val zoomPercent by viewModel.zoomPercent.collectAsStateWithLifecycle()
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
@@ -83,6 +86,15 @@ fun EditorScreen(
     val activeFormatting by viewModel.activeFormatting.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val isImeVisible = WindowInsets.ime.getBottom(density) > 0
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    var isBottomRibbonExpanded by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(isImeVisible) {
+        if (isImeVisible && isBottomRibbonExpanded) {
+            isBottomRibbonExpanded = false
+        }
+    }
 
     val actualPageCount = remember(paginatedPages, document) {
         if (paginatedPages.isNotEmpty()) paginatedPages.size else (document?.estimatedPageCount ?: 1)
@@ -137,7 +149,9 @@ fun EditorScreen(
     }
 
     val handleBackNavigation = {
-        if (dState.showOutlineSheet) {
+        if (isBottomRibbonExpanded) {
+            isBottomRibbonExpanded = false
+        } else if (dState.showOutlineSheet) {
             dState.showOutlineSheet = false
         } else if (isDirty) {
             dState.showDiscardDialog = true
@@ -168,8 +182,15 @@ fun EditorScreen(
                     onBackClick = handleBackNavigation, onUndoClick = viewModel::undo, onRedoClick = viewModel::redo,
                     onToggleViewMode = viewModel::toggleViewMode, onToggleFindReplace = viewModel::toggleFindReplace,
                     onToggleOutline = { dState.showOutlineSheet = !dState.showOutlineSheet },
-                    isRibbonVisible = isRibbonVisible, activeRibbonTab = activeRibbonTab,
-                    onTabSelected = viewModel::selectRibbonTab, onToggleRibbon = viewModel::toggleRibbonVisibility,
+                    isRibbonVisible = isBottomRibbonExpanded, activeRibbonTab = activeRibbonTab,
+                    onTabSelected = viewModel::selectRibbonTab,
+                    onToggleRibbon = {
+                        isBottomRibbonExpanded = !isBottomRibbonExpanded
+                        if (isBottomRibbonExpanded) {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                        }
+                    },
                     onSaveClick = { dState.showSaveOptionsDialog = true }, onExportClick = { dState.showExportOptionsDialog = true },
                     onPageSetupClick = { dState.showLayoutDialog = true }, onPrintClick = { viewModel.printDocument(context) },
                     onStatsClick = { dState.showStatsDialog = true }, isDocumentAllSelected = isDocumentAllSelected,
@@ -189,7 +210,7 @@ fun EditorScreen(
             }
         },
         bottomBar = {
-            if (!isImeVisible) {
+            if (!isImeVisible && !isBottomRibbonExpanded) {
                 EditorStatusBar(
                     document = document, currentPageNumber = currentPageNumber, totalPages = actualPageCount,
                     showWordCount = showWordCount, autosaveStatus = autosaveStatus, zoomPercent = zoomPercent,
@@ -206,14 +227,6 @@ fun EditorScreen(
                 .background(deskCanvasColor)
                 .imePadding()
         ) {
-            EditorRibbonHost(
-                viewModel = viewModel, dState = dState, activeRibbonTab = activeRibbonTab,
-                isRibbonVisible = isRibbonVisible, activeParagraph = activeParagraph, context = context,
-                coroutineScope = coroutineScope, snackbarHostState = snackbarHostState,
-                voiceTypingLauncher = voiceTypingLauncher, photoPickerLauncher = photoPickerLauncher,
-                safDocxSaveLauncher = safDocxSaveLauncher
-            )
-
             if (recoveryAvailable) {
                 EditorRecoveryBanner(
                     onRestore = { viewModel.restoreRecoveryDraft() },
@@ -227,31 +240,29 @@ fun EditorScreen(
                 activeBlockIndex = activeBlockIndex, dState = dState, modifier = Modifier.weight(1f)
             )
 
-            EditorQuickFormatBar(
+            EditorQuickActionsArea(
+                viewModel = viewModel,
+                dState = dState,
+                context = context,
                 selection = selection,
                 isDocumentAllSelected = isDocumentAllSelected,
-                isKeyboardVisible = isImeVisible,
+                isImeVisible = isImeVisible,
+                isBottomRibbonExpanded = isBottomRibbonExpanded,
+                activeRibbonTab = activeRibbonTab,
                 activeFormatting = activeFormatting,
-                canCut = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max),
-                canCopy = isDocumentAllSelected || (!selection.collapsed && selection.min < selection.max) || (activeParagraph?.text?.isNotEmpty() == true),
-                canPaste = true,
-                onCut = { viewModel.cutSelection(context) },
-                onCopy = { viewModel.copySelection(context) },
-                onPaste = { viewModel.pasteFromClipboard(context) },
-                onSelectAll = { viewModel.selectAllDocument() },
-                onToggleBold = { viewModel.toggleBold() },
-                onToggleItalic = { viewModel.toggleItalic() },
-                onToggleUnderline = { viewModel.toggleUnderline() },
-                onToggleStrikethrough = { viewModel.toggleStrikethrough() },
-                onHighlightClick = {
-                    if (activeFormatting.highlightColorHex != null) viewModel.setHighlightColor(null)
-                    else viewModel.setHighlightColor("#FEF08A")
+                activeParagraph = activeParagraph,
+                onToggleExpandRibbon = {
+                    if (!isBottomRibbonExpanded) {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        isBottomRibbonExpanded = true
+                    } else {
+                        isBottomRibbonExpanded = false
+                    }
                 },
-                onTextColorClick = {
-                    if (activeFormatting.textColorHex != null) viewModel.setTextColor(null)
-                    else viewModel.setTextColor("#185ABD")
-                },
-                onDeselect = { viewModel.clearDocumentSelection() }
+                onDismissRibbon = { isBottomRibbonExpanded = false },
+                photoPickerLauncher = photoPickerLauncher,
+                safDocxSaveLauncher = safDocxSaveLauncher
             )
         }
     }

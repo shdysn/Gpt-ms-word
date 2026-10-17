@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.FormatItalic
 import androidx.compose.material.icons.filled.FormatStrikethrough
 import androidx.compose.material.icons.filled.FormatUnderlined
 import androidx.compose.material.icons.filled.Highlight
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,13 +46,15 @@ import com.example.ui.theme.WordPrimary
 /**
  * Modern Keyboard Accessory Bar docked directly above Android soft keyboard (IME).
  * Replaces intrusive floating popups with a unified Word Mobile style toolbar containing
- * clipboard actions (Cut, Copy, Paste, Select All) and quick character formatting.
+ * clipboard actions (Cut, Copy, Paste, Select All) and quick character formatting, plus
+ * a 3-dots expand button to toggle the bottom ribbon drawer.
  */
 @Composable
 fun EditorQuickFormatBar(
     selection: TextRange,
     isDocumentAllSelected: Boolean = false,
     isKeyboardVisible: Boolean = false,
+    isRibbonExpanded: Boolean = false,
     activeFormatting: ActiveFormatting,
     canCut: Boolean = false,
     canCopy: Boolean = false,
@@ -66,11 +69,12 @@ fun EditorQuickFormatBar(
     onToggleStrikethrough: () -> Unit,
     onHighlightClick: () -> Unit,
     onTextColorClick: () -> Unit,
+    onToggleExpandRibbon: () -> Unit = {},
     onDeselect: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val hasSelection = (!selection.collapsed && selection.min < selection.max) || isDocumentAllSelected
-    val isVisible = isKeyboardVisible || hasSelection
+    val isVisible = isKeyboardVisible || hasSelection || isRibbonExpanded
 
     AnimatedVisibility(
         visible = isVisible,
@@ -238,6 +242,23 @@ fun EditorQuickFormatBar(
                             modifier = Modifier.size(18.dp)
                         )
                     }
+                }
+
+                VerticalDivider(
+                    modifier = Modifier.height(20.dp).padding(horizontal = 2.dp),
+                    color = dividerColor
+                )
+
+                IconButton(
+                    onClick = onToggleExpandRibbon,
+                    modifier = Modifier.size(40.dp).testTag("quick_format_expand_ribbon")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreHoriz,
+                        contentDescription = "Expand Ribbon Tools",
+                        tint = if (isRibbonExpanded) WordPrimary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
         }

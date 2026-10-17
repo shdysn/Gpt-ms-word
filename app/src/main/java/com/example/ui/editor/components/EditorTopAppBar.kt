@@ -83,16 +83,18 @@ fun EditorTopAppBar(
             }
         },
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .clickable { onTitleClick() }
+                    .testTag("editor_title_area")
             ) {
-                EditorRibbonTabDropdown(
-                    activeRibbonTab = activeRibbonTab,
-                    isRibbonVisible = isRibbonVisible,
-                    onTabSelected = onTabSelected,
-                    onToggleRibbon = onToggleRibbon
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = autosaveStatus.label,
                     style = MaterialTheme.typography.labelSmall,
