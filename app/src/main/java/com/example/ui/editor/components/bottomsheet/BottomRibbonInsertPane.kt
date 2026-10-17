@@ -2,153 +2,202 @@ package com.example.ui.editor.components.bottomsheet
 
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.DocumentScanner
-import androidx.compose.material.icons.filled.Draw
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.TableChart
-import androidx.compose.material.icons.filled.ViewHeadline
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.editor.EditorDialogsState
 import com.example.ui.editor.EditorViewModel
-import com.example.ui.theme.WordPrimary
 
 /**
- * Categorized vertical layout for the Insert tab in the Bottom Ribbon Drawer.
- * Groups elements into Media, Structure, and Document Headers/Footers.
+ * Microsoft Word Mobile Insert Tab Pane.
+ * Displays the complete 13-item Insert menu hierarchy and routes to submenus.
  */
 @Composable
 fun BottomRibbonInsertPane(
     viewModel: EditorViewModel,
     dState: EditorDialogsState,
     photoPickerLauncher: ActivityResultLauncher<PickVisualMediaRequest>,
+    currentSubmenu: InsertSubmenu,
+    onNavigateSubmenu: (InsertSubmenu) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Category 1: Tables, Media & Visuals
-        InsertCategoryGroup(title = "Media & Elements") {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InsertTileCard(
-                    icon = Icons.Default.TableChart,
-                    title = "Table",
-                    subtitle = "Rows & cols",
-                    onClick = { dState.showTableDialog = true },
-                    modifier = Modifier.weight(1f)
-                )
-                InsertTileCard(
-                    icon = Icons.Default.Image,
-                    title = "Picture",
-                    subtitle = "From gallery",
+    when (currentSubmenu) {
+        InsertSubmenu.TABLE -> {
+            BottomRibbonInsertTableSubmenu(
+                viewModel = viewModel,
+                onBack = { onNavigateSubmenu(InsertSubmenu.ROOT) },
+                modifier = modifier
+            )
+        }
+        InsertSubmenu.PICTURES -> {
+            BottomRibbonInsertPicturesSubmenu(
+                photoPickerLauncher = photoPickerLauncher,
+                dState = dState,
+                onBack = { onNavigateSubmenu(InsertSubmenu.ROOT) },
+                modifier = modifier
+            )
+        }
+        InsertSubmenu.SHAPES -> {
+            BottomRibbonInsertShapesSubmenu(
+                viewModel = viewModel,
+                onBack = { onNavigateSubmenu(InsertSubmenu.ROOT) },
+                modifier = modifier
+            )
+        }
+        InsertSubmenu.LINK -> {
+            BottomRibbonInsertLinkSubmenu(
+                viewModel = viewModel,
+                dState = dState,
+                onBack = { onNavigateSubmenu(InsertSubmenu.ROOT) },
+                modifier = modifier
+            )
+        }
+        InsertSubmenu.PAGE_NUMBER -> {
+            BottomRibbonInsertPageNumberSubmenu(
+                viewModel = viewModel,
+                onBack = { onNavigateSubmenu(InsertSubmenu.ROOT) },
+                modifier = modifier
+            )
+        }
+        InsertSubmenu.ROOT -> {
+            Column(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 2.dp)
+            ) {
+                // 1. Blank Page
+                InsertMenuRow(
+                    icon = { WordBlankPageIcon() },
+                    title = "Blank Page",
+                    hasSubmenu = false,
                     onClick = {
-                        photoPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
+                        viewModel.insertPageBreak()
+                        viewModel.showStatusMessage("Blank page inserted")
+                    }
                 )
-            }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InsertTileCard(
-                    icon = Icons.Default.DocumentScanner,
-                    title = "Scan OCR",
-                    subtitle = "Text from photo",
-                    onClick = { dState.showOcrScanDialog = true },
-                    modifier = Modifier.weight(1f)
+                // 2. Scan Document
+                InsertMenuRow(
+                    icon = { WordScanDocIcon() },
+                    title = "Scan Document",
+                    hasSubmenu = false,
+                    onClick = { dState.showOcrScanDialog = true }
                 )
-                InsertTileCard(
-                    icon = Icons.Default.Category,
+
+                // 3. Table >
+                InsertMenuRow(
+                    icon = { WordTableGridIcon() },
+                    title = "Table",
+                    hasSubmenu = true,
+                    onClick = { onNavigateSubmenu(InsertSubmenu.TABLE) }
+                )
+
+                // 4. Pictures >
+                InsertMenuRow(
+                    icon = { WordPicturesIcon() },
+                    title = "Pictures",
+                    hasSubmenu = true,
+                    onClick = { onNavigateSubmenu(InsertSubmenu.PICTURES) }
+                )
+
+                // 5. Shapes >
+                InsertMenuRow(
+                    icon = { WordShapesCategoryIcon() },
                     title = "Shapes",
-                    subtitle = "Arrows & boxes",
-                    onClick = { dState.showShapeDialog = true },
-                    modifier = Modifier.weight(1f)
+                    hasSubmenu = true,
+                    onClick = { onNavigateSubmenu(InsertSubmenu.SHAPES) }
                 )
-            }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InsertTileCard(
-                    icon = Icons.Default.Draw,
-                    title = "Signature",
-                    subtitle = "Digital sign",
-                    onClick = { dState.showSignatureDialog = true },
-                    modifier = Modifier.weight(1f)
+                // 6. Text Box
+                InsertMenuRow(
+                    icon = { WordTextBoxIcon() },
+                    title = "Text Box",
+                    hasSubmenu = false,
+                    onClick = {
+                        viewModel.insertTextBox()
+                        viewModel.showStatusMessage("Text box inserted")
+                    }
                 )
-                InsertTileCard(
-                    icon = Icons.Default.Link,
+
+                // 7. Link >
+                InsertMenuRow(
+                    icon = { WordLinkChainIcon() },
                     title = "Link",
-                    subtitle = "Web URL",
-                    onClick = { dState.showLinkDialog = true },
-                    modifier = Modifier.weight(1f)
+                    hasSubmenu = true,
+                    onClick = { onNavigateSubmenu(InsertSubmenu.LINK) }
                 )
-            }
-        }
 
-        // Category 2: Document Structure & Pages
-        InsertCategoryGroup(title = "Pages & Breaks") {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InsertTileCard(
-                    icon = Icons.AutoMirrored.Filled.InsertDriveFile,
-                    title = "Page Break",
-                    subtitle = "Start next page",
-                    onClick = { viewModel.insertPageBreak() },
-                    modifier = Modifier.weight(1f)
+                // 8. Comment
+                InsertMenuRow(
+                    icon = { WordCommentBubbleIcon() },
+                    title = "Comment",
+                    hasSubmenu = false,
+                    onClick = { dState.showCommentsDialog = true }
                 )
-                InsertTileCard(
-                    icon = Icons.Default.ViewHeadline,
+
+                // 9. Header & Footer
+                InsertMenuRow(
+                    icon = { WordHeaderFooterPageIcon() },
                     title = "Header & Footer",
-                    subtitle = "Top & bottom notes",
-                    onClick = { dState.showHeaderFooterDialog = true },
-                    modifier = Modifier.weight(1f)
+                    hasSubmenu = false,
+                    onClick = { dState.showHeaderFooterDialog = true }
                 )
-            }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                InsertTileCard(
-                    icon = Icons.Default.Numbers,
-                    title = "Page Numbers",
-                    subtitle = "Page 1 of N",
-                    onClick = { dState.showPageNumberDialog = true },
-                    modifier = Modifier.weight(1f)
+                // 10. Page Number >
+                InsertMenuRow(
+                    icon = { WordPageNumberPageIcon() },
+                    title = "Page Number",
+                    hasSubmenu = true,
+                    onClick = { onNavigateSubmenu(InsertSubmenu.PAGE_NUMBER) }
                 )
-                InsertTileCard(
-                    icon = Icons.Default.FormatQuote,
+
+                // 11. Equation
+                InsertMenuRow(
+                    icon = { WordEquationPiIcon() },
+                    title = "Equation",
+                    hasSubmenu = false,
+                    onClick = {
+                        viewModel.insertTextBox("E = mc²")
+                        viewModel.showStatusMessage("Equation placeholder inserted")
+                    }
+                )
+
+                // 12. Footnote
+                InsertMenuRow(
+                    icon = { WordFootnoteAbIcon() },
                     title = "Footnote",
-                    subtitle = "Citation note",
-                    onClick = { dState.showFootnoteDialog = true },
-                    modifier = Modifier.weight(1f)
+                    hasSubmenu = false,
+                    onClick = { dState.showFootnoteDialog = true }
+                )
+
+                // 13. Endnote
+                InsertMenuRow(
+                    icon = { WordEndnoteIcon() },
+                    title = "Endnote",
+                    hasSubmenu = false,
+                    onClick = {
+                        viewModel.insertFootnote("Endnote", "Endnote reference text")
+                        viewModel.showStatusMessage("Endnote inserted")
+                    }
                 )
             }
         }
@@ -156,55 +205,43 @@ fun BottomRibbonInsertPane(
 }
 
 @Composable
-private fun InsertCategoryGroup(
+private fun InsertMenuRow(
+    icon: @Composable () -> Unit,
     title: String,
-    content: @Composable () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = WordPrimary
-        )
-        content()
-    }
-}
-
-@Composable
-private fun InsertTileCard(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
+    hasSubmenu: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+    Row(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
+            .fillMaxWidth()
+            .height(50.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = WordPrimary.copy(alpha = 0.12f),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = WordPrimary, modifier = Modifier.size(20.dp))
-                }
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            icon()
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+
+        if (hasSubmenu) {
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "$title Submenu",
+                tint = Color(0xFF757575),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), thickness = 0.5.dp)
 }

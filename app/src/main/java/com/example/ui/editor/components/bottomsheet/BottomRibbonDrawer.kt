@@ -58,6 +58,7 @@ fun BottomRibbonDrawer(
     modifier: Modifier = Modifier
 ) {
     var homeSubmenu by remember { mutableStateOf(HomeSubmenu.ROOT) }
+    var insertSubmenu by remember { mutableStateOf(InsertSubmenu.ROOT) }
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
 
@@ -86,7 +87,7 @@ fun BottomRibbonDrawer(
                     Box(modifier = Modifier.width(36.dp).height(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outlineVariant))
                 }
 
-                // Header: Either Submenu Back Navigation (< | Title) OR Main Tab Navigation (Tab ⬍ + Undo + Redo)
+                // Header: Submenu Back Navigation (< | Title) OR Main Tab Navigation (Tab ⬍ + Undo + Redo)
                 if (activeTab == RibbonTab.HOME && homeSubmenu != HomeSubmenu.ROOT) {
                     SubmenuHeaderBar(
                         submenu = homeSubmenu,
@@ -99,11 +100,26 @@ fun BottomRibbonDrawer(
                         },
                         onDismiss = onDismiss
                     )
+                } else if (activeTab == RibbonTab.INSERT && insertSubmenu != InsertSubmenu.ROOT) {
+                    val insertTitle = when (insertSubmenu) {
+                        InsertSubmenu.TABLE -> "Table"
+                        InsertSubmenu.PICTURES -> "Pictures"
+                        InsertSubmenu.SHAPES -> "Shapes"
+                        InsertSubmenu.LINK -> "Link"
+                        InsertSubmenu.PAGE_NUMBER -> "Page Number"
+                        InsertSubmenu.ROOT -> "Insert"
+                    }
+                    SubmenuHeaderBar(
+                        title = insertTitle,
+                        onBack = { insertSubmenu = InsertSubmenu.ROOT },
+                        onDismiss = onDismiss
+                    )
                 } else {
                     MainRibbonHeaderBar(
                         activeTab = activeTab,
                         onTabSelected = { tab ->
                             homeSubmenu = HomeSubmenu.ROOT
+                            insertSubmenu = InsertSubmenu.ROOT
                             onTabSelected(tab)
                         },
                         canUndo = canUndo,
@@ -136,7 +152,13 @@ fun BottomRibbonDrawer(
                             )
                         }
                         RibbonTab.INSERT -> {
-                            BottomRibbonInsertPane(viewModel = viewModel, dState = dState, photoPickerLauncher = photoPickerLauncher)
+                            BottomRibbonInsertPane(
+                                viewModel = viewModel,
+                                dState = dState,
+                                photoPickerLauncher = photoPickerLauncher,
+                                currentSubmenu = insertSubmenu,
+                                onNavigateSubmenu = { insertSubmenu = it }
+                            )
                         }
                         RibbonTab.LAYOUT -> {
                             BottomRibbonLayoutPane(viewModel = viewModel, dState = dState)

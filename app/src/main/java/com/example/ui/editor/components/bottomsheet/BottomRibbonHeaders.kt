@@ -45,26 +45,11 @@ import com.example.ui.theme.WordPrimary
  */
 @Composable
 fun SubmenuHeaderBar(
-    submenu: HomeSubmenu,
+    title: String,
     onBack: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val title = when (submenu) {
-        HomeSubmenu.FONT_COLOR -> "Font Color"
-        HomeSubmenu.HIGHLIGHT_COLOR -> "Highlight"
-        HomeSubmenu.MORE_FORMATTING -> "More Formatting"
-        HomeSubmenu.CHANGE_CASE -> "Change Case"
-        HomeSubmenu.BULLETS -> "Bullets"
-        HomeSubmenu.NUMBERING -> "Numbering"
-        HomeSubmenu.PARAGRAPH_FORMATTING -> "Paragraph"
-        HomeSubmenu.SPECIAL_INDENT -> "Special Indent"
-        HomeSubmenu.LINE_SPACING -> "Line Spacing:"
-        HomeSubmenu.STYLES -> "Styles"
-        HomeSubmenu.FONT_FAMILY -> "Font"
-        HomeSubmenu.ROOT -> "Home"
-    }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -92,6 +77,30 @@ fun SubmenuHeaderBar(
             Icon(Icons.Default.ArrowDropDown, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+@Composable
+fun SubmenuHeaderBar(
+    submenu: HomeSubmenu,
+    onBack: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val title = when (submenu) {
+        HomeSubmenu.FONT_COLOR -> "Font Color"
+        HomeSubmenu.HIGHLIGHT_COLOR -> "Highlight"
+        HomeSubmenu.MORE_FORMATTING -> "More Formatting"
+        HomeSubmenu.CHANGE_CASE -> "Change Case"
+        HomeSubmenu.BULLETS -> "Bullets"
+        HomeSubmenu.NUMBERING -> "Numbering"
+        HomeSubmenu.PARAGRAPH_FORMATTING -> "Paragraph"
+        HomeSubmenu.SPECIAL_INDENT -> "Special Indent"
+        HomeSubmenu.LINE_SPACING -> "Line Spacing:"
+        HomeSubmenu.STYLES -> "Styles"
+        HomeSubmenu.FONT_FAMILY -> "Font"
+        HomeSubmenu.ROOT -> "Home"
+    }
+    SubmenuHeaderBar(title = title, onBack = onBack, onDismiss = onDismiss, modifier = modifier)
 }
 
 /**
