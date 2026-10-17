@@ -118,6 +118,7 @@ PHASE_4_FILES = [
     "app/src/main/java/com/example/data/service/docx/DocxPackageWriter.kt",
     "app/src/main/java/com/example/data/service/PdfPageItemRenderer.kt",
     "app/src/main/java/com/example/data/service/PdfSpecialItemRenderer.kt",
+    "app/src/main/java/com/example/data/service/PdfShapeItemRenderer.kt",
     "app/src/main/java/com/example/data/service/PdfTableAndImageRenderer.kt",
     "app/src/main/java/com/example/data/service/PdfExportServiceImpl.kt",
     "app/src/main/java/com/example/data/service/PdfDocumentGenerator.kt",
