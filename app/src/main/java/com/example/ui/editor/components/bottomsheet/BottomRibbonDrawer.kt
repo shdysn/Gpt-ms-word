@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,8 +28,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,9 +42,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -114,47 +123,96 @@ fun BottomRibbonDrawer(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 14.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Ribbon Tab Selector (Horizontal Scrollable Pills)
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RibbonTab.entries.forEach { tab ->
-                                val isSelected = activeTab == tab
-                                val (tabIcon, tabTitle) = getRibbonTabMetadata(tab)
-                                Surface(
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = if (isSelected) WordPrimary else Color.Transparent,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .clickable { onTabSelected(tab) }
-                                        .testTag("bottom_tab_${tab.name.lowercase()}")
+                        var isDropdownOpen by remember { mutableStateOf(false) }
+                        val arrowRotation by animateFloatAsState(
+                            targetValue = if (isDropdownOpen) 180f else 0f,
+                            label = "tabDropdownArrow"
+                        )
+
+                        // Ribbon Tab Dropdown Selector (MS Word Mobile Style)
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = WordPrimary.copy(alpha = 0.12f),
+                                border = BorderStroke(1.dp, WordPrimary.copy(alpha = 0.4f)),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable { isDropdownOpen = true }
+                                    .testTag("bottom_ribbon_tab_dropdown")
+                            ) {
+                                val (tabIcon, tabTitle) = getRibbonTabMetadata(activeTab)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = tabIcon,
-                                            contentDescription = null,
-                                            tint = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(5.dp))
-                                        Text(
-                                            text = tabTitle,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    Icon(
+                                        imageVector = tabIcon,
+                                        contentDescription = null,
+                                        tint = WordPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = tabTitle,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = WordPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Switch Ribbon Tab",
+                                        tint = WordPrimary,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .rotate(arrowRotation)
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = isDropdownOpen,
+                                onDismissRequest = { isDropdownOpen = false },
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                RibbonTab.entries.forEach { tab ->
+                                    val isSelected = activeTab == tab
+                                    val (tabIcon, tabTitle) = getRibbonTabMetadata(tab)
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = tabTitle,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                tabIcon,
+                                                contentDescription = null,
+                                                tint = if (isSelected) WordPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        },
+                                        trailingIcon = if (isSelected) {
+                                            {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = WordPrimary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        } else null,
+                                        onClick = {
+                                            isDropdownOpen = false
+                                            onTabSelected(tab)
+                                        },
+                                        modifier = Modifier.testTag("bottom_tab_${tab.name.lowercase()}")
+                                    )
                                 }
                             }
                         }
