@@ -87,6 +87,20 @@ fun BottomRibbonHomeRootView(
             onToggleStrikethrough = onToggleStrikethrough
         )
 
+        // Indent & Direction (Decrease, Increase, LTR >¶, RTL ¶<)
+        IndentAndDirectionButtonRow(
+            isRtl = activeParagraph?.isRtl ?: false,
+            onDecreaseIndent = onDecreaseIndent,
+            onIncreaseIndent = onIncreaseIndent,
+            onToggleRtl = onToggleRtl
+        )
+
+        // Text Alignment (Left, Center, Right, Justify)
+        AlignmentButtonRow(
+            currentAlignment = activeParagraph?.alignment ?: TextAlignment.START,
+            onSetAlignment = onSetAlignment
+        )
+
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
 
         // Menu Items: Highlight, Font Color, Clear Formatting, More Formatting
@@ -135,20 +149,6 @@ fun BottomRibbonHomeRootView(
             title = "Numbering",
             hasChevron = true,
             onClick = { onNavigate(HomeSubmenu.NUMBERING) }
-        )
-
-        // 4-button row: Decrease Indent, Increase Indent, LTR (>¶), RTL (¶<)
-        IndentAndDirectionButtonRow(
-            isRtl = activeParagraph?.isRtl ?: false,
-            onDecreaseIndent = onDecreaseIndent,
-            onIncreaseIndent = onIncreaseIndent,
-            onToggleRtl = onToggleRtl
-        )
-
-        // 4-button row: Align Left, Center, Align Right, Justify
-        AlignmentButtonRow(
-            currentAlignment = activeParagraph?.alignment ?: TextAlignment.START,
-            onSetAlignment = onSetAlignment
         )
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
